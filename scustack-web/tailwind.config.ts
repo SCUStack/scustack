@@ -1,6 +1,3 @@
-import type { Config } from 'tailwindcss';
-import colors from 'tailwindcss/colors';
-
 export default {
   content: [
     './components/**/*.{vue,js,ts}',
@@ -32,18 +29,7 @@ export default {
       fontFamily: {
         sans: ['Noto Sans SC', 'sans-serif'],
       },
-      spacing: {
-        1: '4px',
-        2: '8px',
-        3: '12px',
-        4: '16px',
-        5: '20px',
-        6: '24px',
-        8: '32px',
-        10: '40px',
-        12: '48px',
-      },
     },
   },
   plugins: [],
-} satisfies Config;
+};

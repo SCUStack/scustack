@@ -5,7 +5,7 @@ export default defineNuxtConfig({
 
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
 
-  css: ['element-plus/dist/index.css'],
+  css: ['element-plus/dist/index.css', '~/assets/css/main.css'],
 
   tailwindcss: {
     configPath: './tailwind.config.ts',
