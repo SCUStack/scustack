@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
@@ -30,15 +32,29 @@ app.add_middleware(
 )
 
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
-        status_code=500,
+        status_code=exc.status_code,
         content={
-            'code': ErrorCode.INTERNAL_ERROR,
+            'code': ErrorCode.BAD_REQUEST if exc.status_code == 400 else exc.status_code,
             'data': None,
-            'message': 'internal server error',
-            'detail': str(exc) if settings.DEBUG else None,
+            'message': exc.detail,
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    detail = errors[0].get('msg', 'validation error') if errors else 'validation error'
+    return JSONResponse(
+        status_code=422,
+        content={
+            'code': ErrorCode.VALIDATION_ERROR,
+            'data': None,
+            'message': 'request validation failed',
+            'detail': detail,
         },
     )
 
@@ -51,6 +67,19 @@ async def value_error_handler(request: Request, exc: ValueError):
             'code': ErrorCode.BAD_REQUEST,
             'data': None,
             'message': str(exc),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            'code': ErrorCode.INTERNAL_ERROR,
+            'data': None,
+            'message': 'internal server error',
+            'detail': str(exc) if settings.DEBUG else None,
         },
     )
 
