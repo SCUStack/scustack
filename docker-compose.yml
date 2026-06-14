@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: scustack-postgres
+    environment:
+      POSTGRES_USER: scustack
+      POSTGRES_PASSWORD: scustack
+      POSTGRES_DB: scustack
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U scustack']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: scustack-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    build: ./docker/elasticsearch
+    container_name: scustack-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - bootstrap.memory_lock=true
+    ports:
+      - '9200:9200'
+      - '9300:9300'
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9200/_cluster/health || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  onlyoffice:
+    image: onlyoffice/documentserver:8.2
+    container_name: scustack-onlyoffice
+    environment:
+      JWT_ENABLED: 'false'
+    ports:
+      - '8088:80'
+    volumes:
+      - oo_data:/var/www/onlyoffice/Data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:80/welcome/ || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
+  oo_data:
