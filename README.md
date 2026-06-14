@@ -1,0 +1,143 @@
+# 川大课栈
+
+面向四川大学全学科的公益型课程资料共享平台。以「学院 - 课程 - 学期 - 资料分类」为核心目录体系，让学生以低门槛、高效率、可信赖的方式查找、贡献、评价和维护课程资料。
+
+**公益 · 无广告 · 开源**
+
+## 技术栈
+
+| 层级 | 技术 |
+|---|---|
+| 前端 | Nuxt 3 (Vue 3 + TypeScript) + Element Plus + Tailwind CSS |
+| 后端 | Python 3.12 + FastAPI + SQLAlchemy 2.0 (async) + Celery |
+| 数据库 | PostgreSQL 16 + Redis 7 |
+| 搜索 | Elasticsearch 8.x + IK 分词器 |
+| 文件存储 | 阿里云 OSS + CDN |
+| 文档预览 | PDF.js + OnlyOffice (自托管) + Shiki |
+| 部署 | 阿里云 ECS + RDS + Docker |
+
+## 快速开始
+
+### 环境要求
+
+- Node.js ≥ 20
+- Python ≥ 3.12
+- Docker & Docker Compose
+- pnpm ≥ 9
+
+### 本地开发
+
+```bash
+# 克隆仓库
+git clone https://github.com/your-org/scustack.git
+cd scustack
+
+# 安装前端依赖
+cd scustack-web
+pnpm install
+
+# 安装后端依赖
+cd ../scustack-api
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+
+# 启动基础设施 (PostgreSQL, Redis, Elasticsearch, OnlyOffice)
+cd ..
+docker compose up -d
+
+# 运行数据库迁移
+cd scustack-api
+alembic upgrade head
+
+# 启动开发服务器
+# 终端 1: 后端
+uvicorn app.main:app --reload --port 8000
+
+# 终端 2: 前端
+cd ../scustack-web
+pnpm dev
+```
+
+前端运行于 `http://localhost:3000`，后端 API 运行于 `http://localhost:8000`，Swagger 文档位于 `http://localhost:8000/docs`。
+
+### 导入种子数据
+
+```bash
+cd scustack-api
+python scripts/seed_colleges.py    # 导入学院数据
+python scripts/seed_courses.py     # 导入课程数据
+```
+
+## 项目结构
+
+```
+scustack/
+├── scustack-web/              # 前端 (Nuxt 3)
+│   ├── pages/                 # 页面路由
+│   ├── components/            # Vue 组件
+│   ├── composables/           # 组合式函数
+│   ├── server/                # Nuxt 服务端 (API 代理)
+│   └── stores/                # Pinia 状态管理
+├── scustack-api/              # 后端 (FastAPI)
+│   ├── app/
+│   │   ├── api/v1/            # API 路由
+│   │   ├── models/            # SQLAlchemy ORM
+│   │   ├── schemas/           # Pydantic 模型
+│   │   ├── services/          # 业务逻辑
+│   │   ├── core/              # 基础设施 (DB, Redis, ES, OSS)
+│   │   ├── middleware/        # 中间件 (认证, 限流, CORS, 审计)
+│   │   └── tasks/             # Celery 异步任务
+│   ├── alembic/               # 数据库迁移
+│   └── tests/                 # 测试
+├── docs/                      # 项目文档
+│   ├── PRD.md                 # 产品需求文档
+│   ├── ARCHITECTURE.md        # 技术架构书
+│   ├── UI-UX-DESIGN.md        # UI/UX 设计书
+│   └── ISSUES.md              # Issue 分解
+└── docker-compose.yml         # 本地开发基础设施
+```
+
+## 文档
+
+- [产品需求文档 (PRD)](docs/PRD.md) — 用户故事、产品决策、MVP 范围
+- [技术架构书](docs/ARCHITECTURE.md) — 技术选型、数据库设计、API 规范、部署运维
+- [UI/UX 设计书](docs/UI-UX-DESIGN.md) — 设计系统、页面设计、组件库、交互模式
+- [Issue 分解](docs/ISSUES.md) — 120 个纵向切片任务
+
+## 核心功能
+
+- 结构化课程目录：学院 → 课程 → 学期 → 资料分类
+- 全文搜索：Elasticsearch + IK 分词 + 自定义词典，支持中英混合和专业术语
+- 托管文件与外部链接双模式：同一资料模型下支持上传文件和引用外部资源
+- 在线预览：PDF、Office 文档、代码、Markdown，附带动态盲水印
+- 双轨版本管理：文本/代码类支持 diff 对比，二进制文件版本号+元数据管理
+- 分层信任体系：维护者精选 → 社区验证 → 未验证 → 存疑，四状态可视化
+- 审核与举报：自动化内容安全预审 + 人工审核队列 + 举报处理
+- 校历驱动推荐：根据学期阶段（选课/期中/期末）规则化推荐相关分类资料
+- 响应式设计：适配桌面、平板、手机，无需安装 App
+
+## 贡献指南
+
+川大课栈是开源公益项目，欢迎四川大学学生和开发者参与贡献。
+
+### 参与方式
+
+1. 查看 [ISSUES.md](docs/ISSUES.md) 选择可独立完成的 AFK 任务
+2. Fork 仓库，基于 `main` 分支创建 feature 分支
+3. 开发完成后提交 PR，关联对应的 issue
+4. 代码需通过 Lint、Type Check 和测试
+
+### 代码规范
+
+- 前端：ESLint + Prettier，Vue 3 Composition API + TypeScript
+- 后端：Ruff + Pyright，FastAPI 分层架构（Router → Service → Model）
+- 提交信息：遵循 Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`)
+
+## 许可
+
+待定
+
+---
+
+> 让查找课程资料不再依赖群聊和网盘。
