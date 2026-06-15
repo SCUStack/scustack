@@ -20,6 +20,32 @@ async def cache_delete(key: str) -> None:
     await redis.delete(key)
 
 
+# ── Recommendation exposure tracking ──────────────────────────────
+
+REC_EXP_PREFIX = 'rec:exp:'
+REC_EXP_TTL = 1200  # 20 min — keys auto-expire if contributor goes cold
+
+
+async def bump_exposure(contributor_id: str) -> int:
+    """Increment exposure counter for a contributor. Returns new count."""
+    key = f'{REC_EXP_PREFIX}{contributor_id}'
+    count = await redis.incr(key)
+    await redis.expire(key, REC_EXP_TTL)
+    return count
+
+
+async def get_exposures(contributor_ids: list[str]) -> dict[str, int]:
+    """Batch-fetch exposure counts for multiple contributors."""
+    if not contributor_ids:
+        return {}
+    keys = [f'{REC_EXP_PREFIX}{cid}' for cid in contributor_ids]
+    pipe = redis.pipeline()
+    for key in keys:
+        pipe.get(key)
+    results = await pipe.execute()
+    return {cid: int(r or 0) for cid, r in zip(contributor_ids, results)}
+
+
 class RateLimiter:
     def __init__(self, max_requests: int = 60, window_seconds: int = 60):
         self.max_requests = max_requests
