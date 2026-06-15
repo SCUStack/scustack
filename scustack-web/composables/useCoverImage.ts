@@ -9,15 +9,15 @@
 // ── Types ────────────────────────────────────────────────────────────
 
 interface CoverEntry {
-  file: string
-  cat: string[]
-  sub: string[]
-  fmt: string[]
-  vibe: string[]
+  readonly file: string
+  readonly cat: readonly string[]
+  readonly sub: readonly string[]
+  readonly fmt: readonly string[]
+  readonly vibe: readonly string[]
 }
 
 interface TagsData {
-  [category: string]: CoverEntry[]
+  readonly [category: string]: readonly CoverEntry[]
 }
 
 // ── Weights ──────────────────────────────────────────────────────────
