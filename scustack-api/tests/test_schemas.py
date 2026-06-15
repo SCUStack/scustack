@@ -33,6 +33,10 @@ class TestUserResponse:
             'nickname': '测试用户',
             'avatar_url': None,
             'role': 'student',
+            'trust_score': 0,
+            'is_active': True,
+            'created_at': '2026-06-15T00:00:00+08:00',
+            'updated_at': '2026-06-15T00:00:00+08:00',
         })
         assert user.nickname == '测试用户'
         assert user.role == 'student'
