@@ -41,9 +41,19 @@
 defineProps<{ item: Record<string, any>; highlight?: string }>()
 
 function highlightText(text: string, query: string): string {
-  if (!query) return text
+  if (!query) return escapeHtml(text)
+  const safe = escapeHtml(text)
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="bg-amber-100 text-amber-900 rounded px-0.5">$1</mark>')
+  return safe.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="bg-amber-100 text-amber-900 rounded px-0.5">$1</mark>')
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 function timeAgo(dateStr: string): string {

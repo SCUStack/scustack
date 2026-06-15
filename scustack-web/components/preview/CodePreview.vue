@@ -35,7 +35,7 @@ onMounted(async () => {
   try {
     const { codeToHtml } = await import('shiki')
     if (props.markdown) {
-      renderedMarkdown.value = props.content
+      renderedMarkdown.value = stripHtml(props.content)
     } else {
       const lang = mapLang(props.language)
       highlightedCode.value = await codeToHtml(props.content, { lang, theme: 'github-dark' })
@@ -54,6 +54,10 @@ function mapLang(fmt: string): string {
     sql: 'sql', sh: 'bash', md: 'markdown', txt: 'text',
   }
   return m[fmt] || fmt
+}
+
+function stripHtml(str: string): string {
+  return str.replace(/<[^>]*>/g, '')
 }
 
 async function copyCode() {

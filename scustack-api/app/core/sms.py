@@ -6,12 +6,10 @@ from app.core.config import settings
 class SmsClient:
     async def send_code(self, phone: str, code: str) -> bool:
         if settings.is_dev:
-            print(f'[SMS DEV] To: {phone}  Code: {code}')
+            print(f'[SMS DEV] To: ***{phone[-4:]}  Code: {code}')
             return True
 
         # TODO: integrate Alibaba Cloud SMS SDK for staging/prod
-        # client = AlibabaCloudClient(settings.SMS_ACCESS_KEY_ID, settings.SMS_ACCESS_KEY_SECRET)
-        # return await client.send(phone, settings.SMS_SIGN_NAME, settings.SMS_TEMPLATE_CODE, {'code': code})
         return True
 
 

@@ -26,12 +26,34 @@ class RateLimiter:
         self.window_seconds = window_seconds
 
     async def is_allowed(self, key: str) -> bool:
-        current = await redis.incr(key)
-        if current == 1:
-            await redis.expire(key, self.window_seconds)
-        return current <= self.max_requests
+        try:
+            current = await redis.incr(key)
+            if current == 1:
+                await redis.expire(key, self.window_seconds)
+            return current <= self.max_requests
+        except Exception:
+            return True  # Fail open if Redis is unavailable
 
     async def remaining(self, key: str) -> int:
-        current = await redis.get(key)
-        count = int(current) if current else 0
-        return max(0, self.max_requests - count)
+        try:
+            current = await redis.get(key)
+            count = int(current) if current else 0
+            return max(0, self.max_requests - count)
+        except Exception:
+            return self.max_requests
+
+    async def limit_headers(self, key: str) -> dict[str, str]:
+        """Generate X-RateLimit-* and Retry-After headers for this key."""
+        try:
+            remaining_val = await self.remaining(key)
+            ttl = await redis.ttl(key)
+        except Exception:
+            remaining_val = self.max_requests
+            ttl = 0
+        headers = {
+            'X-RateLimit-Limit': str(self.max_requests),
+            'X-RateLimit-Remaining': str(remaining_val),
+        }
+        if remaining_val <= 0 and ttl > 0:
+            headers['Retry-After'] = str(ttl)
+        return headers

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import JSONResponse
 
+from app.core.redis import RateLimiter
 from app.services.search_service import search, suggest
 
 router = APIRouter(tags=['search'])
@@ -18,7 +20,14 @@ async def search_endpoint(
     sort: str = Query('relevance'),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=50),
+    request: Request = None,
 ):
+    limiter = RateLimiter(max_requests=60, window_seconds=60)
+    ip = request.client.host if request and request.client else 'unknown'
+    key = f'search:ip:{ip}'
+    if not await limiter.is_allowed(key):
+        headers = await limiter.limit_headers(key)
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
     result = await search(
         q=q, college_id=college_id, course_id=course_id,
         category=category, semester=semester, source_type=source_type,

@@ -5,10 +5,29 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
+from app.middleware.security import SecurityHeadersMiddleware
 from app.schemas.common import ErrorCode
+
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Set Cache-Control headers based on request path."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+
+        if path.startswith('/api/v1/'):
+            response.headers['Cache-Control'] = 'no-store'
+        elif any(path.endswith(ext) for ext in ('.js', '.css', '.woff2', '.png', '.jpg', '.webp', '.svg')):
+            response.headers['Cache-Control'] = 'public, max-age=2592000, immutable'
+        elif path.startswith('/_nuxt/'):
+            response.headers['Cache-Control'] = 'public, max-age=604800'
+
+        return response
 
 
 @asynccontextmanager
@@ -23,13 +42,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*'],
+    allow_methods=['GET', 'POST', 'PATCH', 'DELETE'],
+    allow_headers=['Content-Type', 'X-Requested-With'],
 )
+app.add_middleware(CacheControlMiddleware)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -79,7 +100,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             'code': ErrorCode.INTERNAL_ERROR,
             'data': None,
             'message': 'internal server error',
-            'detail': str(exc) if settings.DEBUG else None,
+            'detail': None,  # Never leak exception details
         },
     )
 

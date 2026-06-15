@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi.responses import Response as FastAPIResponse
+
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.redis import RateLimiter
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.auth import SmsSendRequest, SmsVerifyRequest
@@ -60,7 +63,13 @@ async def sms_send(body: SmsSendRequest, request: Request):
 
 
 @router.post('/sms/verify')
-async def sms_verify(body: SmsVerifyRequest, db: AsyncSession = Depends(get_db)):
+async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    limiter = RateLimiter(max_requests=5, window_seconds=60)
+    ip = request.client.host if request.client else 'unknown'
+    if not await limiter.is_allowed(f'verify:ip:{ip}'):
+        headers = await limiter.limit_headers(f'verify:ip:{ip}')
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many attempts'}, status_code=429, headers=headers)
+
     try:
         tokens = await verify_sms_code(db, body.phone, body.code)
     except SmsVerifyError as e:
@@ -77,6 +86,12 @@ async def sms_verify(body: SmsVerifyRequest, db: AsyncSession = Depends(get_db))
 
 @router.post('/refresh')
 async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    limiter = RateLimiter(max_requests=10, window_seconds=60)
+    ip = request.client.host if request.client else 'unknown'
+    if not await limiter.is_allowed(f'refresh:ip:{ip}'):
+        headers = await limiter.limit_headers(f'refresh:ip:{ip}')
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many refresh attempts'}, status_code=429, headers=headers)
+
     token = request.cookies.get(REFRESH_COOKIE)
     if not token:
         return JSONResponse({'code': 40100, 'data': None, 'message': 'no refresh token'}, status_code=401)
