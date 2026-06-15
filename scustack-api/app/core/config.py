@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     SMS_SIGN_NAME: str = '川大课栈'
     SMS_TEMPLATE_CODE: str = ''
 
+    # WeChat
+    WECHAT_APP_ID: str = ''
+    WECHAT_APP_SECRET: str = ''
+
     model_config = {'env_prefix': 'SCUSTACK_', 'env_file': '.env'}
 
     @property

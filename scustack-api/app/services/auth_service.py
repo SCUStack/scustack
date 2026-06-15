@@ -145,3 +145,123 @@ async def revoke_refresh_token(db: AsyncSession, refresh_token_str: str) -> None
     if stored is not None:
         stored.revoked = True
         await db.flush()
+
+
+async def get_user_sessions(db: AsyncSession, user_id: str) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked == False,
+            RefreshToken.expires_at > now,
+        ).order_by(RefreshToken.created_at.desc())
+    )
+    sessions = []
+    for t in result.scalars().all():
+        sessions.append({
+            'id': str(t.id),
+            'created_at': t.created_at.isoformat(),
+            'expires_at': t.expires_at.isoformat(),
+        })
+    return sessions
+
+
+async def revoke_session(db: AsyncSession, user_id: str, token_id: str) -> None:
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.id == token_id,
+            RefreshToken.user_id == user_id,
+        )
+    )
+    stored = result.scalar_one_or_none()
+    if stored is not None:
+        stored.revoked = True
+        await db.flush()
+
+
+async def get_wechat_auth_url() -> str:
+    if not settings.WECHAT_APP_ID:
+        return ''
+    state = gen_random_state()
+    await cache_set(f'wechat:state:{state}', '1', ttl=300)
+    redirect_uri = f'{settings.CORS_ORIGINS[0]}/api/v1/auth/wechat/callback'
+    return (
+        f'https://open.weixin.qq.com/connect/qrconnect?'
+        f'appid={settings.WECHAT_APP_ID}&redirect_uri={redirect_uri}'
+        f'&response_type=code&scope=snsapi_login&state={state}'
+    )
+
+
+async def wechat_login(db: AsyncSession, code: str) -> dict[str, str]:
+    if not settings.WECHAT_APP_ID:
+        return await _issue_tokens(db, await _get_or_create_dev_wechat_user(db))
+
+    token_url = (
+        f'https://api.weixin.qq.com/sns/oauth2/access_token?'
+        f'appid={settings.WECHAT_APP_ID}&secret={settings.WECHAT_APP_SECRET}'
+        f'&code={code}&grant_type=authorization_code'
+    )
+    import httpx
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(token_url)
+        data = resp.json()
+
+    if 'errcode' in data:
+        raise AuthError(f'wechat login failed: {data.get("errmsg", "unknown")}')
+
+    openid = data['openid']
+    encrypted_openid = encrypt_pii(openid)
+
+    result = await db.execute(select(User).where(User.wechat_openid == encrypted_openid))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        info_url = (
+            f'https://api.weixin.qq.com/sns/userinfo?'
+            f'access_token={data["access_token"]}&openid={openid}'
+        )
+        info_resp = await client.get(info_url)
+        info = info_resp.json()
+        nickname = info.get('nickname', f'wx_user{openid[-6:]}')
+        avatar = info.get('headimgurl', '').replace('\\', '') if 'headimgurl' in info else None
+
+        user = User(
+            phone=encrypt_pii(f'wechat:{openid[:8]}'),
+            nickname=nickname,
+            wechat_openid=encrypted_openid,
+            avatar_url=avatar,
+            role='student',
+            trust_score=0,
+            is_active=True,
+        )
+        db.add(user)
+        await db.flush()
+
+    if not user.is_active:
+        raise AuthError('account is disabled')
+
+    return await _issue_tokens(db, user)
+
+
+def gen_random_state() -> str:
+    import secrets
+    return secrets.token_urlsafe(16)
+
+
+async def _get_or_create_dev_wechat_user(db: AsyncSession) -> User:
+    result = await db.execute(
+        select(User).where(User.wechat_openid == encrypt_pii('dev_wechat'))
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        user = User(
+            phone=encrypt_pii('wechat:dev_user'),
+            nickname='dev_wx_user',
+            wechat_openid=encrypt_pii('dev_wechat'),
+            role='student',
+            trust_score=0,
+            is_active=True,
+        )
+        db.add(user)
+        await db.flush()
+    return user

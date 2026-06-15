@@ -12,10 +12,14 @@ from app.services.auth_service import (
     AuthError,
     SmsSendError,
     SmsVerifyError,
+    get_user_sessions,
+    get_wechat_auth_url,
     refresh_tokens,
     revoke_refresh_token,
+    revoke_session,
     send_sms_code,
     verify_sms_code,
+    wechat_login,
 )
 
 router = APIRouter(prefix='/auth', tags=['auth'])
@@ -118,3 +122,43 @@ async def me(current_user: User = Depends(get_current_user)):
         },
         'message': 'ok',
     }
+
+
+@router.get('/wechat/url')
+async def wechat_url():
+    url = await get_wechat_auth_url()
+    return {'code': 0, 'data': {'url': url}, 'message': 'ok'}
+
+
+@router.get('/wechat/callback')
+async def wechat_callback(code: str, response: Response, db: AsyncSession = Depends(get_db)):
+    try:
+        tokens = await wechat_login(db, code)
+    except AuthError as e:
+        await db.commit()
+        return JSONResponse({'code': 40100, 'data': None, 'message': str(e)}, status_code=401)
+    await db.commit()
+    response = JSONResponse({
+        'code': 0,
+        'data': TokenResponse(**tokens).model_dump(),
+        'message': 'ok',
+    })
+    _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    return response
+
+
+@router.get('/sessions')
+async def sessions(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await get_user_sessions(db, str(current_user.id))
+    return {'code': 0, 'data': result, 'message': 'ok'}
+
+
+@router.delete('/sessions/{token_id}')
+async def delete_session(
+    token_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await revoke_session(db, str(current_user.id), token_id)
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'session revoked'}

@@ -47,5 +47,26 @@ export function useAuth() {
     )
   }
 
-  return { sendCode, verifyCode, refresh, logout, getMe }
+  async function getWechatUrl() {
+    return $fetch<{ code: number; data: { url: string }; message: string }>(
+      `${base}/api/v1/auth/wechat/url`,
+      { credentials: 'include' },
+    )
+  }
+
+  async function getSessions() {
+    return $fetch<{ code: number; data: { id: string; created_at: string; expires_at: string }[]; message: string }>(
+      `${base}/api/v1/auth/sessions`,
+      { credentials: 'include' },
+    )
+  }
+
+  async function deleteSession(tokenId: string) {
+    return $fetch<{ code: number; message: string }>(
+      `${base}/api/v1/auth/sessions/${tokenId}`,
+      { method: 'DELETE', credentials: 'include' },
+    )
+  }
+
+  return { sendCode, verifyCode, refresh, logout, getMe, getWechatUrl, getSessions, deleteSession }
 }
