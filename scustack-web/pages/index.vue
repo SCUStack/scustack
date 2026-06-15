@@ -27,20 +27,44 @@
       </el-button>
     </div>
 
-    <p class="text-center mt-6 text-xs text-slate-400">
-      Nuxt 3 + Element Plus + Tailwind CSS — ISSUE-002
-    </p>
+    <div class="mt-10">
+      <h2 class="text-base font-medium text-slate-700 mb-3 text-center">学院快速入口</h2>
+      <div class="flex flex-wrap justify-center gap-2">
+        <NuxtLink
+          v-for="c in colleges"
+          :key="c.id"
+          :to="`/colleges/${c.id}`"
+          class="px-4 py-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-full hover:border-primary-300 hover:text-primary-700 no-underline transition-colors duration-150"
+        >
+          {{ c.name }}
+        </NuxtLink>
+      </div>
+      <div class="text-center mt-4">
+        <NuxtLink to="/colleges" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
+          查看全部学院 →
+        </NuxtLink>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ title: '首页' });
 
+const { apiBase } = useRuntimeConfig().public
+
 const stats = [
   { label: '覆盖学院', value: '30+', icon: 'Building2' },
   { label: '收录课程', value: '500+', icon: 'BookOpen' },
   { label: '课程资料', value: '2,000+', icon: 'Files' },
 ];
+
+const colleges = ref<{ id: string; name: string }[]>([])
+
+onMounted(async () => {
+  const resp = await $fetch<{ code: number; data: { id: string; name: string }[] }>(`${apiBase}/api/v1/colleges`)
+  if (resp.code === 0) colleges.value = resp.data.slice(0, 12)
+})
 
 function onSearch() {
   navigateTo('/search');
