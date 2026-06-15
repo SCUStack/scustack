@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
@@ -10,6 +10,14 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url='http://test') as c:
         yield c
+
+
+def _mock_rate_limiter():
+    """Patch RateLimiter so auth tests don't fail on missing Redis."""
+    mock_limiter = MagicMock()
+    mock_limiter.is_allowed = AsyncMock(return_value=True)
+    mock_limiter.limit_headers = AsyncMock(return_value={})
+    return patch('app.api.v1.auth.RateLimiter', return_value=mock_limiter)
 
 
 TOKENS = {'access_token': 'at', 'refresh_token': 'rt', 'token_type': 'bearer'}
@@ -54,7 +62,7 @@ class TestSmsVerify:
         async def _raise(*args, **kwargs):
             raise SmsVerifyError('incorrect')
 
-        with patch('app.api.v1.auth.verify_sms_code', side_effect=_raise):
+        with _mock_rate_limiter(), patch('app.api.v1.auth.verify_sms_code', side_effect=_raise):
             resp = await client.post('/api/v1/auth/sms/verify',
                                      json={'phone': '13800138000', 'code': '999999'})
             assert resp.json()['code'] == 40000
@@ -68,15 +76,16 @@ class TestSmsVerify:
 class TestRefresh:
     async def test_refresh_ok_rotates(self, client):
         new_tokens = {'access_token': 'at2', 'refresh_token': 'rt2', 'token_type': 'bearer'}
-        with patch('app.api.v1.auth.refresh_tokens', new_callable=AsyncMock, return_value=new_tokens):
+        with _mock_rate_limiter(), patch('app.api.v1.auth.refresh_tokens', new_callable=AsyncMock, return_value=new_tokens):
             client.cookies.set('refresh_token', 'rt-old')
             resp = await client.post('/api/v1/auth/refresh')
             assert resp.status_code == 200
             assert resp.json()['data']['access_token'] == 'at2'
 
     async def test_refresh_no_cookie(self, client):
-        resp = await client.post('/api/v1/auth/refresh')
-        assert resp.status_code == 401
+        with _mock_rate_limiter():
+            resp = await client.post('/api/v1/auth/refresh')
+            assert resp.status_code == 401
 
     async def test_refresh_reuse_detected(self, client):
         from app.services.auth_service import AuthError
@@ -84,7 +93,7 @@ class TestRefresh:
         async def _raise(*args, **kwargs):
             raise AuthError('token reuse detected, all sessions revoked')
 
-        with patch('app.api.v1.auth.refresh_tokens', side_effect=_raise):
+        with _mock_rate_limiter(), patch('app.api.v1.auth.refresh_tokens', side_effect=_raise):
             client.cookies.set('refresh_token', 'rt-reused')
             resp = await client.post('/api/v1/auth/refresh')
             assert resp.status_code == 401

@@ -1,4 +1,5 @@
-import random
+import hashlib
+import secrets
 
 from app.core.config import settings
 
@@ -19,4 +20,9 @@ sms_client = SmsClient()
 def generate_code() -> str:
     if settings.is_dev:
         return '000000'
-    return ''.join(random.choices('0123456789', k=6))
+    return f'{secrets.randbelow(10**6):06d}'
+
+
+def hash_code(code: str, phone: str) -> str:
+    """Hash verification code with phone as salt."""
+    return hashlib.sha256(f'{code}:{phone}:scustack-sms'.encode()).hexdigest()

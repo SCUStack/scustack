@@ -13,7 +13,7 @@ from app.core.security import (
     decode_token,
     hash_token,
 )
-from app.core.sms import generate_code, sms_client
+from app.core.sms import generate_code, hash_code, sms_client
 from app.models.user import RefreshToken, User
 
 
@@ -43,7 +43,7 @@ async def send_sms_code(phone: str, ip: str) -> None:
     if not success:
         raise SmsSendError('failed to send sms code')
 
-    await cache_set(f'sms:code:{phone}', code, ttl=300)
+    await cache_set(f'sms:code:{phone}', hash_code(code, phone), ttl=300)
 
 
 async def _issue_tokens(db: AsyncSession, user: User) -> dict[str, str]:
@@ -66,13 +66,27 @@ async def _issue_tokens(db: AsyncSession, user: User) -> dict[str, str]:
 
 
 async def verify_sms_code(db: AsyncSession, phone: str, code: str) -> dict[str, str]:
+    # Check account lockout
+    lock_ttl = await cache_get(f'lock:verify:{phone}')
+    if lock_ttl is not None:
+        raise SmsVerifyError(f'too many attempts, try again later')
+
+    # Per-phone rate limit: 5 attempts per 10 minutes
+    phone_limiter = RateLimiter(max_requests=5, window_seconds=600)
+    if not await phone_limiter.is_allowed(f'verify:phone:{phone}'):
+        raise SmsVerifyError('verification attempts exceeded, try again later')
+
     stored = await cache_get(f'sms:code:{phone}')
     if stored is None:
         raise SmsVerifyError('verification code expired or not sent')
-    if stored != code:
+
+    if stored != hash_code(code, phone):
+        await _record_failed_attempt(phone)
         raise SmsVerifyError('incorrect verification code')
 
     await cache_delete(f'sms:code:{phone}')
+    await cache_delete(f'failed:verify:{phone}')
+    await cache_delete(f'lock:verify:{phone}')
 
     encrypted_phone = encrypt_pii(phone)
     result = await db.execute(select(User).where(User.phone == encrypted_phone))
@@ -93,6 +107,21 @@ async def verify_sms_code(db: AsyncSession, phone: str, code: str) -> dict[str, 
         raise SmsVerifyError('account is disabled')
 
     return await _issue_tokens(db, user)
+
+
+async def _record_failed_attempt(phone: str) -> None:
+    """Track consecutive failed verification attempts with progressive lockout."""
+    key = f'failed:verify:{phone}'
+    count = await cache_get(key)
+    attempts = (int(count) + 1) if count else 1
+    await cache_set(key, str(attempts), ttl=3600)
+
+    if attempts >= 20:
+        await cache_set(f'lock:verify:{phone}', '1', ttl=3600)
+    elif attempts >= 10:
+        await cache_set(f'lock:verify:{phone}', '1', ttl=900)
+    elif attempts >= 5:
+        await cache_set(f'lock:verify:{phone}', '1', ttl=60)
 
 
 async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, str]:

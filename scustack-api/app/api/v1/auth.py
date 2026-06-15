@@ -146,7 +146,21 @@ async def wechat_url():
 
 
 @router.get('/wechat/callback')
-async def wechat_callback(code: str, response: Response, db: AsyncSession = Depends(get_db)):
+async def wechat_callback(
+    code: str,
+    state: str,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    # Verify state to prevent OAuth CSRF
+    from app.core.redis import cache_get, cache_delete
+    stored = await cache_get(f'wechat:state:{state}')
+    if not stored:
+        return JSONResponse(
+            {'code': 40100, 'data': None, 'message': 'invalid or expired state'},
+            status_code=401,
+        )
+    await cache_delete(f'wechat:state:{state}')
     try:
         tokens = await wechat_login(db, code)
     except AuthError as e:

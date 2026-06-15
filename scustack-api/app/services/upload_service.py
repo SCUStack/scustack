@@ -1,8 +1,13 @@
 """File upload validation pipeline and presigned URL generation."""
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.material import Material
+
+# Per-user storage quota in bytes (2 GB)
+STORAGE_QUOTA_BYTES = 2 * 1024 * 1024 * 1024
+# Daily upload limit per user
+DAILY_UPLOAD_LIMIT = 20
 
 ALLOWED_EXTENSIONS = {
     'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
@@ -73,3 +78,31 @@ async def check_duplicate(db: AsyncSession, file_hash: str) -> dict:
             'existing_title': existing.title,
         }
     return {'is_duplicate': False, 'existing_material_id': None, 'existing_title': None}
+
+
+def validate_magic_bytes(ext: str, file_head: bytes) -> None:
+    """Check file header matches declared extension. Raises UploadError on mismatch."""
+    expected = MAGIC_BYTES.get(ext)
+    if expected is None:
+        return  # No magic bytes defined for this type, skip check
+    for magic in expected:
+        if file_head[:len(magic)] == magic:
+            return  # Match found
+    raise UploadError(f'file content does not match .{ext} extension')
+
+
+async def check_storage_quota(db: AsyncSession, user_id: str) -> int:
+    """Return total bytes used by a user. Raises UploadError if over quota."""
+    result = await db.execute(
+        select(func.coalesce(func.sum(Material.file_size), 0))
+        .where(
+            Material.contributor_id == user_id,
+            Material.review_status != 'removed',
+        )
+    )
+    total = (result.scalar() or 0)
+    if total >= STORAGE_QUOTA_BYTES:
+        raise UploadError(
+            f'storage quota exceeded: {total} bytes used, {STORAGE_QUOTA_BYTES} bytes limit'
+        )
+    return total

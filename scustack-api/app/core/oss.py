@@ -37,11 +37,33 @@ def generate_upload_token(file_name: str, content_type: str, size: int) -> dict:
     }
 
 
-def generate_download_url(storage_key: str, expires: int = 3600) -> str:
+def generate_download_url(storage_key: str, expires: int = 600) -> str:
     if not _has_oss:
         return f'http://localhost:8000/oss/{storage_key}?expires={expires}'
     bucket = _get_bucket()
     return bucket.sign_url('GET', storage_key, expires, slash_safe=True)
+
+
+def generate_watermarked_image_url(storage_key: str, watermark_text: str, expires: int = 3600) -> str:
+    """Generate a presigned URL with OSS image processing watermark for image files.
+
+    Falls back to a plain presigned URL if OSS is not available or the file is not an image.
+    """
+    base_url = generate_download_url(storage_key, expires)
+    ext = storage_key.rsplit('.', 1)[-1].lower() if '.' in storage_key else ''
+    image_exts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'}
+    if not _has_oss or ext not in image_exts:
+        return base_url
+
+    encoded = watermark_text.replace(' ', '%20')
+    # OSS image processing: watermark text in bottom-right, opacity 8, font size 14
+    process = (
+        f'image/watermark,text_{encoded},type_d3F5LW1pY3JvaGVp,size_14,'
+        f'color_000000,opacity_8,g_se,x_10,y_10,t_60'
+    )
+    if '?' in base_url:
+        return f'{base_url}&x-oss-process={process}'
+    return f'{base_url}?x-oss-process={process}'
 
 
 def delete_object(storage_key: str) -> None:

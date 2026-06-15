@@ -58,7 +58,7 @@ class RateLimiter:
                 await redis.expire(key, self.window_seconds)
             return current <= self.max_requests
         except Exception:
-            return True  # Fail open if Redis is unavailable
+            return False  # Fail closed: deny when Redis is unavailable
 
     async def remaining(self, key: str) -> int:
         try:
