@@ -11,16 +11,6 @@
         loading="lazy"
         @error="onCoverError"
       />
-      <!-- Default academic gradient when no cover image -->
-      <div v-else class="w-full h-full flex items-center justify-center"
-           :style="{ background: 'linear-gradient(135deg, #1E3A5F 0%, #3B82F6 100%)' }">
-        <span class="text-white/60 text-sm font-medium">{{ item.category || '学习资料' }}</span>
-      </div>
-      <!-- 精品资料 badge -->
-      <span v-if="item.trust_status === 'maintainer_picked'"
-            class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-400 text-amber-900 shadow-sm">
-        精品
-      </span>
     </div>
 
     <div class="p-3">

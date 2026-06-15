@@ -74,7 +74,7 @@
           v-for="(item, idx) in calendarItems.slice(0, 8)" :key="item.id"
           :to="`/material/${item.id}`"
           :class="[
-            'relative rounded-lg overflow-hidden group cursor-pointer no-underline border border-slate-200 hover:shadow-lg transition-all duration-300',
+            'relative rounded-lg overflow-hidden group cursor-pointer no-underline border border-slate-200 hover:shadow-lg transition-all duration-300 bg-slate-100',
             idx === 0 ? 'lg:col-span-3 lg:row-span-2 col-span-2' : '',
             idx === 1 || idx === 2 ? 'col-span-1' : '',
             idx === 3 ? 'col-span-1' : '',
@@ -85,19 +85,21 @@
           ]"
           :style="{ minHeight: cardHeight(idx) }"
         >
-          <div
-            class="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-            :style="{ backgroundImage: materialGradient(item) }"
+          <img
+            v-if="coverFor(item)"
+            :src="coverFor(item)"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            :alt="item.title"
           />
           <div class="absolute top-3 right-3 z-10">
             <TrustBadge :status="item.trust_status" />
           </div>
-          <div class="absolute inset-0 flex flex-col justify-end p-3.5">
-            <p class="text-xs text-slate-500 mb-0.5">{{ item.course_name || item.course_id }} · {{ item.category }}</p>
-            <p class="text-sm font-semibold text-slate-800 mb-1.5 line-clamp-2 leading-snug" :class="idx === 0 ? 'lg:text-base' : ''">
+          <div class="absolute inset-0 flex flex-col justify-end p-3.5 bg-gradient-to-t from-black/60 via-black/20 to-transparent">
+            <p class="text-xs text-white/80 mb-0.5">{{ item.course_name || item.course_id }} · {{ item.category }}</p>
+            <p class="text-sm font-semibold text-white mb-1.5 line-clamp-2 leading-snug" :class="idx === 0 ? 'lg:text-base' : ''">
               {{ item.title }}
             </p>
-            <div class="flex items-center gap-2 text-xs text-slate-400">
+            <div class="flex items-center gap-2 text-xs text-white/60">
               <span class="uppercase">{{ item.format }}</span>
               <span>↓ {{ item.download_count || 0 }}</span>
               <span class="ml-auto">{{ timeAgo(item.created_at) }}</span>
@@ -143,6 +145,9 @@
 </template>
 
 <script setup lang="ts">
+import { resolveCoverSync } from '~/composables/useCoverImage'
+import tagsData from '~/data/covers'
+
 definePageMeta({ title: '首页' })
 
 const { apiBase } = useRuntimeConfig().public
@@ -212,28 +217,8 @@ onUnmounted(() => {
   if (bannerTimer) clearInterval(bannerTimer)
 })
 
-const materialGradients: Record<string, [string, string]> = {
-  '考试资料': ['#f0abb8', '#ffffff'],
-  '复习提纲': ['#8db8e8', '#ffffff'],
-  '课堂笔记': ['#7ccf9a', '#ffffff'],
-  '教材': ['#b8a9e8', '#ffffff'],
-  '习题答案': ['#e0d08b', '#ffffff'],
-  '实验报告': ['#c0b8e8', '#ffffff'],
-  '历年真题': ['#e0b88b', '#ffffff'],
-}
-
-function materialGradient(item: { title: string; category?: string }): string {
-  const cat = item.category || ''
-  if (materialGradients[cat]) {
-    return `linear-gradient(135deg, ${materialGradients[cat][0]} 0%, #fff 100%)`
-  }
-  let hash = 0
-  for (let i = 0; i < item.title.length; i++) {
-    hash = ((hash << 5) - hash) + item.title.charCodeAt(i)
-    hash |= 0
-  }
-  const fallback = ['#c4c8d4', '#b8c8e8', '#c4d4c4']
-  return `linear-gradient(135deg, ${fallback[Math.abs(hash) % fallback.length]} 0%, #fff 100%)`
+function coverFor(item: Record<string, any>): string {
+  return resolveCoverSync({ id: item.id, title: item.title, category: item.category }, tagsData)
 }
 
 function cardHeight(idx: number): string {
