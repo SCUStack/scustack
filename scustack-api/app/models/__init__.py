@@ -1,4 +1,6 @@
 from app.core.database import Base
-from app.models.user import User, RefreshToken
+from app.models.college import College
+from app.models.course import Course
+from app.models.user import RefreshToken, User
 
-__all__ = ['Base', 'User', 'RefreshToken']
+__all__ = ['Base', 'User', 'RefreshToken', 'College', 'Course']
