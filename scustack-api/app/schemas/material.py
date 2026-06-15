@@ -1,0 +1,74 @@
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class MaterialCreate(BaseModel):
+    title: str = Field(max_length=500)
+    course_id: UUID
+    category: str
+    semester: str
+    teacher: str | None = None
+    source_type: str = 'hosted'
+    external_url: str | None = None
+    description: str | None = None
+    storage_key: str | None = None
+    file_hash: str | None = None
+    file_size: int | None = None
+    format: str | None = None
+
+
+class MaterialUpdate(BaseModel):
+    title: str | None = Field(None, max_length=500)
+    category: str | None = None
+    semester: str | None = None
+    teacher: str | None = None
+    description: str | None = None
+
+
+class MaterialResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    course_id: UUID
+    title: str
+    description: str | None
+    category: str
+    semester: str
+    teacher: str | None
+    source_type: str
+    external_url: str | None
+    format: str | None
+    file_size: int | None
+    file_hash: str | None
+    trust_status: str
+    review_status: str
+    average_rating: float
+    rating_count: int
+    download_count: int
+    is_pinned: bool
+    contributor_id: UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UploadTokenRequest(BaseModel):
+    file_name: str
+    content_type: str
+    file_size: int
+
+
+class UploadTokenResponse(BaseModel):
+    upload_url: str
+    storage_key: str
+
+
+class DuplicateCheckRequest(BaseModel):
+    file_hash: str = Field(min_length=64, max_length=64)
+
+
+class DuplicateCheckResponse(BaseModel):
+    is_duplicate: bool
+    existing_material_id: UUID | None = None
+    existing_title: str | None = None
