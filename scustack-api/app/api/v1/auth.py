@@ -1,12 +1,46 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.auth import SmsSendRequest, SmsVerifyRequest
 from app.schemas.user import TokenResponse
-from app.services.auth_service import SmsSendError, SmsVerifyError, send_sms_code, verify_sms_code
+from app.services.auth_service import (
+    AuthError,
+    SmsSendError,
+    SmsVerifyError,
+    refresh_tokens,
+    revoke_refresh_token,
+    send_sms_code,
+    verify_sms_code,
+)
 
 router = APIRouter(prefix='/auth', tags=['auth'])
+
+ACCESS_COOKIE = 'access_token'
+REFRESH_COOKIE = 'refresh_token'
+SECURE = not settings.is_dev
+
+
+def _set_token_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    response.set_cookie(
+        ACCESS_COOKIE, access_token,
+        httponly=True, secure=SECURE, samesite='lax',
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path='/',
+    )
+    response.set_cookie(
+        REFRESH_COOKIE, refresh_token,
+        httponly=True, secure=SECURE, samesite='strict',
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path='/api/v1/auth',
+    )
+
+
+def _clear_token_cookies(response: Response) -> None:
+    response.delete_cookie(ACCESS_COOKIE, path='/')
+    response.delete_cookie(REFRESH_COOKIE, path='/api/v1/auth')
 
 
 @router.post('/sms/send')
@@ -21,10 +55,49 @@ async def sms_send(body: SmsSendRequest, request: Request):
 
 @router.post('/sms/verify')
 async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    ip = request.client.host if request.client else 'unknown'
     try:
-        tokens = await verify_sms_code(db, body.phone, body.code, ip)
+        tokens = await verify_sms_code(db, body.phone, body.code)
     except SmsVerifyError as e:
-        return {'code': 40000, 'data': None, 'message': str(e)}
+        return JSONResponse({'code': 40000, 'data': None, 'message': str(e)})
     await db.commit()
-    return {'code': 0, 'data': TokenResponse(**tokens).model_dump(), 'message': 'ok'}
+    response = JSONResponse({
+        'code': 0,
+        'data': TokenResponse(**tokens).model_dump(),
+        'message': 'ok',
+    })
+    _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    return response
+
+
+@router.post('/refresh')
+async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    token = request.cookies.get(REFRESH_COOKIE)
+    if not token:
+        return JSONResponse({'code': 40100, 'data': None, 'message': 'no refresh token'}, status_code=401)
+
+    try:
+        tokens = await refresh_tokens(db, token)
+    except AuthError as e:
+        await db.commit()
+        response = JSONResponse({'code': 40100, 'data': None, 'message': str(e)}, status_code=401)
+        _clear_token_cookies(response)
+        return response
+
+    await db.commit()
+    response = JSONResponse({
+        'code': 0,
+        'data': TokenResponse(**tokens).model_dump(),
+        'message': 'ok',
+    })
+    _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    return response
+
+
+@router.post('/logout')
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    token = request.cookies.get(REFRESH_COOKIE)
+    if token:
+        await revoke_refresh_token(db, token)
+        await db.commit()
+    _clear_token_cookies(response)
+    return {'code': 0, 'data': None, 'message': 'logged out'}

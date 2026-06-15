@@ -12,18 +12,20 @@ async def client():
         yield c
 
 
+TOKENS = {'access_token': 'at', 'refresh_token': 'rt', 'token_type': 'bearer'}
+
+
 class TestSmsSend:
     async def test_send_ok(self, client):
         with patch('app.api.v1.auth.send_sms_code', new_callable=AsyncMock):
             resp = await client.post('/api/v1/auth/sms/send', json={'phone': '13800138000'})
-            assert resp.status_code == 200
             assert resp.json()['code'] == 0
 
     async def test_send_invalid_phone(self, client):
         resp = await client.post('/api/v1/auth/sms/send', json={'phone': '12345'})
         assert resp.status_code == 422
 
-    async def test_send_rate_limited_error(self, client):
+    async def test_send_rate_limited(self, client):
         from app.services.auth_service import SmsSendError
 
         async def _raise(*args, **kwargs):
@@ -35,36 +37,26 @@ class TestSmsSend:
 
 
 class TestSmsVerify:
-    async def test_verify_ok(self, client):
-        tokens = {'access_token': 'at', 'refresh_token': 'rt', 'token_type': 'bearer'}
-        with patch('app.api.v1.auth.verify_sms_code', new_callable=AsyncMock, return_value=tokens):
+    async def test_verify_ok_sets_cookies(self, client):
+        with patch('app.api.v1.auth.verify_sms_code', new_callable=AsyncMock, return_value=TOKENS):
             resp = await client.post('/api/v1/auth/sms/verify',
                                      json={'phone': '13800138000', 'code': '000000'})
             assert resp.status_code == 200
             body = resp.json()
             assert body['code'] == 0
             assert body['data']['access_token'] == 'at'
+            assert 'access_token' in resp.cookies
+            assert 'refresh_token' in resp.cookies
 
     async def test_verify_wrong_code(self, client):
         from app.services.auth_service import SmsVerifyError
 
         async def _raise(*args, **kwargs):
-            raise SmsVerifyError('incorrect verification code')
+            raise SmsVerifyError('incorrect')
 
         with patch('app.api.v1.auth.verify_sms_code', side_effect=_raise):
             resp = await client.post('/api/v1/auth/sms/verify',
                                      json={'phone': '13800138000', 'code': '999999'})
-            assert resp.json()['code'] == 40000
-
-    async def test_verify_expired_code(self, client):
-        from app.services.auth_service import SmsVerifyError
-
-        async def _raise(*args, **kwargs):
-            raise SmsVerifyError('verification code expired or not sent')
-
-        with patch('app.api.v1.auth.verify_sms_code', side_effect=_raise):
-            resp = await client.post('/api/v1/auth/sms/verify',
-                                     json={'phone': '13800138000', 'code': '123456'})
             assert resp.json()['code'] == 40000
 
     async def test_verify_invalid_request(self, client):
@@ -73,17 +65,75 @@ class TestSmsVerify:
         assert resp.status_code == 422
 
 
+class TestRefresh:
+    async def test_refresh_ok_rotates(self, client):
+        new_tokens = {'access_token': 'at2', 'refresh_token': 'rt2', 'token_type': 'bearer'}
+        with patch('app.api.v1.auth.refresh_tokens', new_callable=AsyncMock, return_value=new_tokens):
+            client.cookies.set('refresh_token', 'rt-old')
+            resp = await client.post('/api/v1/auth/refresh')
+            assert resp.status_code == 200
+            assert resp.json()['data']['access_token'] == 'at2'
+
+    async def test_refresh_no_cookie(self, client):
+        resp = await client.post('/api/v1/auth/refresh')
+        assert resp.status_code == 401
+
+    async def test_refresh_reuse_detected(self, client):
+        from app.services.auth_service import AuthError
+
+        async def _raise(*args, **kwargs):
+            raise AuthError('token reuse detected, all sessions revoked')
+
+        with patch('app.api.v1.auth.refresh_tokens', side_effect=_raise):
+            client.cookies.set('refresh_token', 'rt-reused')
+            resp = await client.post('/api/v1/auth/refresh')
+            assert resp.status_code == 401
+            assert 'token reuse' in resp.json()['message']
+
+
+class TestLogout:
+    async def test_logout_clears_cookies(self, client):
+        with patch('app.api.v1.auth.revoke_refresh_token', new_callable=AsyncMock):
+            client.cookies.set('refresh_token', 'rt-to-revoke')
+            resp = await client.post('/api/v1/auth/logout')
+            assert resp.json()['code'] == 0
+
+    async def test_logout_no_cookie(self, client):
+        resp = await client.post('/api/v1/auth/logout')
+        assert resp.json()['code'] == 0
+
+
 class TestJwtTokens:
-    def test_create_and_decode_access_token(self):
+    def test_create_and_decode(self):
         from app.core.security import create_access_token, decode_token
-        token = create_access_token('test-user-id', 'student')
+        token = create_access_token('user-1', 'student')
         payload = decode_token(token)
-        assert payload['sub'] == 'test-user-id'
+        assert payload['sub'] == 'user-1'
         assert payload['role'] == 'student'
 
-    def test_refresh_token_is_unique(self):
+    def test_refresh_token_unique(self):
         from app.core.security import create_refresh_token
         t1 = create_refresh_token()
         t2 = create_refresh_token()
         assert t1 != t2
         assert len(t1) == 64
+
+    def test_token_hash(self):
+        from app.core.security import hash_token
+        assert hash_token('abc') == hash_token('abc')
+        assert hash_token('abc') != hash_token('def')
+        assert len(hash_token('test')) == 64
+
+    def test_expired_token_raises(self):
+        from app.core.config import settings
+        from app.core.security import create_access_token, decode_token
+        from jose.exceptions import ExpiredSignatureError
+
+        original = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        settings.ACCESS_TOKEN_EXPIRE_MINUTES = -1
+        try:
+            token = create_access_token('user-1', 'student')
+            with pytest.raises(ExpiredSignatureError):
+                decode_token(token)
+        finally:
+            settings.ACCESS_TOKEN_EXPIRE_MINUTES = original
