@@ -1,54 +1,31 @@
 <template>
   <NuxtLink :to="`/material/${item.id}`"
-            class="block rounded-lg border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 no-underline cursor-pointer overflow-hidden bg-white">
-    <!-- Cover banner -->
-    <div class="relative w-full h-20 overflow-hidden bg-slate-100">
-      <img
-        v-if="coverSrc"
-        :src="coverSrc"
-        :alt="item.title"
-        class="w-full h-full object-cover"
-        loading="lazy"
-        @error="onCoverError"
-      />
+            class="relative rounded-lg overflow-hidden group cursor-pointer no-underline border border-slate-200 hover:shadow-lg transition-all duration-300 bg-slate-100"
+            style="min-height: 168px">
+    <img
+      v-if="coverSrc"
+      :src="coverSrc"
+      :alt="item.title"
+      class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+      loading="lazy"
+      @error="onCoverError"
+    />
+    <div class="absolute top-3 right-3 z-10">
+      <TrustBadge :status="item.trust_status" />
     </div>
-
-    <div class="p-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
-          <h3 class="text-base font-medium text-slate-800 leading-snug mb-1">
-            <span v-if="highlight" v-html="highlightText(item.title, highlight)" />
-            <span v-else>{{ item.title }}</span>
-          </h3>
-          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-1.5">
-            <span>{{ item.course_name || item.course_id }}</span>
-            <span>·</span>
-            <span>{{ item.semester }}</span>
-            <span>·</span>
-            <span>{{ item.category }}</span>
-          </div>
-          <p v-if="item.description" class="text-sm text-slate-400 line-clamp-2 mb-2">
-            <span v-if="highlight" v-html="highlightText(item.description.slice(0, 150), highlight)" />
-            <span v-else>{{ item.description.slice(0, 150) }}</span>
-          </p>
-        </div>
-        <div class="shrink-0 text-right">
-          <TrustBadge :status="item.trust_status" />
-        </div>
-      </div>
-      <div class="flex items-center gap-3 text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+    <div class="absolute inset-0 flex flex-col justify-end p-3.5 bg-gradient-to-t from-black/60 via-black/20 to-transparent">
+      <p class="text-xs text-white/80 mb-0.5">
+        {{ item.course_name || item.course_id }} · {{ item.category }}
+      </p>
+      <p class="text-sm font-semibold text-white mb-1.5 line-clamp-2 leading-snug">
+        <span v-if="highlight" v-html="highlightText(item.title, highlight)" />
+        <span v-else>{{ item.title }}</span>
+      </p>
+      <div class="flex items-center gap-2 text-xs text-white/60">
         <span v-if="item.format" class="uppercase">{{ item.format }}</span>
-        <span v-if="item.source_type === 'external'" class="flex items-center gap-1">
-          <AppIcon name="ExternalLink" :size="12" /> 外部链接
-        </span>
-        <span v-if="item.link_failure_count >= 3" class="flex items-center gap-1 text-red-400" title="链接可能已失效">
-          <AppIcon name="AlertTriangle" :size="12" /> 链接可能失效
-        </span>
-        <span v-if="item.rating_avg" class="flex items-center gap-0.5 text-amber-500">
-          <AppIcon name="Star" :size="12" /> {{ Number(item.rating_avg).toFixed(1) }}
-        </span>
+        <span v-if="item.rating_avg" class="flex items-center gap-0.5">★ {{ Number(item.rating_avg).toFixed(1) }}</span>
         <span>↓ {{ item.download_count || 0 }}</span>
-        <span class="ml-auto text-slate-300">{{ timeAgo(item.created_at) }}</span>
+        <span class="ml-auto">{{ timeAgo(item.created_at) }}</span>
       </div>
     </div>
   </NuxtLink>
