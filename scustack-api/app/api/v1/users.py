@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.notification import NotificationResponse
 from app.schemas.user import (
-    ContributionItem, PrivacySettings, UserProfileResponse, UserUpdate,
+    ContributionItem, DeactivateRequest, PrivacySettings, UserProfileResponse, UserUpdate,
 )
 from app.services import user_service
 
@@ -121,9 +121,12 @@ async def update_privacy(
 
 @router.post('/deactivate')
 async def deactivate_account(
+    body: DeactivateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not body.confirm:
+        return {'code': 40000, 'data': None, 'message': 'confirm must be true'}
     ok = await user_service.deactivate_account(db, current_user.id)
     if not ok:
         return {'code': 50000, 'data': None, 'message': 'deactivation failed'}

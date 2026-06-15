@@ -54,6 +54,10 @@ class PrivacySettings(BaseModel):
     public_display_name: str = '匿名用户'
 
 
+class DeactivateRequest(BaseModel):
+    confirm: bool = Field(False, description='Must be true to confirm deactivation')
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str

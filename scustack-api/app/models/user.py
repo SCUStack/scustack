@@ -26,6 +26,7 @@ class User(Base):
         Integer, nullable=False, insert_default=0, server_default='0'
     )
     public_display_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, insert_default=True, server_default='true'
     )

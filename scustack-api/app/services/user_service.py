@@ -8,7 +8,7 @@ from app.models.bookmark import Bookmark
 from app.models.course import Course
 from app.models.material import Material
 from app.models.notification import Notification
-from app.models.user import User
+from app.models.user import RefreshToken, User
 
 
 async def get_user(db: AsyncSession, user_id: UUID) -> User | None:
@@ -213,11 +213,21 @@ async def notify_course_followers(
 
 
 async def deactivate_account(db: AsyncSession, user_id: UUID) -> bool:
+    from sqlalchemy import update as sql_update
+
     user = await get_user(db, user_id)
     if user is None:
         return False
     user.is_active = False
     user.phone = f'deactivated:{user.id}'
     user.wechat_openid = None
+    await db.flush()
+
+    # Revoke all active refresh tokens immediately
+    await db.execute(
+        sql_update(RefreshToken)
+        .where(RefreshToken.user_id == user_id, RefreshToken.revoked == False)
+        .values(revoked=True)
+    )
     await db.flush()
     return True

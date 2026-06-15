@@ -26,6 +26,7 @@ async def request_upload_token(
 async def check_duplicate_endpoint(
     body: DuplicateCheckRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     result = await check_duplicate(db, body.file_hash)
     return {'code': 0, 'data': result, 'message': 'ok'}

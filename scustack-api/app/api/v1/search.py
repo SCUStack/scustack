@@ -38,6 +38,12 @@ async def search_endpoint(
 
 
 @router.get('/search/suggest')
-async def suggest_endpoint(q: str = Query('', min_length=1)):
+async def suggest_endpoint(q: str = Query('', min_length=1), request: Request = None):
+    limiter = RateLimiter(max_requests=30, window_seconds=60)
+    ip = request.client.host if request and request.client else 'unknown'
+    key = f'suggest:ip:{ip}'
+    if not await limiter.is_allowed(key):
+        headers = await limiter.limit_headers(key)
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
     result = await suggest(q)
     return {'code': 0, 'data': result, 'message': 'ok'}

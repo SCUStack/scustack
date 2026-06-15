@@ -9,15 +9,20 @@ from app.core.database import get_db
 from app.core.redis import RateLimiter
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import SmsSendRequest, SmsVerifyRequest
+from app.schemas.auth import (
+    PasswordLoginRequest, PasswordRegisterRequest, SmsSendRequest, SmsVerifyRequest,
+)
 from app.schemas.user import TokenResponse
 from app.services.auth_service import (
     AuthError,
+    PasswordError,
     SmsSendError,
     SmsVerifyError,
     get_user_sessions,
     get_wechat_auth_url,
+    login_with_password,
     refresh_tokens,
+    register_with_password,
     revoke_refresh_token,
     revoke_session,
     send_sms_code,
@@ -82,6 +87,51 @@ async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession 
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
     return response
+
+
+@router.post('/register')
+async def password_register(
+    body: PasswordRegisterRequest,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
+    limiter = RateLimiter(max_requests=5, window_seconds=60)
+    ip = request.client.host if request and request.client else 'unknown'
+    if not await limiter.is_allowed(f'register:ip:{ip}'):
+        headers = await limiter.limit_headers(f'register:ip:{ip}')
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many attempts'}, status_code=429, headers=headers)
+
+    try:
+        tokens = await register_with_password(db, body.phone, body.password)
+    except PasswordError as e:
+        await db.rollback()
+        return JSONResponse({'code': 40000, 'data': None, 'message': str(e)}, status_code=400)
+    await db.commit()
+    resp = JSONResponse({'code': 0, 'data': TokenResponse(**tokens).model_dump(), 'message': 'ok'})
+    _set_token_cookies(resp, tokens['access_token'], tokens['refresh_token'])
+    return resp
+
+
+@router.post('/login')
+async def password_login(
+    body: PasswordLoginRequest,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
+    limiter = RateLimiter(max_requests=5, window_seconds=60)
+    ip = request.client.host if request and request.client else 'unknown'
+    if not await limiter.is_allowed(f'login:ip:{ip}'):
+        headers = await limiter.limit_headers(f'login:ip:{ip}')
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many attempts'}, status_code=429, headers=headers)
+
+    try:
+        tokens = await login_with_password(db, body.phone, body.password)
+    except PasswordError as e:
+        return JSONResponse({'code': 40100, 'data': None, 'message': str(e)}, status_code=401)
+    await db.commit()
+    resp = JSONResponse({'code': 0, 'data': TokenResponse(**tokens).model_dump(), 'message': 'ok'})
+    _set_token_cookies(resp, tokens['access_token'], tokens['refresh_token'])
+    return resp
 
 
 @router.post('/refresh')

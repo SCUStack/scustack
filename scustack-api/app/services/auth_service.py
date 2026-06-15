@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -122,6 +123,55 @@ async def _record_failed_attempt(phone: str) -> None:
         await cache_set(f'lock:verify:{phone}', '1', ttl=900)
     elif attempts >= 5:
         await cache_set(f'lock:verify:{phone}', '1', ttl=60)
+
+
+# ── Password authentication ──────────────────────────────────────────
+
+_pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+
+class PasswordError(Exception):
+    pass
+
+
+async def register_with_password(db: AsyncSession, phone: str, password: str) -> dict[str, str]:
+    encrypted_phone = encrypt_pii(phone)
+    result = await db.execute(select(User).where(User.phone == encrypted_phone))
+    if result.scalar_one_or_none() is not None:
+        raise PasswordError('phone already registered')
+
+    user = User(
+        phone=encrypted_phone,
+        nickname=f'user{phone[-4:]}',
+        role='student',
+        trust_score=0,
+        is_active=True,
+        password_hash=_pwd_context.hash(password),
+    )
+    db.add(user)
+    await db.flush()
+    return await _issue_tokens(db, user)
+
+
+async def login_with_password(db: AsyncSession, phone: str, password: str) -> dict[str, str]:
+    encrypted_phone = encrypt_pii(phone)
+    result = await db.execute(select(User).where(User.phone == encrypted_phone))
+    user = result.scalar_one_or_none()
+
+    if user is None or user.password_hash is None:
+        raise PasswordError('invalid phone or password')
+    if not user.is_active:
+        raise PasswordError('account is disabled')
+    if not _pwd_context.verify(password, user.password_hash):
+        raise PasswordError('invalid phone or password')
+
+    return await _issue_tokens(db, user)
+
+
+async def set_password(db: AsyncSession, user: User, password: str) -> None:
+    """Add or change password for an existing user."""
+    user.password_hash = _pwd_context.hash(password)
+    await db.flush()
 
 
 async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, str]:
