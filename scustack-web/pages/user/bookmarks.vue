@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-3xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
     <NuxtLink to="/user/profile" class="flex items-center gap-1 text-sm text-slate-500 hover:text-primary-600 mb-4 no-underline">
       <AppIcon name="ArrowLeft" :size="14" /> 返回个人中心
     </NuxtLink>
@@ -28,8 +28,8 @@
       </button>
     </div>
 
-    <div v-if="loading" class="flex justify-center py-16">
-      <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+    <div v-if="loading" class="py-16">
+      <SkeletonList :count="3" />
     </div>
 
     <!-- Courses tab -->
@@ -52,13 +52,7 @@
           </button>
         </div>
       </div>
-      <div v-else class="text-center py-16">
-        <AppIcon name="Bookmark" :size="48" class="text-slate-300 mx-auto mb-4" />
-        <p class="text-slate-500 font-medium">还没有关注课程</p>
-        <NuxtLink to="/colleges" class="inline-block mt-3 text-sm text-primary-600 hover:text-primary-700">
-          浏览学院课程
-        </NuxtLink>
-      </div>
+      <EmptyState v-else icon="Bookmark" title="还没有关注课程" action-label="浏览学院课程" action-to="/colleges" />
     </div>
 
     <!-- Materials tab -->
@@ -91,13 +85,7 @@
           </div>
         </div>
       </div>
-      <div v-else class="text-center py-16">
-        <AppIcon name="Bookmark" :size="48" class="text-slate-300 mx-auto mb-4" />
-        <p class="text-slate-500 font-medium">还没有收藏资料</p>
-        <NuxtLink to="/" class="inline-block mt-3 text-sm text-primary-600 hover:text-primary-700">
-          去发现资料
-        </NuxtLink>
-      </div>
+      <EmptyState v-else icon="Bookmark" title="还没有收藏资料" action-label="去发现资料" action-to="/search" />
     </div>
   </div>
 </template>

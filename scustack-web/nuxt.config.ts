@@ -5,6 +5,11 @@ export default defineNuxtConfig({
 
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
 
+  // Disable directory prefix so components/auth/LoginModal.vue → <LoginModal>
+  components: {
+    dirs: [{ path: '~/components', pathPrefix: false }],
+  },
+
   css: ['element-plus/dist/index.css', '~/assets/css/main.css'],
 
   tailwindcss: {

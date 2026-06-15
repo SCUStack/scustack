@@ -1,62 +1,166 @@
 <template>
-  <div>
+  <div class="min-h-screen bg-slate-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div class="mb-6">
-        <SearchBar variant="hero" />
+      <!-- Empty state: no query -->
+      <div v-if="!route.query.q" class="flex flex-col items-center justify-center py-24">
+        <AppIcon name="Search" size="48" class="text-slate-300 mb-4" />
+        <p class="text-h3 text-slate-500 font-medium mb-2">输入关键词开始搜索</p>
+        <p class="text-body-sm text-slate-400">搜索四川大学全学科课程资料</p>
       </div>
 
-      <p v-if="total > 0" class="text-sm text-slate-500 mb-4">
-        搜索"<span class="font-medium text-slate-800">{{ route.query.q }}</span>" 共 {{ total }} 条结果
-      </p>
-
-      <div class="flex gap-6">
-        <aside class="hidden lg:block w-52 shrink-0">
-          <div class="sticky top-20 space-y-5">
-            <FilterGroup v-for="g in filterGroups" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []"
-                         @update="(v: string[]) => setFilter(g.key, v)" />
-          </div>
-        </aside>
-
-        <div class="flex-1 min-w-0">
-          <div class="flex gap-1 mb-4">
-            <button v-for="s in sorts" :key="s.key" :class="['px-3 py-1 text-sm rounded-md cursor-pointer transition-colors duration-150',
-                     currentSort === s.key ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-500 hover:text-slate-700']"
-                    @click="setSort(s.key)">{{ s.label }}</button>
-          </div>
-
-          <button class="lg:hidden mb-4 px-3 py-1.5 text-sm border border-slate-200 rounded-md text-slate-600"
-                  @click="showMobileFilters = !showMobileFilters">
-            筛选 {{ activeFilterCount > 0 ? `(${activeFilterCount})` : '' }}
-          </button>
-          <div v-if="showMobileFilters" class="lg:hidden mb-4 space-y-4 p-4 border border-slate-200 rounded-lg bg-white">
-            <FilterGroup v-for="g in filterGroups" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []"
-                         @update="(v: string[]) => setFilter(g.key, v)" />
-          </div>
-
-          <div class="space-y-3">
-            <MaterialCard v-for="item in results" :key="item.id" :item="item" :highlight="(route.query.q as string) || ''" />
-          </div>
-
-          <div v-if="loading" class="flex justify-center py-8">
-            <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
-          </div>
-
-          <div v-if="!loading && results.length === 0 && searched" class="text-center py-16">
-            <AppIcon name="Search" :size="48" class="text-slate-300 mx-auto mb-4" />
-            <p class="text-slate-500 font-medium mb-1">未找到相关资料</p>
-            <p class="text-sm text-slate-400 mb-6">试试修改搜索关键词，或浏览学院目录</p>
-            <div class="flex justify-center gap-3">
-              <NuxtLink to="/colleges" class="px-4 py-2 text-sm bg-primary-700 text-white rounded-md no-underline hover:bg-primary-800">
-                浏览学院目录
-              </NuxtLink>
-            </div>
-          </div>
-
-          <div v-if="hasMore && !loading" class="text-center py-6">
-            <button class="text-sm text-primary-600 hover:text-primary-700 cursor-pointer" @click="loadMore">加载更多</button>
+      <template v-else>
+        <!-- Results header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <div>
+            <h1 class="text-h2 text-slate-900">
+              搜索"<span class="text-primary-700">{{ route.query.q }}</span>"
+            </h1>
+            <p v-if="searched" class="text-body-sm text-slate-500 mt-1">
+              共 {{ total }} 条结果
+            </p>
           </div>
         </div>
-      </div>
+
+        <div class="flex gap-6">
+          <!-- Sidebar filters -->
+          <aside class="hidden lg:block w-56 shrink-0">
+            <div class="sticky top-20">
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-sm font-medium text-slate-700">筛选</span>
+                <button
+                  v-if="activeFilterCount > 0"
+                  class="text-xs text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150"
+                  @click="clearAllFilters"
+                >
+                  清除全部
+                </button>
+              </div>
+              <div class="space-y-5">
+                <FilterGroup
+                  v-for="g in filterGroups"
+                  :key="g.key"
+                  :label="g.label"
+                  :options="g.options"
+                  :selected="filters[g.key] || []"
+                  @update="(v: string[]) => setFilter(g.key, v)"
+                />
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main results area -->
+          <div class="flex-1 min-w-0">
+            <!-- Toolbar: sort tabs + mobile filter toggle -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-1 bg-white rounded-lg p-1 border border-slate-200">
+                <button
+                  v-for="s in sorts"
+                  :key="s.key"
+                  :class="[
+                    'px-3 py-1.5 text-sm rounded-md cursor-pointer transition-all duration-200',
+                    currentSort === s.key
+                      ? 'bg-primary-500 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                  ]"
+                  @click="setSort(s.key)"
+                >
+                  {{ s.label }}
+                </button>
+              </div>
+
+              <button
+                class="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 bg-white hover:border-slate-300 cursor-pointer transition-colors duration-150"
+                @click="showMobileFilters = !showMobileFilters"
+              >
+                <AppIcon name="SlidersHorizontal" size="16" />
+                筛选
+                <span v-if="activeFilterCount > 0" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary-500 text-white text-xs font-medium">
+                  {{ activeFilterCount }}
+                </span>
+              </button>
+            </div>
+
+            <!-- Active filter chips -->
+            <div v-if="activeFilterChips.length > 0" class="flex flex-wrap gap-2 mb-4">
+              <span
+                v-for="chip in activeFilterChips"
+                :key="`${chip.key}:${chip.value}`"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200"
+              >
+                {{ chip.label }}: {{ chip.display }}
+                <button
+                  class="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-primary-200 cursor-pointer transition-colors duration-150"
+                  @click="removeFilter(chip.key, chip.value)"
+                >
+                  <AppIcon name="X" size="12" />
+                </button>
+              </span>
+            </div>
+
+            <!-- Mobile filters panel -->
+            <div v-if="showMobileFilters" class="lg:hidden mb-4 space-y-4 p-4 border border-slate-200 rounded-lg bg-white">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-medium text-slate-700">筛选</span>
+                <button
+                  v-if="activeFilterCount > 0"
+                  class="text-xs text-primary-600 hover:text-primary-700 cursor-pointer"
+                  @click="clearAllFilters"
+                >
+                  清除全部
+                </button>
+              </div>
+              <FilterGroup
+                v-for="g in filterGroups"
+                :key="g.key"
+                :label="g.label"
+                :options="g.options"
+                :selected="filters[g.key] || []"
+                @update="(v: string[]) => setFilter(g.key, v)"
+              />
+            </div>
+
+            <!-- Loading skeleton -->
+            <div v-if="loading && results.length === 0" class="space-y-3">
+              <SkeletonList :count="5" />
+            </div>
+
+            <!-- Results -->
+            <div v-else-if="results.length > 0" class="space-y-3">
+              <MaterialCard
+                v-for="item in results"
+                :key="item.id"
+                :item="item"
+                :highlight="(route.query.q as string) || ''"
+              />
+            </div>
+
+            <!-- Empty results -->
+            <EmptyState
+              v-if="!loading && searched && results.length === 0"
+              icon="Search"
+              title="未找到相关资料"
+              description="试试修改搜索关键词或调整筛选条件"
+              action-label="浏览学院目录"
+              action-to="/colleges"
+            />
+
+            <!-- Load more -->
+            <div v-if="hasMore && !loading" class="text-center py-8">
+              <button
+                class="px-6 py-2 text-sm text-primary-600 hover:text-primary-700 bg-white border border-slate-200 rounded-lg hover:border-primary-300 cursor-pointer transition-all duration-200"
+                @click="loadMore"
+              >
+                加载更多
+              </button>
+            </div>
+
+            <!-- Loading more -->
+            <div v-if="loading && results.length > 0" class="py-8">
+              <SkeletonList :count="2" />
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -79,9 +183,26 @@ const filters = reactive<Record<string, string[]>>({
   college_id: [], category: [], semester: [], format: [], source_type: [], trust_status: [],
 })
 
+const filterLabelMap: Record<string, Record<string, string>> = {
+  category: {
+    '课堂笔记': '课堂笔记', '考试资料': '考试资料', '作业': '作业',
+    '实验报告': '实验报告', '代码': '代码', '教材': '教材',
+    '复习提纲': '复习提纲', '其他': '其他',
+  },
+  semester: {
+    '2026-2027-1': '2026-2027-1', '2025-2026-2': '2025-2026-2',
+    '2025-2026-1': '2025-2026-1', '2024-2025-2': '2024-2025-2',
+    '2024-2025-1': '2024-2025-1',
+  },
+  trust_status: {
+    maintainer_picked: '维护者精选', community_verified: '社区验证', unverified: '未验证',
+  },
+  source_type: { hosted: '托管文件', external: '外部链接' },
+}
+
 const filterGroups = [
   { key: 'category', label: '资料分类', options: ['课堂笔记', '考试资料', '作业', '实验报告', '代码', '教材', '复习提纲', '其他'] },
-  { key: 'semester', label: '学期', options: [] },
+  { key: 'semester', label: '学期', options: ['2026-2027-1', '2025-2026-2', '2025-2026-1', '2024-2025-2', '2024-2025-1'] },
   { key: 'trust_status', label: '信任状态', options: ['maintainer_picked', 'community_verified', 'unverified'] },
   { key: 'source_type', label: '来源', options: ['hosted', 'external'] },
 ]
@@ -95,6 +216,22 @@ const sorts = [
 
 const activeFilterCount = computed(() => Object.values(filters).reduce((s, v) => s + v.length, 0))
 const hasMore = computed(() => results.value.length < total.value)
+
+const activeFilterChips = computed(() => {
+  const chips: { key: string; value: string; label: string; display: string }[] = []
+  for (const [key, values] of Object.entries(filters)) {
+    const group = filterGroups.find(g => g.key === key)
+    for (const v of values) {
+      chips.push({
+        key,
+        value: v,
+        label: group?.label || key,
+        display: filterLabelMap[key]?.[v] || v,
+      })
+    }
+  }
+  return chips
+})
 
 async function doSearch(page = 1) {
   loading.value = true
@@ -126,6 +263,20 @@ function setFilter(key: string, values: string[]) {
   doSearch()
 }
 
+function removeFilter(key: string, value: string) {
+  filters[key] = filters[key].filter(v => v !== value)
+  updateUrl()
+  doSearch()
+}
+
+function clearAllFilters() {
+  for (const key of Object.keys(filters)) {
+    filters[key] = []
+  }
+  updateUrl()
+  doSearch()
+}
+
 function loadMore() {
   doSearch(Math.ceil(results.value.length / 20) + 1)
 }
@@ -141,6 +292,10 @@ function updateUrl() {
 }
 
 watch(() => route.query.q, () => {
-  if (route.query.q) doSearch()
+  if (route.query.q) {
+    results.value = []
+    total.value = 0
+    doSearch()
+  }
 }, { immediate: true })
 </script>

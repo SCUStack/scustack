@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50">
     <header class="border-b border-slate-200 bg-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 h-14 flex items-center justify-between">
         <NuxtLink to="/" class="flex items-center gap-2 text-primary-800 font-semibold text-lg no-underline">
           <AppIcon name="GraduationCap" :size="24" />
           <span>川大课栈 · 管理后台</span>
@@ -13,7 +13,7 @@
       </div>
     </header>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
       <div class="lg:flex lg:gap-6">
         <nav class="lg:w-48 shrink-0 mb-4 lg:mb-0">
           <div class="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
@@ -47,11 +47,18 @@ const route = useRoute()
 
 definePageMeta({ middleware: ['auth', 'role'], meta: { requiredRole: 'maintainer' } })
 
-const navItems = [
+interface NavItem {
+  label: string
+  to: string
+  badge?: number
+}
+
+const navItems: NavItem[] = [
   { label: '数据分析', to: '/admin/analytics' },
-  { label: '审核队列', to: '/admin/review' },
-  { label: '举报处理', to: '/admin/reports' },
+  { label: '审核队列', to: '/admin/review', badge: 0 },
+  { label: '举报处理', to: '/admin/reports', badge: 0 },
   { label: '课程管理', to: '/admin/courses' },
+  { label: '学院管理', to: '/admin/colleges' },
   { label: '用户管理', to: '/admin/users' },
   { label: '校历管理', to: '/admin/calendar' },
   { label: '审计日志', to: '/admin/audit-logs' },

@@ -1,6 +1,6 @@
 <template>
   <footer class="border-t border-slate-200 bg-white mt-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="text-sm text-slate-400">
           <span class="font-medium text-slate-500">川大课栈</span>

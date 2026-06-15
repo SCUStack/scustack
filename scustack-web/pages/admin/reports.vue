@@ -4,7 +4,7 @@
       <h1 class="text-xl font-semibold text-slate-900 mb-1">举报处理</h1>
       <p class="text-sm text-slate-500 mb-6">共 {{ total }} 条举报</p>
 
-      <div class="flex gap-1 bg-slate-100 rounded-md p-1 mb-6 w-fit">
+      <div class="flex flex-wrap gap-1 bg-slate-100 rounded-md p-1 mb-6 w-fit">
         <button
           v-for="tab in tabs"
           :key="tab.value"
@@ -42,7 +42,7 @@
                 举报人：{{ String(item.reporter_id).slice(0, 8) }}... · {{ formatDate(item.created_at) }}
               </p>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 class="h-8 px-3 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 cursor-pointer transition-colors duration-150"
                 @click="handleReport(item.report_id, 'accepted')"
@@ -60,10 +60,7 @@
         </div>
       </div>
 
-      <div v-else class="text-center py-16">
-        <AppIcon name="Flag" :size="48" class="text-slate-300 mx-auto mb-4" />
-        <p class="text-slate-500 font-medium">暂无举报</p>
-      </div>
+      <EmptyState v-else icon="Flag" title="暂无举报" />
     </div>
   </NuxtLayout>
 </template>

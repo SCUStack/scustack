@@ -1,5 +1,5 @@
 <template>
-  <nav class="flex items-center gap-1 text-sm text-slate-500 py-3 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <nav class="flex items-center gap-1 text-sm text-slate-500 py-3 max-w-7xl mx-auto px-2 sm:px-3 lg:px-4">
     <template v-if="collapsed">
       <button class="flex items-center gap-1 text-primary-600 hover:text-primary-700 cursor-pointer sm:hidden" @click="$router.back()">
         <AppIcon name="ArrowLeft" :size="16" />

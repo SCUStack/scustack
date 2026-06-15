@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-3xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
     <h1 class="text-xl font-semibold text-slate-900 mb-6">个人中心</h1>
 
     <div v-if="auth.user" class="space-y-6">
@@ -70,10 +70,7 @@
             <span class="text-xs text-slate-400 shrink-0">{{ item.time }}</span>
           </div>
         </div>
-        <div v-else class="text-center py-8">
-          <AppIcon name="Clock" :size="36" class="text-slate-300 mx-auto mb-2" />
-          <p class="text-sm text-slate-400">暂无浏览记录</p>
-        </div>
+        <EmptyState v-else icon="Clock" title="暂无浏览记录" />
       </div>
     </div>
 

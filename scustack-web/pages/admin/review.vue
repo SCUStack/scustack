@@ -5,7 +5,7 @@
       <p class="text-sm text-slate-500 mb-6">{{ statusLabel }} · 共 {{ total }} 项</p>
 
       <!-- Tab switcher -->
-      <div class="flex gap-1 bg-slate-100 rounded-md p-1 mb-6 w-fit">
+      <div class="flex flex-wrap gap-1 bg-slate-100 rounded-md p-1 mb-6 w-fit">
         <button
           v-for="tab in tabs"
           :key="tab.value"
@@ -20,7 +20,7 @@
       </div>
 
       <!-- Batch bar -->
-      <div v-if="selectedIds.length > 0" class="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-3">
+      <div v-if="selectedIds.length > 0" class="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
         <span class="text-sm text-primary-700">已选择 {{ selectedIds.length }} 项</span>
         <button class="h-8 px-3 rounded-md text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer" @click="batchAction('approved')">批量通过</button>
         <button class="h-8 px-3 rounded-md text-xs font-medium bg-red-600 text-white hover:bg-red-700 cursor-pointer" @click="batchAction('rejected')">批量驳回</button>
@@ -65,7 +65,17 @@
                 <span v-if="item.contributor_id"> · 贡献者：{{ String(item.contributor_id).slice(0, 8) }}...</span>
               </p>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <select
+                :value="item.trust_status || 'unverified'"
+                class="h-8 px-2 border border-slate-200 rounded text-xs"
+                @change="setTrust(item.material_id, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="unverified">未验证</option>
+                <option value="community_verified">社区验证</option>
+                <option value="maintainer_picked">维护者精选</option>
+                <option value="doubtful">存疑</option>
+              </select>
               <button
                 class="h-8 px-3 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 cursor-pointer transition-colors duration-150"
                 :disabled="actingId === item.material_id"
@@ -157,6 +167,17 @@ async function reviewItem(id: string, action: string) {
     setTimeout(() => loadQueue(), 300)
   } catch { /* noop */ }
   actingId.value = ''
+}
+
+async function setTrust(materialId: string, status: string) {
+  try {
+    await $fetch(`${apiBase}/api/v1/admin/materials/${materialId}/trust?status=${status}`, {
+      method: 'PATCH',
+      credentials: 'include',
+    })
+    const idx = items.value.findIndex((i: any) => i.material_id === materialId)
+    if (idx >= 0) items.value[idx].trust_status = status
+  } catch { /* noop */ }
 }
 
 async function batchAction(action: string) {

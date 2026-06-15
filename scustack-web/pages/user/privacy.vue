@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-3xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
     <NuxtLink to="/user/profile" class="flex items-center gap-1 text-sm text-slate-500 hover:text-primary-600 mb-4 no-underline">
       <AppIcon name="ArrowLeft" :size="14" /> 返回个人中心
     </NuxtLink>

@@ -4,7 +4,7 @@
       <h1 class="text-xl font-semibold text-slate-900 mb-1">审计日志</h1>
       <p class="text-sm text-slate-500 mb-6">共 {{ total }} 条记录</p>
 
-      <div class="mb-4 flex items-center gap-3">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
         <select v-model="filterAction" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadData">
           <option value="">全部操作</option>
           <option value="material.approved">审核通过</option>
@@ -22,7 +22,7 @@
       </div>
 
       <div v-else-if="items.length > 0" class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-        <div v-for="log in items" :key="log.id" class="px-4 py-2.5 flex items-center gap-4">
+        <div v-for="log in items" :key="log.id" class="px-4 py-2.5 flex flex-wrap items-center gap-4">
           <span :class="['w-2 h-2 rounded-full shrink-0', actionDotColor(log.action)]" />
           <div class="flex-1 min-w-0">
             <p class="text-sm text-slate-700">{{ log.action }}</p>
@@ -38,10 +38,7 @@
         </div>
       </div>
 
-      <div v-else class="text-center py-16">
-        <AppIcon name="FileSearch" :size="48" class="text-slate-300 mx-auto mb-4" />
-        <p class="text-slate-500 font-medium">暂无审计日志</p>
-      </div>
+      <EmptyState v-else icon="FileSearch" title="暂无审计日志" />
     </div>
   </NuxtLayout>
 </template>

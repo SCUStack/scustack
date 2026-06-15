@@ -34,8 +34,9 @@ const error = ref('')
 const page = ref(1)
 const totalPages = ref(0)
 let pdfDoc: any = null
+let observer: MutationObserver | undefined
 
-const { canvasWatermark } = useWatermark()
+const { canvasWatermark, observeWatermarkCanvas } = useWatermark()
 
 onMounted(async () => {
   try {
@@ -45,11 +46,25 @@ onMounted(async () => {
     pdfDoc = await loadingTask.promise
     totalPages.value = pdfDoc.numPages
     await renderPage()
+    observer = observeWatermarkCanvas(watermarkRef, renderWatermark)
   } catch {
     error.value = 'PDF 预览加载失败'
   }
   loading.value = false
 })
+
+onUnmounted(() => {
+  observer?.disconnect()
+})
+
+function renderWatermark() {
+  if (!watermarkRef.value || !canvasRef.value) return
+  const wmCanvas = watermarkRef.value
+  wmCanvas.height = canvasRef.value.height
+  wmCanvas.width = canvasRef.value.width
+  const wmCtx = wmCanvas.getContext('2d')!
+  canvasWatermark(wmCtx, wmCanvas.width, wmCanvas.height)
+}
 
 async function renderPage() {
   if (!canvasRef.value || !pdfDoc) return
@@ -60,14 +75,7 @@ async function renderPage() {
   canvas.width = viewport.width
   const ctx = canvas.getContext('2d')!
   await pdfPage.render({ canvasContext: ctx, viewport }).promise
-
-  if (watermarkRef.value) {
-    const wmCanvas = watermarkRef.value
-    wmCanvas.height = viewport.height
-    wmCanvas.width = viewport.width
-    const wmCtx = wmCanvas.getContext('2d')!
-    canvasWatermark(wmCtx, viewport.width, viewport.height)
-  }
+  renderWatermark()
 }
 
 watch(page, () => { renderPage() })

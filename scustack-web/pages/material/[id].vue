@@ -47,22 +47,19 @@
           </div>
 
           <!-- Version history -->
-          <div v-if="versions.length > 0" class="mb-8">
-            <h2 class="text-base font-medium text-slate-800 mb-3">版本历史</h2>
-            <div class="border border-slate-200 rounded-lg divide-y divide-slate-100">
-              <div v-for="(v, idx) in versions" :key="v.id" class="px-4 py-3 flex items-center gap-4">
-                <div class="w-3 h-3 rounded-full shrink-0" :class="idx === 0 ? 'bg-primary-500' : 'border-2 border-slate-300'" />
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-slate-700">
-                    v{{ v.version_number }}
-                    <span v-if="idx === 0" class="text-xs text-primary-500 ml-1">当前</span>
-                  </p>
-                  <p v-if="v.change_note" class="text-xs text-slate-500 truncate">{{ v.change_note }}</p>
-                </div>
-                <span class="text-xs text-slate-400 shrink-0">{{ formatDate(v.created_at) }}</span>
-                <span class="text-xs text-slate-400 shrink-0">{{ formatSize(v.file_size) }}</span>
-              </div>
-            </div>
+          <VersionTimeline
+            :versions="versions"
+            :is-text-format="isTextFormat"
+            @view-diff="openDiffView"
+          />
+
+          <!-- Diff view -->
+          <div v-if="showDiff && diffVersionId" class="mb-8">
+            <DiffView
+              :material-id="route.params.id as string"
+              :version-id="diffVersionId"
+              @close="showDiff = false; diffVersionId = ''"
+            />
           </div>
         </div>
 
@@ -81,6 +78,11 @@
                 <AppIcon name="ExternalLink" :size="16" /> 打开链接
               </a>
 
+              <button v-if="canUploadNewVersion" @click="showVersionUpload = true"
+                      class="flex items-center justify-center gap-2 w-full h-9 rounded-md text-sm font-medium bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
+                <AppIcon name="Upload" :size="14" /> 上传新版本
+              </button>
+
               <div class="pt-1">
                 <RatingWidget :material-id="material.id" :initial-rating="material.average_rating" :rating-count="material.rating_count" />
               </div>
@@ -95,7 +97,7 @@
 
               <button @click="copyShareLink"
                       class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors duration-150">
-                <AppIcon name="Share2" :size="14" /> {{ shareText }}
+                <AppIcon name="Share2" :size="14" /> 分享
               </button>
 
               <button @click="showReport = true"
@@ -132,12 +134,12 @@
       <p class="text-slate-500 font-medium">资料不存在或已移除</p>
     </div>
 
-    <div v-else class="flex justify-center py-16">
-      <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+    <div v-else class="py-16">
+      <SkeletonDetail />
     </div>
 
     <!-- Report modal -->
-    <div v-if="showReport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showReport = false">
+    <div v-if="showReport" role="dialog" aria-modal="true" aria-label="举报资料" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showReport = false">
       <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
         <h3 class="text-base font-medium text-slate-900 mb-4">举报资料</h3>
         <div class="space-y-3">
@@ -166,6 +168,27 @@
         </div>
       </div>
     </div>
+
+    <!-- New version modal -->
+    <div v-if="showVersionUpload" role="dialog" aria-modal="true" aria-label="上传新版本" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="closeVersionUpload">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-base font-medium text-slate-900 mb-4">上传新版本</h3>
+        <div class="space-y-4">
+          <DropZone ref="versionDropZoneRef" @update:file="onVersionFileChange" />
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">更新说明（选填）</label>
+            <textarea v-model="versionChangeNote" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-md text-sm resize-none outline-none focus:border-primary-500" placeholder="描述本次更新的内容..." />
+          </div>
+          <p v-if="versionError" class="text-sm text-red-500">{{ versionError }}</p>
+          <div class="flex justify-end gap-3 pt-1">
+            <button class="h-9 px-4 rounded-md text-sm text-slate-600 hover:bg-slate-100 cursor-pointer" @click="closeVersionUpload">取消</button>
+            <button class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!versionFile || submittingVersion" @click="submitNewVersion">
+              {{ submittingVersion ? '上传中...' : '提交新版本' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -173,18 +196,26 @@
 const route = useRoute()
 const { apiBase } = useRuntimeConfig().public
 const auth = useAuthStore()
+const toast = useToast()
 
 const material = ref<any>(null)
 const versions = ref<any[]>([])
 const related = ref<any[]>([])
 const courseName = ref('')
 const loading = ref(true)
-const shareText = ref('分享')
 const showReport = ref(false)
 const isBookmarked = ref(false)
 const reportReason = ref('')
 const reportDesc = ref('')
 const submittingReport = ref(false)
+const showVersionUpload = ref(false)
+const versionFile = ref<File | null>(null)
+const versionChangeNote = ref('')
+const submittingVersion = ref(false)
+const versionError = ref('')
+const versionDropZoneRef = ref()
+const showDiff = ref(false)
+const diffVersionId = ref('')
 
 async function submitReport() {
   if (!reportReason.value) return
@@ -199,7 +230,7 @@ async function submitReport() {
     showReport.value = false
     reportReason.value = ''
     reportDesc.value = ''
-    alert('举报已提交')
+    toast.success('举报已提交')
   } catch { /* noop */ }
   submittingReport.value = false
 }
@@ -213,6 +244,7 @@ async function toggleBookmark() {
   try {
     await doToggle(undefined, route.params.id as string)
     isBookmarked.value = !isBookmarked.value
+    toast.success(isBookmarked.value ? '已收藏' : '已取消收藏')
   } catch { /* noop */ }
 }
 
@@ -228,10 +260,34 @@ const contributorLabel = computed(() => {
   return cid.slice(0, 8) + '...'
 })
 
+const canUploadNewVersion = computed(() => {
+  if (!auth.isLoggedIn || !material.value) return false
+  if (material.value.source_type !== 'hosted') return false
+  const isOwner = auth.user?.id === material.value.contributor_id
+  const isPrivileged = auth.user?.role === 'maintainer' || auth.user?.role === 'admin'
+  return isOwner || isPrivileged
+})
+
 const breadcrumbs = computed(() => [
   { label: '首页', to: '/' },
   { label: material.value?.title || '...' },
 ])
+
+const textExtensions = new Set([
+  'txt', 'md', 'py', 'js', 'ts', 'java', 'c', 'cpp', 'h', 'hpp', 'css', 'html', 'xml',
+  'json', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'sh', 'bash', 'sql', 'r', 'go', 'rs',
+  'swift', 'kt', 'rb', 'php', 'pl', 'lua', 'vue', 'svelte', 'jsx', 'tsx', 'csv', 'log', 'tex', 'sty',
+])
+
+const isTextFormat = computed(() => {
+  if (!material.value?.format) return false
+  return textExtensions.has(material.value.format.toLowerCase())
+})
+
+function openDiffView(versionId: string) {
+  diffVersionId.value = versionId
+  showDiff.value = true
+}
 
 function saveRecentView() {
   if (!material.value) return
@@ -251,6 +307,11 @@ function saveRecentView() {
 }
 
 onMounted(async () => {
+  window.addEventListener('close-all-overlays', () => {
+    showReport.value = false
+    showVersionUpload.value = false
+  })
+
   const id = route.params.id as string
   try {
     const resp = await $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/materials/${id}`)
@@ -273,8 +334,84 @@ onMounted(async () => {
 
 async function copyShareLink() {
   await navigator.clipboard.writeText(window.location.href)
-  shareText.value = '链接已复制'
-  setTimeout(() => { shareText.value = '分享' }, 2000)
+  toast.success('链接已复制')
+}
+
+function onVersionFileChange(file: File | null) {
+  versionFile.value = file
+  versionError.value = ''
+}
+
+function closeVersionUpload() {
+  showVersionUpload.value = false
+  versionFile.value = null
+  versionChangeNote.value = ''
+  versionError.value = ''
+}
+
+async function submitNewVersion() {
+  const f = versionFile.value
+  if (!f) return
+  submittingVersion.value = true
+  versionError.value = ''
+
+  try {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', await f.arrayBuffer())
+    const fileHash = Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0')).join('')
+
+    const tokenResp = await $fetch<{ code: number; message: string; data: { upload_url: string; storage_key: string } }>(
+      `${apiBase}/api/v1/upload/token`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_name: f.name, content_type: f.type || 'application/octet-stream', file_size: f.size }),
+      },
+    )
+    if (tokenResp.code !== 0) {
+      versionError.value = tokenResp.message || '获取上传凭证失败'
+      submittingVersion.value = false
+      return
+    }
+
+    versionDropZoneRef.value?.setUploading?.(true, 0)
+    await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: f })
+    versionDropZoneRef.value?.setUploading?.(true, 100)
+
+    const resp = await $fetch<{ code: number; data: any; message: string }>(
+      `${apiBase}/api/v1/materials/${route.params.id}/versions`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storage_key: tokenResp.data.storage_key,
+          file_hash: fileHash,
+          file_size: f.size,
+          change_note: versionChangeNote.value || undefined,
+        }),
+      },
+    )
+    if (resp.code !== 0) {
+      versionError.value = resp.message || '版本上传失败'
+      submittingVersion.value = false
+      return
+    }
+
+    const [materialResp, versionResp] = await Promise.all([
+      $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/materials/${route.params.id}`),
+      $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/materials/${route.params.id}/versions`),
+    ])
+    if (materialResp.code === 0) material.value = materialResp.data
+    if (versionResp.code === 0) versions.value = versionResp.data
+    toast.success('新版本已上传')
+    closeVersionUpload()
+  } catch (e: unknown) {
+    versionError.value = (e as Error).message || '上传失败，请稍后重试'
+  } finally {
+    submittingVersion.value = false
+  }
 }
 
 function formatDate(d: string) {

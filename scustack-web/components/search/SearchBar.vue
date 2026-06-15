@@ -1,5 +1,5 @@
 <template>
-  <div class="relative" :class="variant === 'hero' ? 'w-full max-w-2xl mx-auto' : 'w-64'">
+  <div class="relative transition-all duration-300 ease-out" :class="variant === 'hero' ? 'w-full max-w-2xl mx-auto' : (isFocused ? 'w-80 sm:w-96' : 'w-48 sm:w-56')">
     <div class="relative">
       <AppIcon name="Search" :size="variant === 'hero' ? 20 : 16"
                class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -55,6 +55,7 @@ const suggestions = ref<{ id?: string; type: string; label: string; sub?: string
 const showSuggestions = ref(false)
 const highlightIdx = ref(-1)
 const inputRef = ref<HTMLInputElement>()
+const isFocused = ref(false)
 let abortController: AbortController | null = null
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -132,10 +133,12 @@ function closeSuggestions() {
 }
 
 function onFocus() {
+  isFocused.value = true
   if (suggestions.value.length > 0) showSuggestions.value = true
 }
 
 function onBlur() {
+  isFocused.value = false
   setTimeout(() => closeSuggestions(), 150)
 }
 

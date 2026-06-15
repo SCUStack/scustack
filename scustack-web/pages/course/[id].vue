@@ -57,18 +57,11 @@
         <MaterialCard v-for="item in materials" :key="item.id" :item="item" />
       </div>
 
-      <div v-if="loading" class="flex justify-center py-8">
-        <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+      <div v-if="loading" class="py-8">
+        <SkeletonList :count="4" />
       </div>
 
-      <div v-if="!loading && materials.length === 0" class="text-center py-16">
-        <AppIcon name="FolderOpen" :size="48" class="text-slate-300 mx-auto mb-4" />
-        <p class="text-slate-500 font-medium mb-1">该课程暂无资料</p>
-        <p class="text-sm text-slate-400 mb-4">成为第一位贡献者</p>
-        <NuxtLink to="/upload" class="px-4 py-2 text-sm bg-primary-700 text-white rounded-md no-underline hover:bg-primary-800">
-          上传资料
-        </NuxtLink>
-      </div>
+      <EmptyState v-if="!loading && materials.length === 0" icon="FolderOpen" title="该课程暂无资料" description="成为第一位贡献者" action-label="上传资料" action-to="/upload" />
     </div>
   </div>
 </template>
@@ -141,15 +134,17 @@ function saveRecentCourse() {
 }
 
 onMounted(async () => {
-  const [courseResp, searchResp] = await Promise.all([
-    $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/courses/${route.params.id}`),
-    $fetch<{ code: number; data: { items: any[] } }>(`${apiBase}/api/v1/search?course_id=${route.params.id}&page_size=20`),
-  ])
-  if (courseResp.code === 0) {
-    course.value = courseResp.data
-    saveRecentCourse()
-  }
-  if (searchResp.code === 0) materials.value = searchResp.data.items
+  try {
+    const [courseResp, searchResp] = await Promise.all([
+      $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/courses/${route.params.id}`),
+      $fetch<{ code: number; data: { items: any[] } }>(`${apiBase}/api/v1/search?course_id=${route.params.id}&page_size=20`),
+    ])
+    if (courseResp.code === 0) {
+      course.value = courseResp.data
+      saveRecentCourse()
+    }
+    if (searchResp.code === 0) materials.value = searchResp.data.items
+  } catch { /* noop */ }
   loading.value = false
 })
 </script>

@@ -1,32 +1,65 @@
 <template>
   <div>
-    <!-- Hero -->
-    <section class="bg-gradient-to-b from-primary-50 to-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-        <div class="text-center max-w-2xl mx-auto">
-          <h1 class="text-[2rem] font-bold text-primary-900 leading-tight mb-3">
-            查找四川大学全学科课程资料
-          </h1>
-          <p class="text-base text-slate-500 mb-8">
-            覆盖 {{ stats.collegeCount || '—' }} 个学院 · {{ stats.courseCount || '—' }} 门课程 · {{ stats.materialCount || '—' }} 份资料
-          </p>
-          <SearchBar variant="hero" placeholder="输入课程名、教师、教材名..." />
-          <div class="flex flex-wrap justify-center gap-2 mt-4">
-            <NuxtLink
-              v-for="tag in hotTags" :key="tag"
-              :to="`/search?q=${encodeURIComponent(tag)}`"
-              class="px-3 py-1 text-xs text-slate-500 bg-white rounded-full border border-slate-200 hover:border-primary-300 hover:text-primary-700 no-underline transition-colors duration-150"
-            >
-              {{ tag }}
-            </NuxtLink>
-          </div>
+    <!-- Banner carousel -->
+    <section class="relative w-full overflow-hidden bg-slate-900" style="height: 20vh; min-height: 180px; max-height: 300px;">
+      <div
+        v-for="(banner, idx) in banners" :key="idx"
+        class="absolute inset-0 transition-opacity duration-500"
+        :class="idx === activeBanner ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+      >
+        <img :src="banner.image" :alt="banner.title" class="w-full h-full object-cover" loading="eager" />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30" />
+        <div class="absolute bottom-4 left-6 right-6">
+          <h3 class="text-white font-semibold text-base sm:text-lg">{{ banner.title }}</h3>
+          <p class="text-white/70 text-xs mt-0.5">{{ banner.subtitle }}</p>
         </div>
       </div>
+
+      <div class="absolute bottom-3 right-4 flex gap-1.5 z-10">
+        <button
+          v-for="(banner, idx) in banners" :key="idx"
+          class="w-2 h-2 rounded-full transition-all duration-300 cursor-pointer border-0"
+          :class="idx === activeBanner ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/70'"
+          @click="activeBanner = idx"
+        />
+      </div>
+
+      <button
+        class="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center cursor-pointer transition-colors duration-150 border-0 z-10"
+        @click="prevBanner"
+      >
+        <AppIcon name="ChevronLeft" :size="18" />
+      </button>
+      <button
+        class="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center cursor-pointer transition-colors duration-150 border-0 z-10"
+        @click="nextBanner"
+      >
+        <AppIcon name="ChevronRight" :size="18" />
+      </button>
     </section>
 
-    <!-- Calendar recommendations -->
-    <section v-if="calendarItems.length" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div class="flex items-center gap-2 mb-5">
+    <!-- Hot courses — compact row -->
+    <ClientOnly>
+      <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
+          <NuxtLink to="/colleges" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
+            查看更多 →
+          </NuxtLink>
+        </div>
+        <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 auto-rows-fr" style="grid-template-rows: repeat(2, auto);">
+          <NuxtLink
+            v-for="c in hotCourses.slice(0, 16)" :key="c.id" :to="`/course/${c.id}`"
+            class="px-2.5 py-2 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 transition-all duration-200 no-underline cursor-pointer bg-white text-center"
+          >
+            <p class="text-xs font-medium text-slate-700 line-clamp-1">{{ c.name }}</p>
+          </NuxtLink>
+        </div>
+      </section>
+
+    <!-- Calendar recommendations — bento grid with covers -->
+    <section v-if="calendarItems.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
+      <div class="flex items-center gap-2 mb-4">
         <AppIcon name="Calendar" :size="20" class="text-accent-600" />
         <h2 class="text-lg font-semibold text-slate-800">
           <span class="px-2 py-0.5 text-xs font-medium bg-accent-50 text-accent-600 rounded-full mr-2">{{ calendarLabel }}</span>
@@ -36,45 +69,59 @@
           查看更多 →
         </NuxtLink>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MaterialCard v-for="item in calendarItems" :key="item.id" :item="item" />
-      </div>
-    </section>
-
-    <!-- Recent updates -->
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <h2 class="text-lg font-semibold text-slate-800 mb-5">近期更新</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MaterialCard v-for="item in recentItems" :key="item.id" :item="item" />
-      </div>
-      <div ref="recentSentinel" class="h-4" />
-      <div v-if="recentLoading" class="flex justify-center py-4">
-        <div class="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-      </div>
-    </section>
-
-    <!-- Hot courses -->
-    <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <h2 class="text-lg font-semibold text-slate-800 mb-5">热门课程</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <NuxtLink
-          v-for="c in hotCourses" :key="c.id" :to="`/course/${c.id}`"
-          class="block p-4 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 transition-all duration-200 no-underline cursor-pointer"
+          v-for="(item, idx) in calendarItems.slice(0, 8)" :key="item.id"
+          :to="`/material/${item.id}`"
+          :class="[
+            'relative rounded-lg overflow-hidden group cursor-pointer no-underline border border-slate-200 hover:shadow-lg transition-all duration-300',
+            idx === 0 ? 'lg:col-span-3 lg:row-span-2 col-span-2' : '',
+            idx === 1 || idx === 2 ? 'col-span-1' : '',
+            idx === 3 ? 'col-span-1' : '',
+            idx === 4 ? 'lg:col-span-2 col-span-1' : '',
+            idx === 5 ? 'col-span-1' : '',
+            idx === 6 ? 'lg:col-span-2 col-span-1' : '',
+            idx === 7 ? 'lg:col-span-2 col-span-1' : '',
+          ]"
+          :style="{ minHeight: cardHeight(idx) }"
         >
-          <p class="text-sm text-slate-400 mb-1">{{ c.college_name }}</p>
-          <p class="text-base font-medium text-slate-800 mb-2">{{ c.name }}</p>
-          <div class="flex items-center gap-3 text-xs text-slate-400">
-            <span>{{ c.material_count }} 份资料</span>
-            <span>·</span>
-            <span v-if="c.latest_updated">{{ timeAgo(c.latest_updated) }}</span>
+          <div
+            class="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+            :style="{ backgroundImage: materialGradient(item) }"
+          />
+          <div class="absolute top-3 right-3 z-10">
+            <TrustBadge :status="item.trust_status" />
+          </div>
+          <div class="absolute inset-0 flex flex-col justify-end p-3.5">
+            <p class="text-xs text-slate-500 mb-0.5">{{ item.course_name || item.course_id }} · {{ item.category }}</p>
+            <p class="text-sm font-semibold text-slate-800 mb-1.5 line-clamp-2 leading-snug" :class="idx === 0 ? 'lg:text-base' : ''">
+              {{ item.title }}
+            </p>
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+              <span class="uppercase">{{ item.format }}</span>
+              <span>↓ {{ item.download_count || 0 }}</span>
+              <span class="ml-auto">{{ timeAgo(item.created_at) }}</span>
+            </div>
           </div>
         </NuxtLink>
       </div>
     </section>
 
+    <!-- Recent updates -->
+    <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
+      <h2 class="text-lg font-semibold text-slate-800 mb-4">近期更新</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <MaterialCard v-for="item in recentItems" :key="item.id" :item="item" />
+      </div>
+      <div ref="recentSentinel" class="h-4" />
+      <div v-if="recentLoading" class="py-4">
+        <SkeletonList :count="3" />
+      </div>
+    </section>
+
     <!-- College quick entry -->
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div class="flex items-center justify-between mb-5">
+    <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6 pb-12">
+      <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-slate-800">学院快速入口</h2>
         <NuxtLink to="/colleges" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
           查看全部学院 →
@@ -84,12 +131,14 @@
         <NuxtLink
           v-for="c in colleges" :key="c.id"
           :to="`/colleges/${c.id}`"
-          class="px-4 py-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-full hover:border-primary-300 hover:text-primary-700 no-underline transition-colors duration-150"
+          class="px-4 py-1.5 text-sm rounded-full no-underline transition-colors duration-150 border"
+          :style="collegeChipStyle(c)"
         >
           {{ c.name }}
         </NuxtLink>
       </div>
     </section>
+    </ClientOnly>
   </div>
 </template>
 
@@ -98,7 +147,6 @@ definePageMeta({ title: '首页' })
 
 const { apiBase } = useRuntimeConfig().public
 
-const stats = reactive({ collegeCount: 0, courseCount: 0, materialCount: 0 })
 const calendarLabel = ref('')
 const calendarItems = ref<any[]>([])
 const recentItems = ref<any[]>([])
@@ -107,11 +155,21 @@ const recentLoading = ref(false)
 const recentSentinel = ref<HTMLElement | null>(null)
 const hotCourses = ref<any[]>([])
 const colleges = ref<{ id: string; name: string }[]>([])
-const hotTags = ['高等数学', '大学物理', '线性代数', '思政', '大学英语', '数据结构']
 
-let recentObserver: IntersectionObserver | null = null
+const banners = [
+  { image: 'https://picsum.photos/seed/scu1/1200/300', title: '期末考试资料热力上线', subtitle: '历年真题、复习提纲助你冲刺高分' },
+  { image: 'https://picsum.photos/seed/scu2/1200/300', title: '川大课栈全新改版', subtitle: '更快的搜索，更好的体验' },
+  { image: 'https://picsum.photos/seed/scu3/1200/300', title: '贡献资料，助力同学', subtitle: '上传你的笔记和资料，共建学习社区' },
+]
+const activeBanner = ref(0)
+let bannerTimer: ReturnType<typeof setInterval> | null = null
+
+function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.length }
+function prevBanner() { activeBanner.value = (activeBanner.value - 1 + banners.length) % banners.length }
 
 onMounted(async () => {
+  bannerTimer = setInterval(nextBanner, 5000)
+
   try {
     const [homeResp, collegeResp] = await Promise.all([
       $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/homepage`),
@@ -119,9 +177,6 @@ onMounted(async () => {
     ])
     if (homeResp.code === 0) {
       const d = homeResp.data
-      stats.collegeCount = d.stats.college_count
-      stats.courseCount = d.stats.course_count
-      stats.materialCount = d.stats.material_count
       calendarLabel.value = d.calendar_label
       calendarItems.value = d.calendar_recommendations || []
       recentItems.value = d.recent_updates || []
@@ -132,26 +187,84 @@ onMounted(async () => {
   } catch { /* noop */ }
 
   if (recentSentinel.value) {
-    recentObserver = new IntersectionObserver(async (entries) => {
-      if (entries[0]?.isIntersecting && !recentLoading.value) {
-        recentLoading.value = true
-        try {
-          const resp = await $fetch<{ code: number; data: any }>(
-            `${apiBase}/api/v1/homepage?cursor=${recentCursor.value}`,
-          )
-          if (resp.code === 0 && resp.data?.recent_updates?.length) {
-            recentItems.value.push(...resp.data.recent_updates)
-            recentCursor.value += resp.data.recent_updates.length
-          }
-        } catch { /* noop */ }
-        recentLoading.value = false
-      }
+    let allRecentLoaded = false
+    const recentObserver = new IntersectionObserver(async (entries) => {
+      if (allRecentLoaded || !entries[0]?.isIntersecting || recentLoading.value) return
+      recentLoading.value = true
+      try {
+        const resp = await $fetch<{ code: number; data: any }>(
+          `${apiBase}/api/v1/homepage?cursor=${recentCursor.value}`,
+        )
+        if (resp.code === 0 && resp.data?.recent_updates?.length) {
+          recentItems.value.push(...resp.data.recent_updates)
+          recentCursor.value += resp.data.recent_updates.length
+        } else {
+          allRecentLoaded = true
+        }
+      } catch { /* noop */ }
+      recentLoading.value = false
     }, { rootMargin: '200px' })
     recentObserver.observe(recentSentinel.value)
   }
 })
 
-onUnmounted(() => recentObserver?.disconnect())
+onUnmounted(() => {
+  if (bannerTimer) clearInterval(bannerTimer)
+})
+
+const materialGradients: Record<string, [string, string]> = {
+  '考试资料': ['#f0abb8', '#ffffff'],
+  '复习提纲': ['#8db8e8', '#ffffff'],
+  '课堂笔记': ['#7ccf9a', '#ffffff'],
+  '教材': ['#b8a9e8', '#ffffff'],
+  '习题答案': ['#e0d08b', '#ffffff'],
+  '实验报告': ['#c0b8e8', '#ffffff'],
+  '历年真题': ['#e0b88b', '#ffffff'],
+}
+
+function materialGradient(item: { title: string; category?: string }): string {
+  const cat = item.category || ''
+  if (materialGradients[cat]) {
+    return `linear-gradient(135deg, ${materialGradients[cat][0]} 0%, #fff 100%)`
+  }
+  let hash = 0
+  for (let i = 0; i < item.title.length; i++) {
+    hash = ((hash << 5) - hash) + item.title.charCodeAt(i)
+    hash |= 0
+  }
+  const fallback = ['#c4c8d4', '#b8c8e8', '#c4d4c4']
+  return `linear-gradient(135deg, ${fallback[Math.abs(hash) % fallback.length]} 0%, #fff 100%)`
+}
+
+function cardHeight(idx: number): string {
+  const heights = ['280px', '130px', '130px', '150px', '150px', '150px', '140px', '140px']
+  return heights[idx] || '140px'
+}
+
+const academicColors = [
+  { bg: '#eaf0f8', text: '#3b5f8c', border: '#c4d4e8' },
+  { bg: '#f8ecec', text: '#8c3b4a', border: '#e8c4c8' },
+  { bg: '#ecf4ec', text: '#3b6b3b', border: '#c4dcc4' },
+  { bg: '#f2ecf6', text: '#5c3b7a', border: '#d8c4e8' },
+  { bg: '#f6f0e8', text: '#7a5c3b', border: '#e4d4b8' },
+  { bg: '#ecf0f4', text: '#3b507a', border: '#c4d0e0' },
+  { bg: '#f2f4e8', text: '#5c6b3b', border: '#d4dcb8' },
+  { bg: '#f6eee6', text: '#7a503b', border: '#e4ccb8' },
+]
+
+function collegeChipStyle(c: { id: string; name: string }): Record<string, string> {
+  let hash = 0
+  for (let i = 0; i < c.name.length; i++) {
+    hash = ((hash << 5) - hash) + c.name.charCodeAt(i)
+    hash |= 0
+  }
+  const color = academicColors[Math.abs(hash) % academicColors.length]
+  return {
+    backgroundColor: color.bg,
+    color: color.text,
+    borderColor: color.border,
+  }
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()

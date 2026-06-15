@@ -1,7 +1,7 @@
 <template>
   <NuxtLayout name="admin">
     <div>
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-wrap items-center justify-between mb-6 gap-2">
         <div>
           <h1 class="text-xl font-semibold text-slate-900 mb-1">课程管理</h1>
           <p class="text-sm text-slate-500">共 {{ total }} 门课程</p>
@@ -10,8 +10,8 @@
       </div>
 
       <!-- Search -->
-      <div class="mb-4 flex items-center gap-3">
-        <input v-model="searchQuery" placeholder="搜索课程名称..." class="w-64 h-9 px-3 border border-slate-200 rounded-md text-sm" @input="loadCourses" />
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <input v-model="searchQuery" placeholder="搜索课程名称..." class="w-full sm:w-64 h-9 px-3 border border-slate-200 rounded-md text-sm" @input="loadCourses" />
         <select v-model="collegeFilter" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadCourses">
           <option value="">全部学院</option>
           <option v-for="c in colleges" :key="c.id" :value="c.id">{{ c.name }}</option>
@@ -23,7 +23,7 @@
       </div>
 
       <div v-else class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-        <div v-for="c in courses" :key="c.id" class="px-4 py-3 flex items-center gap-4">
+        <div v-for="c in courses" :key="c.id" class="px-4 py-3 flex flex-wrap items-center gap-4">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-slate-800">{{ c.name }}</p>
             <p class="text-xs text-slate-400 mt-0.5">

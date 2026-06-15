@@ -97,6 +97,7 @@ const dropZoneRef = ref()
 const submitting = ref(false)
 const errorMsg = ref('')
 const { apiBase } = useRuntimeConfig().public
+const toast = useToast()
 
 const canSubmit = computed(() => {
   if (!form.title || !form.courseId || !form.category || !form.semester) return false
@@ -170,6 +171,7 @@ async function submit() {
     }
 
     localStorage.removeItem('uploadDraft')
+    toast.success('上传成功')
     navigateTo('/user/contributions')
   } catch (e: unknown) {
     errorMsg.value = (e as Error).message || '提交失败，请稍后重试'

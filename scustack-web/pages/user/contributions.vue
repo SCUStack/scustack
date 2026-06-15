@@ -1,13 +1,13 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-3xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
     <NuxtLink to="/user/profile" class="flex items-center gap-1 text-sm text-slate-500 hover:text-primary-600 mb-4 no-underline">
       <AppIcon name="ArrowLeft" :size="14" /> 返回个人中心
     </NuxtLink>
 
     <h1 class="text-xl font-semibold text-slate-900 mb-6">我的贡献</h1>
 
-    <div v-if="loading" class="flex justify-center py-16">
-      <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+    <div v-if="loading" class="py-16">
+      <SkeletonList :count="3" />
     </div>
 
     <div v-else-if="items.length > 0" class="space-y-3">
@@ -45,13 +45,7 @@
       </div>
     </div>
 
-    <div v-else class="text-center py-16">
-      <AppIcon name="Upload" :size="48" class="text-slate-300 mx-auto mb-4" />
-      <p class="text-slate-500 font-medium">还没有贡献资料</p>
-      <NuxtLink to="/upload" class="inline-block mt-3 text-sm text-primary-600 hover:text-primary-700">
-        开始贡献
-      </NuxtLink>
-    </div>
+    <EmptyState v-else icon="Upload" title="还没有贡献资料" action-label="开始贡献" action-to="/upload" />
   </div>
 </template>
 

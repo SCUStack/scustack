@@ -1,7 +1,7 @@
 <template>
   <NuxtLayout name="admin">
     <div>
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-wrap items-center justify-between mb-6 gap-2">
         <div>
           <h1 class="text-xl font-semibold text-slate-900 mb-1">校历管理</h1>
           <p class="text-sm text-slate-500">共 {{ items.length }} 个校历事件</p>
@@ -21,7 +21,7 @@
       </div>
 
       <div v-else-if="items.length > 0" class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-        <div v-for="ev in items" :key="ev.id" class="px-4 py-3 flex items-center gap-3">
+        <div v-for="ev in items" :key="ev.id" class="px-4 py-3 flex flex-wrap items-center gap-3">
           <div :class="['w-2 h-2 rounded-full shrink-0', tagColor(ev.event_tag)]" />
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-slate-800">{{ ev.event_name }}</p>
@@ -35,10 +35,7 @@
         </div>
       </div>
 
-      <div v-else class="text-center py-16">
-        <AppIcon name="Calendar" :size="48" class="text-slate-300 mx-auto mb-4" />
-        <p class="text-slate-500 font-medium">暂无校历事件</p>
-      </div>
+      <EmptyState v-else icon="Calendar" title="暂无校历事件" />
 
       <!-- Form modal -->
       <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showForm = false">
