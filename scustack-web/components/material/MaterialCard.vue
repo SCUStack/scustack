@@ -1,8 +1,8 @@
 <template>
   <NuxtLink :to="`/material/${item.id}`"
-            class="block rounded-lg border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 no-underline cursor-pointer overflow-hidden">
-    <!-- Cover banner — always present, image or gradient fallback -->
-    <div class="relative w-full h-20 overflow-hidden" :style="{ background: coverSrc ? undefined : gradientBg }">
+            class="block rounded-lg border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 no-underline cursor-pointer overflow-hidden bg-white">
+    <!-- Cover banner -->
+    <div class="relative w-full h-20 overflow-hidden bg-slate-100">
       <img
         v-if="coverSrc"
         :src="coverSrc"
@@ -11,7 +11,18 @@
         loading="lazy"
         @error="onCoverError"
       />
+      <!-- Default academic gradient when no cover image -->
+      <div v-else class="w-full h-full flex items-center justify-center"
+           :style="{ background: 'linear-gradient(135deg, #1E3A5F 0%, #3B82F6 100%)' }">
+        <span class="text-white/60 text-sm font-medium">{{ item.category || '学习资料' }}</span>
+      </div>
+      <!-- 精品资料 badge -->
+      <span v-if="item.trust_status === 'maintainer_picked'"
+            class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-400 text-amber-900 shadow-sm">
+        精品
+      </span>
     </div>
+
     <div class="p-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
@@ -54,33 +65,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { resolveCoverSync } from '~/composables/useCoverImage'
 import tagsData from '~/data/covers'
 
 const props = defineProps<{ item: Record<string, any>; highlight?: string }>()
-
-const pastelGradients: Record<string, string> = {
-  '考试资料': '#f0abb8',
-  '复习提纲': '#8db8e8',
-  '课堂笔记': '#7ccf9a',
-  '教材': '#b8a9e8',
-  '习题答案': '#e0d08b',
-  '实验报告': '#c0b8e8',
-  '历年真题': '#e0b88b',
-}
-
-function cardGradient(item: Record<string, any>): string {
-  const cat = item.category || ''
-  if (pastelGradients[cat]) return pastelGradients[cat]
-  let hash = 0
-  for (let i = 0; i < item.title.length; i++) {
-    hash = ((hash << 5) - hash) + item.title.charCodeAt(i)
-    hash |= 0
-  }
-  const fallback = ['#c4c8d4', '#b8c8e8', '#c4d4c4']
-  return fallback[Math.abs(hash) % fallback.length]
-}
 
 const coverSrc = ref(
   resolveCoverSync({
@@ -89,8 +78,6 @@ const coverSrc = ref(
     category: props.item.category,
   }, tagsData)
 )
-
-const gradientBg = `linear-gradient(135deg, ${cardGradient(props.item)} 0%, ${cardGradient(props.item)}88 100%)`
 
 function onCoverError() {
   coverSrc.value = ''
