@@ -1,10 +1,10 @@
 <template>
   <NuxtLink :to="`/material/${item.id}`"
-            class="block rounded-lg border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 no-underline cursor-pointer overflow-hidden"
-            :style="{ background: `linear-gradient(135deg, ${cardGradient(item)} 0%, #fff 100%)` }">
-    <!-- Cover image -->
-    <div v-if="coverSrc" class="relative w-full h-32 overflow-hidden bg-slate-100">
+            class="block rounded-lg border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 no-underline cursor-pointer overflow-hidden">
+    <!-- Cover banner — always present, image or gradient fallback -->
+    <div class="relative w-full h-20 overflow-hidden" :style="{ background: coverSrc ? undefined : gradientBg }">
       <img
+        v-if="coverSrc"
         :src="coverSrc"
         :alt="item.title"
         class="w-full h-full object-cover"
@@ -12,7 +12,7 @@
         @error="onCoverError"
       />
     </div>
-    <div class="p-4">
+    <div class="p-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <h3 class="text-base font-medium text-slate-800 leading-snug mb-1">
@@ -67,6 +67,8 @@ const coverSrc = ref(
     category: props.item.category,
   }, tagsData)
 )
+
+const gradientBg = `linear-gradient(135deg, ${cardGradient(props.item)} 0%, ${cardGradient(props.item)}88 100%)`
 
 function onCoverError() {
   coverSrc.value = ''
