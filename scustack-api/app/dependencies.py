@@ -36,6 +36,25 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     return user
 
 
+async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)) -> User | None:
+    """Like get_current_user but returns None instead of raising 401."""
+    token = request.cookies.get('access_token')
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+    except Exception:
+        return None
+    user_id = payload.get('sub')
+    if not user_id:
+        return None
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 def require_permission(*permissions: Permission):
     async def checker(current_user: User = Depends(get_current_user)) -> User:
         role_perms = ROLE_PERMISSIONS.get(current_user.role, set())

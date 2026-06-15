@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import bump_exposure, get_exposures
+from app.models.bookmark import Bookmark
 from app.models.college import College
 from app.models.course import Course
 from app.models.material import Material
@@ -50,6 +51,20 @@ SLOT_PLAN = {
     'best_remaining': 4,
 }
 TOTAL_SLOTS = sum(SLOT_PLAN.values())
+
+PERSONALIZED_SLOT_PLAN = {
+    'calendar_quality': 2,
+    'cold_start': 2,
+    'exploration': 1,
+    'college_affinity': 1,
+    'course_affinity': 1,
+    'best_remaining': 3,
+}
+PERSONALIZED_TOTAL_SLOTS = sum(PERSONALIZED_SLOT_PLAN.values())
+
+COLLEGE_BOOST = 0.15
+COURSE_BOOST_BOOKMARK = 0.30
+COURSE_BOOST_DOWNLOAD = 0.15
 
 CATEGORY_CALENDAR_MAP = {
     1: ['考试资料', '复习提纲'],   # 期末季后
@@ -250,6 +265,207 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
     remaining_pool = [(m, s) for m, s in scored if m.id not in used]
     remaining_pool.sort(key=lambda x: x[1], reverse=True)
     result_mats.extend(_pick_from(remaining_pool, used, SLOT_PLAN['best_remaining'], per_contrib_max=2))
+
+    # ── Record exposures ─────────────────────────────────────────
+    for m in result_mats:
+        if m.contributor_id:
+            await bump_exposure(str(m.contributor_id))
+
+    return result_mats
+
+
+# ── Personalized recommendation ──────────────────────────────────────
+
+
+async def _infer_user_college(db: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | None:
+    """Infer user's college from their most-bookmarked course's college."""
+    result = await db.execute(
+        select(Course.college_id, func.count(Bookmark.id).label('cnt'))
+        .join(Bookmark, Bookmark.course_id == Course.id)
+        .where(Bookmark.user_id == user_id)
+        .group_by(Course.college_id)
+        .order_by(func.count(Bookmark.id).desc())
+        .limit(1)
+    )
+    row = result.first()
+    return row[0] if row else None
+
+
+async def _get_user_affinity_data(
+    db: AsyncSession, user_id: uuid.UUID
+) -> tuple[set[uuid.UUID], set[uuid.UUID], set[str], uuid.UUID | None]:
+    """Collect user's bookmarked courses, downloaded courses, preferred categories, and college."""
+    # Bookmarked courses
+    bm_result = await db.execute(
+        select(Bookmark.course_id).where(Bookmark.user_id == user_id, Bookmark.course_id.isnot(None))
+    )
+    bookmarked = {row[0] for row in bm_result.all()}
+
+    # Preferred categories: from bookmarked courses' materials
+    downloaded_courses: set[uuid.UUID] = set()
+    preferred_cats: set[str] = set()
+
+    if bookmarked:
+        # Get categories of materials in bookmarked courses
+        cat_result = await db.execute(
+            select(Material.category)
+            .where(Material.course_id.in_(bookmarked))
+            .group_by(Material.category)
+        )
+        preferred_cats = {row[0] for row in cat_result.all()}
+
+    # Infer college from bookmarks
+    college_id = await _infer_user_college(db, user_id)
+
+    return bookmarked, downloaded_courses, preferred_cats, college_id
+
+
+def _personalize_scores(
+    scored: list[tuple[Material, float]],
+    college_id: uuid.UUID | None,
+    bookmarked_courses: set[uuid.UUID],
+    preferred_categories: set[str],
+) -> list[tuple[Material, float]]:
+    """Apply college and course affinity boosts to scored materials."""
+    adjusted = []
+    for m, s in scored:
+        boost = 1.0
+
+        if college_id is not None and m.course_id is not None:
+            # Check if material's course belongs to user's college
+            # We don't have course.college_id directly on Material.
+            # We'll filter by college in the pool stage instead.
+            pass
+
+        if bookmarked_courses and m.course_id in bookmarked_courses:
+            boost += COURSE_BOOST_BOOKMARK
+        elif preferred_categories and m.category in preferred_categories:
+            boost += COURSE_BOOST_DOWNLOAD
+
+        adjusted.append((m, s * boost))
+    return adjusted
+
+
+async def get_personalized_recommendations(
+    db: AsyncSession, user_id: uuid.UUID
+) -> list[Material]:
+    """Personalized slot-based recommendation for a logged-in user.
+
+    Same base algorithm as get_calendar_recommendations plus:
+      College affinity pool (1 slot) → materials from user's inferred college
+      Course affinity pool  (1 slot) → materials from bookmarked/preferred courses
+    """
+    now = datetime.now(timezone.utc)
+    month = now.month
+    calendar_targets = set(
+        CATEGORY_CALENDAR_MAP.get(month, ['课堂笔记', '考试资料'])
+    )
+
+    # ── Fetch user affinity data ──────────────────────────────────
+    bookmarked, _, preferred_cats, inferred_college = await _get_user_affinity_data(
+        db, user_id
+    )
+
+    # ── Fetch eligible materials ─────────────────────────────────
+    six_months_ago = now - timedelta(days=180)
+    result = await db.execute(
+        select(Material)
+        .where(
+            Material.review_status == 'approved',
+            Material.trust_status != 'doubtful',
+            Material.created_at >= six_months_ago,
+        )
+        .order_by(Material.created_at.desc())
+    )
+    materials = list(result.scalars().all())
+    if not materials:
+        return []
+
+    # ── Identify vulnerable contributors ─────────────────────────
+    contributor_ids = list({m.contributor_id for m in materials if m.contributor_id})
+    vulnerable_ids: set[str] = set()
+
+    cutoff = now - timedelta(days=NEWCOMER_DAYS)
+    newcomer_result = await db.execute(
+        select(User.id).where(User.created_at >= cutoff, User.id.in_(contributor_ids))
+    )
+    vulnerable_ids.update(str(uid) for (uid,) in newcomer_result.all())
+
+    count_result = await db.execute(
+        select(Material.contributor_id, func.count(Material.id))
+        .where(Material.contributor_id.in_(contributor_ids))
+        .group_by(Material.contributor_id)
+    )
+    for cid, cnt in count_result.all():
+        if cnt <= VULNERABLE_MAX_MATERIALS:
+            vulnerable_ids.add(str(cid))
+
+    # ── Identify materials in user's college ─────────────────────
+    college_material_ids: set[uuid.UUID] = set()
+    if inferred_college is not None:
+        college_result = await db.execute(
+            select(Material.id)
+            .join(Course, Material.course_id == Course.id)
+            .where(Course.college_id == inferred_college)
+        )
+        college_material_ids = {row[0] for row in college_result.all()}
+
+    # ── Score ────────────────────────────────────────────────────
+    exposure_counts = await get_exposures([str(cid) for cid in contributor_ids])
+    scored = _compute_scores(
+        materials, now, calendar_targets, exposure_counts, vulnerable_ids
+    )
+    scored = _personalize_scores(
+        scored, inferred_college, bookmarked, preferred_cats
+    )
+
+    cold_cutoff = now - timedelta(hours=COLD_START_HOURS)
+    used: set[uuid.UUID] = set()
+
+    # Phase 1: Calendar quality
+    calendar_pool = [(m, s) for m, s in scored if m.category in calendar_targets]
+    calendar_pool.sort(key=lambda x: x[1], reverse=True)
+    result_mats = _pick_from(calendar_pool, used, PERSONALIZED_SLOT_PLAN['calendar_quality'], per_contrib_max=1)
+
+    # Phase 2: Cold start
+    cold_pool = [
+        (m, s) for m, s in scored
+        if m.created_at and m.created_at >= cold_cutoff
+        and (m.rating_count or 0) >= COLD_START_MIN_RATINGS
+    ]
+    cold_pool.sort(key=lambda x: x[1], reverse=True)
+    result_mats.extend(_pick_from(cold_pool, used, PERSONALIZED_SLOT_PLAN['cold_start'], per_contrib_max=1))
+
+    # Phase 3: Exploration (vulnerable contributors only)
+    explore_pool = [
+        (m, s) for m, s in scored
+        if str(m.contributor_id) in vulnerable_ids
+    ]
+    explore_pool.sort(key=lambda x: x[1], reverse=True)
+    result_mats.extend(_pick_from(explore_pool, used, PERSONALIZED_SLOT_PLAN['exploration'], per_contrib_max=1))
+
+    # Phase 4: College affinity (materials from user's inferred college)
+    if inferred_college is not None and college_material_ids:
+        college_pool = [
+            (m, s) for m, s in scored
+            if m.id in college_material_ids
+        ]
+        college_pool.sort(key=lambda x: x[1], reverse=True)
+        result_mats.extend(_pick_from(college_pool, used, PERSONALIZED_SLOT_PLAN['college_affinity'], per_contrib_max=1))
+
+    # Phase 5: Course affinity (bookmarked courses + preferred categories)
+    course_pool = [
+        (m, s) for m, s in scored
+        if (bookmarked and m.course_id in bookmarked)
+        or (preferred_cats and m.category in preferred_cats)
+    ]
+    course_pool.sort(key=lambda x: x[1], reverse=True)
+    result_mats.extend(_pick_from(course_pool, used, PERSONALIZED_SLOT_PLAN['course_affinity'], per_contrib_max=1))
+
+    # Phase 6: Best remaining
+    remaining_pool = [(m, s) for m, s in scored if m.id not in used]
+    remaining_pool.sort(key=lambda x: x[1], reverse=True)
+    result_mats.extend(_pick_from(remaining_pool, used, PERSONALIZED_SLOT_PLAN['best_remaining'], per_contrib_max=2))
 
     # ── Record exposures ─────────────────────────────────────────
     for m in result_mats:

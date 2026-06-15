@@ -12,7 +12,9 @@ from app.services.homepage_service import (
     _freshness_score,
     _calendar_score,
     _pick_from,
+    _personalize_scores,
     get_calendar_recommendations,
+    get_personalized_recommendations,
     get_stats,
     get_calendar_label,
     W_QUALITY,
@@ -21,6 +23,7 @@ from app.services.homepage_service import (
     W_CALENDAR,
     SLOT_PLAN,
     TOTAL_SLOTS,
+    PERSONALIZED_TOTAL_SLOTS,
 )
 
 
@@ -345,3 +348,113 @@ class TestFullPipeline:
                         all_result_cids.add(str(m.contributor_id))
 
         assert len(all_result_cids) >= 8
+
+
+class TestPersonalization:
+    """Tests for the personalized recommendation pipeline."""
+
+    def test_personalize_scores_boosts_bookmarked(self):
+        """Materials from bookmarked courses get a score boost."""
+        cid = uuid.uuid4()
+        m1 = make_material(cid='a' * 32)
+        m1.course_id = cid
+        m2 = make_material(cid='b' * 32)
+        m2.course_id = uuid.uuid4()
+
+        scored = [(m1, 1.0), (m2, 1.0)]
+        adjusted = _personalize_scores(scored, None, {cid}, set())
+
+        # m1 (bookmarked course) should rank higher than m2
+        assert adjusted[0][1] > adjusted[1][1]
+        # Boost should be exactly 1.0 + COURSE_BOOST_BOOKMARK
+        assert abs(adjusted[0][1] - 1.30) < 0.01
+
+    def test_personalize_scores_boosts_preferred_category(self):
+        """Materials in preferred categories get a download-level boost."""
+        m = make_material(category='考试资料')
+        scored = [(m, 1.0)]
+        adjusted = _personalize_scores(scored, None, set(), {'考试资料', '课堂笔记'})
+        assert abs(adjusted[0][1] - 1.15) < 0.01
+
+    def test_personalize_scores_noop_without_context(self):
+        """No boost when user has no bookmarks or preferences."""
+        m = make_material()
+        scored = [(m, 1.0)]
+        adjusted = _personalize_scores(scored, None, set(), set())
+        assert adjusted[0][1] == 1.0
+
+    def test_personalize_scores_sort_order(self):
+        """Materials with higher affinity sort above others."""
+        bm_cid = uuid.uuid4()
+        m_bookmark = make_material(cid='a' * 32, download_count=10)
+        m_bookmark.course_id = bm_cid
+        m_prefcat = make_material(cid='b' * 32, category='复习提纲', download_count=10)
+        m_none = make_material(cid='c' * 32, download_count=10)
+
+        scored = [(m_bookmark, 1.0), (m_prefcat, 1.0), (m_none, 1.0)]
+        adjusted = _personalize_scores(scored, None, {bm_cid}, {'复习提纲'})
+        adjusted.sort(key=lambda x: x[1], reverse=True)
+
+        assert adjusted[0][0] is m_bookmark   # bookmark boost (1.30x)
+        assert adjusted[1][0] is m_prefcat    # category boost (1.15x)
+        assert adjusted[2][0] is m_none       # no boost (1.00x)
+
+    @pytest.mark.asyncio
+    async def test_personalized_pipeline_runs(self):
+        """Personalized pipeline returns recommendations."""
+        mats = [make_material(cid=f'{i:032d}', category='考试资料') for i in range(30)]
+
+        # Single mock that returns materials for .scalars().all()
+        # and empty for .all() and None for .first()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = mats
+        mock_result.all.return_value = []
+        mock_result.first.return_value = None
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        with patch('app.services.homepage_service.get_exposures', new=AsyncMock(return_value={})):
+            with patch('app.services.homepage_service.bump_exposure', new=AsyncMock()):
+                result = await get_personalized_recommendations(
+                    mock_db, uuid.UUID('a' * 32)
+                )
+                assert len(result) <= PERSONALIZED_TOTAL_SLOTS
+                assert len(result) >= 5
+
+    @pytest.mark.asyncio
+    async def test_personalized_pipeline_empty_materials(self):
+        """Personalized returns empty when no materials exist."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_result.all.return_value = []
+        mock_result.first.return_value = None
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        with patch('app.services.homepage_service.get_exposures', new=AsyncMock(return_value={})):
+            result = await get_personalized_recommendations(
+                mock_db, uuid.UUID('a' * 32)
+            )
+            assert result == []
+
+    @pytest.mark.asyncio
+    async def test_personalized_noop_for_user_without_history(self):
+        """User with no bookmarks still gets recommendations from generic pools."""
+        mats = [make_material(cid=f'{i:032d}', category='考试资料') for i in range(30)]
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = mats
+        mock_result.all.return_value = []
+        mock_result.first.return_value = None
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        with patch('app.services.homepage_service.get_exposures', new=AsyncMock(return_value={})):
+            with patch('app.services.homepage_service.bump_exposure', new=AsyncMock()):
+                result = await get_personalized_recommendations(
+                    mock_db, uuid.UUID('a' * 32)
+                )
+                assert len(result) >= 5
