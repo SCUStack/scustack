@@ -60,20 +60,6 @@ import tagsData from '~/data/covers'
 
 const props = defineProps<{ item: Record<string, any>; highlight?: string }>()
 
-const coverSrc = ref(
-  resolveCoverSync({
-    id: props.item.id,
-    title: props.item.title,
-    category: props.item.category,
-  }, tagsData)
-)
-
-const gradientBg = `linear-gradient(135deg, ${cardGradient(props.item)} 0%, ${cardGradient(props.item)}88 100%)`
-
-function onCoverError() {
-  coverSrc.value = ''
-}
-
 const pastelGradients: Record<string, string> = {
   '考试资料': '#f0abb8',
   '复习提纲': '#8db8e8',
@@ -94,6 +80,20 @@ function cardGradient(item: Record<string, any>): string {
   }
   const fallback = ['#c4c8d4', '#b8c8e8', '#c4d4c4']
   return fallback[Math.abs(hash) % fallback.length]
+}
+
+const coverSrc = ref(
+  resolveCoverSync({
+    id: props.item.id,
+    title: props.item.title,
+    category: props.item.category,
+  }, tagsData)
+)
+
+const gradientBg = `linear-gradient(135deg, ${cardGradient(props.item)} 0%, ${cardGradient(props.item)}88 100%)`
+
+function onCoverError() {
+  coverSrc.value = ''
 }
 
 function highlightText(text: string, query: string): string {
