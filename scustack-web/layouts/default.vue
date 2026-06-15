@@ -13,9 +13,27 @@
           <NuxtLink to="/upload" class="text-sm text-slate-600 hover:text-primary-600 no-underline">
             上传
           </NuxtLink>
+          <template v-if="auth.isLoggedIn">
+            <NuxtLink to="/user/profile" class="text-sm text-slate-600 hover:text-primary-600 no-underline">
+              {{ auth.user?.nickname }}
+            </NuxtLink>
+            <button class="text-sm text-slate-500 hover:text-slate-700 cursor-pointer" @click="auth.doLogout()">
+              退出
+            </button>
+          </template>
+          <button
+            v-else
+            class="text-sm text-primary-700 hover:text-primary-800 font-medium cursor-pointer"
+            @click="auth.openLogin()"
+          >
+            登录
+          </button>
         </nav>
       </div>
     </header>
+
+    <LoginModal />
+
     <main>
       <slot />
     </main>
@@ -23,4 +41,9 @@
 </template>
 
 <script setup lang="ts">
+const auth = useAuthStore()
+
+onMounted(async () => {
+  await auth.fetchUser()
+})
 </script>
