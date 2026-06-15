@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     OSS_ENDPOINT: str = ''
     OSS_BUCKET: str = ''
 
+    # JWT
+    JWT_SECRET_KEY: str = 'change-me-in-production'
+    JWT_ALGORITHM: str = 'HS256'
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # SMS
+    SMS_ACCESS_KEY_ID: str = ''
+    SMS_ACCESS_KEY_SECRET: str = ''
+    SMS_SIGN_NAME: str = '川大课栈'
+    SMS_TEMPLATE_CODE: str = ''
+
     model_config = {'env_prefix': 'SCUSTACK_', 'env_file': '.env'}
 
     @property

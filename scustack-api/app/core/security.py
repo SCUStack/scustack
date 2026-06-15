@@ -1,6 +1,12 @@
 import hashlib
 import os
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from jose import jwt
+
+from app.core.config import settings
 
 
 def _get_key() -> bytes:
@@ -24,3 +30,23 @@ def decrypt_pii(hex_data: str) -> str:
     nonce, ciphertext = raw[:12], raw[12:]
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(nonce, ciphertext, None).decode()
+
+
+def create_access_token(user_id: str, role: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        'sub': user_id,
+        'role': role,
+        'iat': now,
+        'exp': now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        'jti': uuid4().hex,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token() -> str:
+    return uuid4().hex + uuid4().hex
+
+
+def decode_token(token: str) -> dict:
+    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
