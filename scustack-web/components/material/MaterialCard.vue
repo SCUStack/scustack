@@ -14,9 +14,6 @@
       <TrustBadge :status="item.trust_status" />
     </div>
     <div class="absolute inset-0 flex flex-col justify-end p-3.5 bg-gradient-to-t from-black/60 via-black/20 to-transparent">
-      <p class="text-xs text-white/80 mb-0.5">
-        {{ item.course_name || item.course_id }} · {{ item.category }}
-      </p>
       <p class="text-sm font-semibold text-white mb-1.5 line-clamp-2 leading-snug">
         <span v-if="highlight" v-html="highlightText(item.title, highlight)" />
         <span v-else>{{ item.title }}</span>
