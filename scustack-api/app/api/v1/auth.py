@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.dependencies import get_current_user
+from app.models.user import User
 from app.schemas.auth import SmsSendRequest, SmsVerifyRequest
 from app.schemas.user import TokenResponse
 from app.services.auth_service import (
@@ -54,7 +56,7 @@ async def sms_send(body: SmsSendRequest, request: Request):
 
 
 @router.post('/sms/verify')
-async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def sms_verify(body: SmsVerifyRequest, db: AsyncSession = Depends(get_db)):
     try:
         tokens = await verify_sms_code(db, body.phone, body.code)
     except SmsVerifyError as e:
@@ -101,3 +103,18 @@ async def logout(request: Request, response: Response, db: AsyncSession = Depend
         await db.commit()
     _clear_token_cookies(response)
     return {'code': 0, 'data': None, 'message': 'logged out'}
+
+
+@router.get('/me')
+async def me(current_user: User = Depends(get_current_user)):
+    return {
+        'code': 0,
+        'data': {
+            'id': str(current_user.id),
+            'nickname': current_user.nickname,
+            'role': current_user.role,
+            'avatar_url': current_user.avatar_url,
+            'trust_score': current_user.trust_score,
+        },
+        'message': 'ok',
+    }

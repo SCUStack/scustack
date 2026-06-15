@@ -1,8 +1,47 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, Request
+from fastapi.exceptions import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.permissions import Permission, ROLE_PERMISSIONS
+from app.core.security import decode_token
+from app.models.user import User
 
 DBSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
+    token = request.cookies.get('access_token')
+    if not token:
+        raise HTTPException(status_code=401, detail='not authenticated')
+
+    try:
+        payload = decode_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail='invalid or expired token')
+
+    user_id = payload.get('sub')
+    if not user_id:
+        raise HTTPException(status_code=401, detail='invalid token payload')
+
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=401, detail='user not found or disabled')
+
+    return user
+
+
+def require_permission(*permissions: Permission):
+    async def checker(current_user: User = Depends(get_current_user)) -> User:
+        role_perms = ROLE_PERMISSIONS.get(current_user.role, set())
+        required = set(permissions)
+        if not required.issubset(role_perms):
+            raise HTTPException(status_code=403, detail='forbidden')
+        return current_user
+
+    return checker

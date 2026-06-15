@@ -137,3 +137,54 @@ class TestJwtTokens:
                 decode_token(token)
         finally:
             settings.ACCESS_TOKEN_EXPIRE_MINUTES = original
+
+
+class TestGetCurrentUser:
+    async def test_no_cookie_returns_401(self, client):
+        resp = await client.get('/api/v1/auth/me')
+        assert resp.status_code == 401
+
+    async def test_invalid_token_returns_401(self, client):
+        client.cookies.set('access_token', 'not-a-valid-jwt')
+        resp = await client.get('/api/v1/auth/me')
+        assert resp.status_code == 401
+
+    async def test_valid_auth_returns_user(self, client):
+        from unittest.mock import MagicMock
+        from app.dependencies import get_current_user as original_get_current_user
+
+        mock_user = MagicMock()
+        mock_user.id = '00000000-0000-0000-0000-000000000001'
+        mock_user.nickname = 'testuser'
+        mock_user.role = 'student'
+        mock_user.avatar_url = None
+        mock_user.trust_score = 0
+
+        async def _override():
+            return mock_user
+
+        app.dependency_overrides[original_get_current_user] = _override
+        try:
+            resp = await client.get('/api/v1/auth/me')
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body['data']['nickname'] == 'testuser'
+            assert body['data']['role'] == 'student'
+        finally:
+            app.dependency_overrides.clear()
+
+
+class TestPermissions:
+    def test_role_permission_mapping(self):
+        from app.core.permissions import Permission, ROLE_PERMISSIONS
+        assert Permission.MATERIALS_READ in ROLE_PERMISSIONS['visitor']
+        assert Permission.MATERIALS_CREATE not in ROLE_PERMISSIONS['visitor']
+        assert Permission.MATERIALS_MODERATE in ROLE_PERMISSIONS['maintainer']
+        assert Permission.USERS_MANAGE not in ROLE_PERMISSIONS['maintainer']
+        assert Permission.USERS_MANAGE in ROLE_PERMISSIONS['admin']
+
+    def test_admin_has_all_permissions(self):
+        from app.core.permissions import Permission, ROLE_PERMISSIONS
+        for perm in Permission:
+            assert perm in ROLE_PERMISSIONS['admin']
+
