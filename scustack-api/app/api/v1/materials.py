@@ -15,7 +15,7 @@ from app.schemas.material import (
     MaterialCreate, MaterialResponse, MaterialUpdate,
     RatingRequest, VersionResponse,
 )
-from app.services import material_service
+from app.services import material_service, user_service
 
 router = APIRouter(prefix='/materials', tags=['materials'])
 
@@ -51,6 +51,11 @@ async def create_material(
     current_user: User = Depends(get_current_user),
 ):
     m = await material_service.create_material(db, current_user.id, **body.model_dump(exclude_none=True))
+    await db.flush()
+    try:
+        await user_service.notify_course_followers(db, m.course_id, m.title, m.id)
+    except Exception:
+        pass  # Non-critical; don't fail material creation
     await db.commit()
     return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'material created'}
 

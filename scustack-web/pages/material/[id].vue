@@ -85,6 +85,14 @@
                 <RatingWidget :material-id="material.id" :initial-rating="material.average_rating" :rating-count="material.rating_count" />
               </div>
 
+              <button @click="toggleBookmark"
+                      :class="[
+                        'flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs cursor-pointer transition-colors duration-150',
+                        isBookmarked ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+                      ]">
+                <AppIcon :name="isBookmarked ? 'BookmarkCheck' : 'Bookmark'" :size="14" /> {{ isBookmarked ? '已收藏' : '收藏' }}
+              </button>
+
               <button @click="copyShareLink"
                       class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors duration-150">
                 <AppIcon name="Share2" :size="14" /> {{ shareText }}
@@ -142,6 +150,19 @@ const courseName = ref('')
 const loading = ref(true)
 const shareText = ref('分享')
 const showReport = ref(false)
+const isBookmarked = ref(false)
+
+async function toggleBookmark() {
+  if (!auth.isLoggedIn) {
+    auth.openLogin()
+    return
+  }
+  const { toggleBookmark: doToggle } = useAuth()
+  try {
+    await doToggle(undefined, route.params.id as string)
+    isBookmarked.value = !isBookmarked.value
+  } catch { /* noop */ }
+}
 
 const downloadUrl = computed(() => `${apiBase}/api/v1/materials/${route.params.id}/download`)
 const previewUrl = computed(() => {
@@ -160,11 +181,31 @@ const breadcrumbs = computed(() => [
   { label: material.value?.title || '...' },
 ])
 
+function saveRecentView() {
+  if (!material.value) return
+  try {
+    const raw = localStorage.getItem('scustack_recent')
+    const list: any[] = raw ? JSON.parse(raw) : []
+    const filtered = list.filter((i: any) => i.id !== material.value.id)
+    filtered.unshift({
+      id: material.value.id,
+      type: 'material',
+      title: material.value.title,
+      url: `/material/${material.value.id}`,
+      time: new Date().toLocaleDateString('zh-CN'),
+    })
+    localStorage.setItem('scustack_recent', JSON.stringify(filtered.slice(0, 20)))
+  } catch { /* ignore */ }
+}
+
 onMounted(async () => {
   const id = route.params.id as string
   try {
     const resp = await $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/materials/${id}`)
-    if (resp.code === 0) material.value = resp.data
+    if (resp.code === 0) {
+      material.value = resp.data
+      saveRecentView()
+    }
 
     const [versionResp, relatedResp, courseResp] = await Promise.all([
       $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/materials/${id}/versions`).catch(() => ({ code: 0, data: [] })),

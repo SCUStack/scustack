@@ -25,6 +25,7 @@ class User(Base):
     trust_score: Mapped[int] = mapped_column(
         Integer, nullable=False, insert_default=0, server_default='0'
     )
+    public_display_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, insert_default=True, server_default='true'
     )

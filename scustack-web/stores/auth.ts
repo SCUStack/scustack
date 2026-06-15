@@ -6,12 +6,14 @@ interface UserInfo {
   role: string
   avatarUrl: string | null
   trustScore: number
+  publicDisplayName: string | null
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserInfo | null>(null)
   const isLoggedIn = computed(() => user.value !== null)
   const isLoginModalOpen = ref(false)
+  const unreadNotificationCount = ref(0)
 
   function openLogin() {
     isLoginModalOpen.value = true
@@ -38,6 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
         role: resp.data.role,
         avatarUrl: resp.data.avatar_url,
         trustScore: resp.data.trust_score,
+        publicDisplayName: resp.data.public_display_name,
       }
     } else {
       user.value = null
@@ -58,17 +61,39 @@ export const useAuthStore = defineStore('auth', () => {
     const { logout } = useAuth()
     await logout()
     user.value = null
+    unreadNotificationCount.value = 0
+  }
+
+  async function updateProfile(fields: { nickname?: string }) {
+    const { updateProfile } = useAuth()
+    const resp = await updateProfile(fields)
+    if (resp.code === 0 && user.value) {
+      if (fields.nickname) user.value.nickname = fields.nickname
+    }
+    return resp
+  }
+
+  async function fetchUnreadCount() {
+    if (!isLoggedIn.value) return
+    const { getUnreadCount } = useAuth()
+    const resp = await getUnreadCount()
+    if (resp.code === 0) {
+      unreadNotificationCount.value = resp.data.count
+    }
   }
 
   return {
     user,
     isLoggedIn,
     isLoginModalOpen,
+    unreadNotificationCount,
     openLogin,
     closeLogin,
     login,
     fetchUser,
     doRefresh,
     doLogout,
+    updateProfile,
+    fetchUnreadCount,
   }
 })

@@ -41,16 +41,101 @@ export function useAuth() {
   }
 
   async function getMe() {
-    return $fetch<{ code: number; data: { id: string; nickname: string; role: string; avatar_url: string | null; trust_score: number } | null; message: string }>(
-      `${base}/api/v1/auth/me`,
+    return $fetch<{ code: number; data: { id: string; nickname: string; role: string; avatar_url: string | null; trust_score: number; public_display_name: string | null; created_at: string } | null; message: string }>(
+      `${base}/api/v1/me`,
       { credentials: 'include' },
     )
   }
 
-  async function getWechatUrl() {
-    return $fetch<{ code: number; data: { url: string }; message: string }>(
-      `${base}/api/v1/auth/wechat/url`,
+  async function updateProfile(body: { nickname?: string; avatar_url?: string; public_display_name?: string }) {
+    return $fetch<{ code: number; data: any; message: string }>(
+      `${base}/api/v1/me`,
+      {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    )
+  }
+
+  async function getContributions(limit = 20, offset = 0) {
+    return $fetch<{ code: number; data: { items: any[]; total: number }; message: string }>(
+      `${base}/api/v1/me/contributions?limit=${limit}&offset=${offset}`,
       { credentials: 'include' },
+    )
+  }
+
+  async function toggleBookmark(courseId?: string, materialId?: string) {
+    return $fetch<{ code: number; data: { action: string; bookmark_id: string }; message: string }>(
+      `${base}/api/v1/bookmarks`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_id: courseId || null, material_id: materialId || null }),
+      },
+    )
+  }
+
+  async function getBookmarks(type: 'course' | 'material' = 'course') {
+    return $fetch<{ code: number; data: any[]; message: string }>(
+      `${base}/api/v1/bookmarks?type=${type}`,
+      { credentials: 'include' },
+    )
+  }
+
+  async function getNotifications(limit = 20, offset = 0) {
+    return $fetch<{ code: number; data: { items: any[]; unread_count: number }; message: string }>(
+      `${base}/api/v1/me/notifications?limit=${limit}&offset=${offset}`,
+      { credentials: 'include' },
+    )
+  }
+
+  async function getUnreadCount() {
+    return $fetch<{ code: number; data: { count: number }; message: string }>(
+      `${base}/api/v1/me/unread-count`,
+      { credentials: 'include' },
+    )
+  }
+
+  async function markNotificationRead(notificationId: string) {
+    return $fetch<{ code: number; message: string }>(
+      `${base}/api/v1/me/notifications/${notificationId}/read`,
+      { method: 'PATCH', credentials: 'include' },
+    )
+  }
+
+  async function markAllNotificationsRead() {
+    return $fetch<{ code: number; message: string }>(
+      `${base}/api/v1/me/notifications/read-all`,
+      { method: 'PATCH', credentials: 'include' },
+    )
+  }
+
+  async function getPrivacy() {
+    return $fetch<{ code: number; data: { public_display_name: string }; message: string }>(
+      `${base}/api/v1/me/privacy`,
+      { credentials: 'include' },
+    )
+  }
+
+  async function updatePrivacy(publicDisplayName: string) {
+    return $fetch<{ code: number; message: string }>(
+      `${base}/api/v1/me/privacy`,
+      {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ public_display_name: publicDisplayName }),
+      },
+    )
+  }
+
+  async function deactivateAccount() {
+    return $fetch<{ code: number; message: string }>(
+      `${base}/api/v1/me/deactivate`,
+      { method: 'POST', credentials: 'include' },
     )
   }
 
@@ -68,5 +153,18 @@ export function useAuth() {
     )
   }
 
-  return { sendCode, verifyCode, refresh, logout, getMe, getWechatUrl, getSessions, deleteSession }
+  async function getWechatUrl() {
+    return $fetch<{ code: number; data: { url: string }; message: string }>(
+      `${base}/api/v1/auth/wechat/url`,
+      { credentials: 'include' },
+    )
+  }
+
+  return {
+    sendCode, verifyCode, refresh, logout, getMe, updateProfile,
+    getContributions, toggleBookmark, getBookmarks,
+    getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead,
+    getPrivacy, updatePrivacy, deactivateAccount,
+    getSessions, deleteSession, getWechatUrl,
+  }
 }

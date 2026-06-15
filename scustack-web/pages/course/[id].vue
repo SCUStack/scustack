@@ -11,6 +11,24 @@
           {{ course.college?.name }} · {{ course.category || '未分类' }}
           <span v-if="course.credit">· {{ course.credit }} 学分</span>
         </p>
+        <div class="mt-3 flex items-center gap-3">
+          <button
+            @click="toggleFollow"
+            :class="[
+              'inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-medium cursor-pointer transition-colors duration-150',
+              isFollowing ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
+            ]"
+          >
+            <AppIcon :name="isFollowing ? 'BellRing' : 'Bell'" :size="14" />
+            {{ isFollowing ? '已关注' : '关注课程' }}
+          </button>
+          <NuxtLink
+            to="/upload"
+            class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline transition-colors duration-150"
+          >
+            <AppIcon name="Upload" :size="14" /> 贡献资料
+          </NuxtLink>
+        </div>
       </div>
 
       <div class="flex items-center gap-3 mb-6">
@@ -59,9 +77,23 @@
 const route = useRoute()
 const { apiBase } = useRuntimeConfig().public
 
+const auth = useAuthStore()
 const course = ref<any>(null)
 const materials = ref<any[]>([])
 const loading = ref(true)
+const isFollowing = ref(false)
+
+async function toggleFollow() {
+  if (!auth.isLoggedIn) {
+    auth.openLogin()
+    return
+  }
+  const { toggleBookmark } = useAuth()
+  try {
+    await toggleBookmark(route.params.id as string, undefined)
+    isFollowing.value = !isFollowing.value
+  } catch { /* noop */ }
+}
 const inCourseQuery = ref('')
 const inCourseCategory = ref('')
 const inCourseSemester = ref('')
@@ -91,12 +123,32 @@ async function searchInCourse() {
   loading.value = false
 }
 
+function saveRecentCourse() {
+  if (!course.value) return
+  try {
+    const raw = localStorage.getItem('scustack_recent')
+    const list: any[] = raw ? JSON.parse(raw) : []
+    const filtered = list.filter((i: any) => i.id !== course.value.id)
+    filtered.unshift({
+      id: course.value.id,
+      type: 'course',
+      title: course.value.name,
+      url: `/course/${course.value.id}`,
+      time: new Date().toLocaleDateString('zh-CN'),
+    })
+    localStorage.setItem('scustack_recent', JSON.stringify(filtered.slice(0, 20)))
+  } catch { /* ignore */ }
+}
+
 onMounted(async () => {
   const [courseResp, searchResp] = await Promise.all([
     $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/courses/${route.params.id}`),
     $fetch<{ code: number; data: { items: any[] } }>(`${apiBase}/api/v1/search?course_id=${route.params.id}&page_size=20`),
   ])
-  if (courseResp.code === 0) course.value = courseResp.data
+  if (courseResp.code === 0) {
+    course.value = courseResp.data
+    saveRecentCourse()
+  }
   if (searchResp.code === 0) materials.value = searchResp.data.items
   loading.value = false
 })
