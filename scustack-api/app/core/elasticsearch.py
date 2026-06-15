@@ -31,7 +31,10 @@ MATERIALS_MAPPING = {
                 'type': 'text',
                 'analyzer': 'ik_max_word_analyzer',
                 'search_analyzer': 'ik_smart_analyzer',
-                'fields': {'raw': {'type': 'keyword'}},
+                'fields': {
+                    'raw': {'type': 'keyword'},
+                    'suggest': {'type': 'completion'},
+                },
             },
             'description': {
                 'type': 'text',
@@ -42,7 +45,10 @@ MATERIALS_MAPPING = {
                 'type': 'text',
                 'analyzer': 'ik_max_word_analyzer',
                 'search_analyzer': 'ik_smart_analyzer',
-                'fields': {'raw': {'type': 'keyword'}},
+                'fields': {
+                    'raw': {'type': 'keyword'},
+                    'suggest': {'type': 'completion'},
+                },
             },
             'course_aliases': {'type': 'keyword'},
             'college_name': {

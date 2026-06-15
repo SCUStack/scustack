@@ -24,11 +24,18 @@ class CourseUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class CollegeSimple(BaseModel):
+    id: UUID
+    name: str
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CourseResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     college_id: UUID
+    college: CollegeSimple | None = None
     name: str
     slug: str
     aliases: list
