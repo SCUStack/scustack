@@ -6,10 +6,8 @@
           <AppIcon name="GraduationCap" :size="24" />
           <span>川大课栈</span>
         </NuxtLink>
-        <nav class="flex items-center gap-4">
-          <NuxtLink to="/search" class="text-sm text-slate-600 hover:text-primary-600 no-underline">
-            搜索
-          </NuxtLink>
+        <nav class="flex items-center gap-4 flex-1 justify-center px-8">
+          <SearchBar variant="nav" />
           <div class="relative" @mouseenter="showColleges = true" @mouseleave="showColleges = false">
             <NuxtLink to="/colleges" class="text-sm text-slate-600 hover:text-primary-600 no-underline">
               学院

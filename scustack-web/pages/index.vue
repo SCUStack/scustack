@@ -16,15 +16,8 @@
       </el-card>
     </div>
 
-    <div class="text-center">
-      <el-button type="primary" size="large" @click="onSearch">
-        <AppIcon name="Search" :size="18" class="mr-1" />
-        搜索课程资料
-      </el-button>
-      <el-button size="large" class="ml-3" @click="onUpload">
-        <AppIcon name="Upload" :size="18" class="mr-1" />
-        贡献资料
-      </el-button>
+    <div class="mb-10">
+      <SearchBar variant="hero" placeholder="输入课程名、教师、教材名..." />
     </div>
 
     <div class="mt-10">
