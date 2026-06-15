@@ -6,7 +6,7 @@ export default defineNuxtRouteMiddleware((to) => {
     const userIdx = roles.indexOf(auth.user?.role || 'student')
     const requiredIdx = roles.indexOf(requiredRole)
     if (userIdx < requiredIdx) {
-      return navigateTo('/')
+      throw createError({ statusCode: 403, message: '需要更高权限才能访问此页面' })
     }
   }
 })

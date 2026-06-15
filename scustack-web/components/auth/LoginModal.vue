@@ -29,6 +29,16 @@
               >
                 {{ loading ? '发送中...' : '获取验证码' }}
               </button>
+              <div class="mt-3 text-center">
+                <span class="text-xs text-slate-400">或</span>
+                <button
+                  type="button"
+                  class="ml-2 text-xs text-green-600 hover:text-green-700 cursor-pointer"
+                  @click="wechatLogin"
+                >
+                  微信扫码登录
+                </button>
+              </div>
             </form>
           </template>
 
@@ -128,6 +138,16 @@ async function verifyCode() {
     errorMsg.value = (e as Error).message || '登录失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function wechatLogin() {
+  const { getWechatUrl } = useAuth()
+  const resp = await getWechatUrl()
+  if (resp.code === 0 && resp.data.url) {
+    window.location.href = resp.data.url
+  } else {
+    errorMsg.value = '微信登录暂不可用'
   }
 }
 
