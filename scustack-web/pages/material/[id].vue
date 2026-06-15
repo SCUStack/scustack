@@ -135,6 +135,37 @@
     <div v-else class="flex justify-center py-16">
       <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
     </div>
+
+    <!-- Report modal -->
+    <div v-if="showReport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showReport = false">
+      <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+        <h3 class="text-base font-medium text-slate-900 mb-4">举报资料</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">举报原因</label>
+            <select v-model="reportReason" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm">
+              <option value="">请选择原因</option>
+              <option value="copyright">版权问题</option>
+              <option value="outdated">资料已过时</option>
+              <option value="inappropriate">内容不当</option>
+              <option value="duplicate">重复资料</option>
+              <option value="wrong_info">信息错误</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">补充说明</label>
+            <textarea v-model="reportDesc" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-md text-sm resize-none" placeholder="请简要描述问题..." />
+          </div>
+          <div class="flex justify-end gap-3 pt-1">
+            <button class="h-9 px-4 rounded-md text-sm text-slate-600 hover:bg-slate-100 cursor-pointer" @click="showReport = false">取消</button>
+            <button class="h-9 px-4 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 cursor-pointer disabled:opacity-50" :disabled="!reportReason || submittingReport" @click="submitReport">
+              {{ submittingReport ? '提交中...' : '提交举报' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -151,6 +182,27 @@ const loading = ref(true)
 const shareText = ref('分享')
 const showReport = ref(false)
 const isBookmarked = ref(false)
+const reportReason = ref('')
+const reportDesc = ref('')
+const submittingReport = ref(false)
+
+async function submitReport() {
+  if (!reportReason.value) return
+  submittingReport.value = true
+  try {
+    await $fetch(`${apiBase}/api/v1/materials/${route.params.id}/reports`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reportReason.value, description: reportDesc.value }),
+    })
+    showReport.value = false
+    reportReason.value = ''
+    reportDesc.value = ''
+    alert('举报已提交')
+  } catch { /* noop */ }
+  submittingReport.value = false
+}
 
 async function toggleBookmark() {
   if (!auth.isLoggedIn) {

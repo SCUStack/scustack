@@ -1,7 +1,7 @@
 import hashlib
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,11 +11,14 @@ from app.core.redis import RateLimiter
 from app.dependencies import get_current_user
 from app.models.material import MaterialVersion
 from app.models.user import User
+from app.core.permissions import Permission
+from app.dependencies import require_permission
 from app.schemas.material import (
     MaterialCreate, MaterialResponse, MaterialUpdate,
     RatingRequest, VersionResponse,
 )
-from app.services import material_service, user_service
+from app.schemas.report import ReportCreate
+from app.services import material_service, report_service, review_service, user_service
 
 router = APIRouter(prefix='/materials', tags=['materials'])
 
@@ -57,6 +60,12 @@ async def create_material(
     except Exception:
         pass  # Non-critical; don't fail material creation
     await db.commit()
+    # Trigger async content pre-screening (imported lazily to avoid hard Celery dependency)
+    try:
+        from app.tasks.material_tasks import pre_screen_content
+        pre_screen_content.delay(str(m.id), m.title, m.description)
+    except Exception:
+        pass
     return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'material created'}
 
 
@@ -94,12 +103,19 @@ async def delete_material(
 @router.get('/{material_id}/download')
 async def download_material(
     material_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    limiter = RateLimiter(max_requests=50, window_seconds=86400)
-    if not await limiter.is_allowed(f'download:user:{current_user.id}'):
-        return JSONResponse({'code': 42900, 'data': None, 'message': 'daily download limit reached'}, status_code=429)
+    ip = request.client.host if request.client else 'unknown'
+    user_limiter = RateLimiter(max_requests=50, window_seconds=86400)
+    if not await user_limiter.is_allowed(f'download:user:{current_user.id}'):
+        headers = await user_limiter.limit_headers(f'download:user:{current_user.id}')
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'daily download limit reached'}, status_code=429, headers=headers)
+
+    ip_limiter = RateLimiter(max_requests=200, window_seconds=3600)
+    if not await ip_limiter.is_allowed(f'download:ip:{ip}'):
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'download rate limit exceeded'}, status_code=429)
 
     m = await material_service.get_material(db, material_id)
     if m is None or m.source_type != 'hosted':
@@ -157,3 +173,46 @@ async def related_materials(material_id: UUID, db: AsyncSession = Depends(get_db
         return {'code': 0, 'data': [], 'message': 'ok'}
     items = await material_service.get_related(db, m.course_id, material_id, limit=3)
     return {'code': 0, 'data': [MaterialResponse.model_validate(x).model_dump(mode='json') for x in items], 'message': 'ok'}
+
+
+@router.post('/{material_id}/reports')
+async def report_material(
+    material_id: UUID,
+    body: ReportCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = await material_service.get_material(db, material_id)
+    if m is None:
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
+    r = await report_service.create_report(
+        db, material_id, current_user.id, body.reason, body.description,
+    )
+    await db.commit()
+    return {'code': 0, 'data': {'report_id': str(r.id)}, 'message': 'report submitted'}
+
+
+@router.post('/{material_id}/pin')
+async def pin_material(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_PIN)),
+):
+    m = await review_service.pin_material(db, material_id)
+    if m is None:
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'material pinned'}
+
+
+@router.delete('/{material_id}/pin')
+async def unpin_material(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_PIN)),
+):
+    m = await review_service.unpin_material(db, material_id)
+    if m is None:
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'material unpinned'}

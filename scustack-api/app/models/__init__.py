@@ -1,9 +1,17 @@
 from app.core.database import Base
+from app.models.audit_log import AuditLog
 from app.models.bookmark import Bookmark
+from app.models.calendar import AcademicCalendar
 from app.models.college import College
 from app.models.course import Course
 from app.models.material import Material, MaterialVersion
 from app.models.notification import Notification
+from app.models.report import Report
+from app.models.review_log import ReviewLog
 from app.models.user import RefreshToken, User
 
-__all__ = ['Base', 'User', 'RefreshToken', 'College', 'Course', 'Material', 'MaterialVersion', 'Bookmark', 'Notification']
+__all__ = [
+    'Base', 'User', 'RefreshToken', 'College', 'Course',
+    'Material', 'MaterialVersion', 'Bookmark', 'Notification',
+    'ReviewLog', 'Report', 'AuditLog', 'AcademicCalendar',
+]

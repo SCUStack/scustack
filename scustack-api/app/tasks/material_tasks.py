@@ -16,6 +16,47 @@ def virus_scan(material_id: str, storage_key: str):
         pass
 
 
+@app.task(queue='scan')
+def pre_screen_content(material_id: str, title: str, description: str | None = None):
+    """Auto-approve or flag content based on keyword screening.
+
+    Rules:
+    - Block-list keywords → review_status='rejected'
+    - Suspicious keywords → trust_status='doubtful', review_status='approved'
+    - Clean content → review_status='approved'
+    """
+    import asyncio
+    from app.core.database import async_session
+    from app.models.material import Material
+    from sqlalchemy import select
+
+    text = f'{title} {description or ""}'.lower()
+
+    BLOCK_KEYWORDS = ['代写', '刷课', '代考', '作弊', '卖答案', '广告推广']
+    SUSPICIOUS_KEYWORDS = ['微信', 'qq', '加群', '付费', '私聊', '联系我']
+
+    is_blocked = any(kw in text for kw in BLOCK_KEYWORDS)
+    is_suspicious = any(kw in text for kw in SUSPICIOUS_KEYWORDS)
+
+    async def _do():
+        async with async_session() as db:
+            result = await db.execute(select(Material).where(Material.id == material_id))
+            m = result.scalar_one_or_none()
+            if m is None:
+                return
+            if is_blocked:
+                m.review_status = 'rejected'
+            elif is_suspicious:
+                m.review_status = 'approved'
+                m.trust_status = 'doubtful'
+            else:
+                m.review_status = 'approved'
+                m.trust_status = 'unverified'
+            await db.commit()
+
+    asyncio.run(_do())
+
+
 @app.task(queue='thumbnail')
 def generate_thumbnail(material_id: str, storage_key: str, file_format: str):
     """Generate thumbnail and upload to OSS thumbs/ directory.
