@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import settings
 
@@ -23,6 +24,12 @@ app.conf.update(
     task_routes={
         'app.tasks.scan.*': {'queue': 'scan'},
         'app.tasks.thumbnail.*': {'queue': 'thumbnail'},
+    },
+    beat_schedule={
+        'check-dead-links-daily': {
+            'task': 'app.tasks.link_check.check_dead_links',
+            'schedule': crontab(hour=3, minute=17),
+        },
     },
 )
 

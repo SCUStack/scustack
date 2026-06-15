@@ -340,3 +340,35 @@ async def analytics(
         },
         'message': 'ok',
     }
+
+
+# ── Link check ───────────────────────────────────────────────────────────────
+
+@router.post('/materials/{material_id}/check-link')
+async def manual_link_check(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    """Manually trigger a dead-link check for a specific external-link material."""
+    from sqlalchemy import select
+    from app.models.material import Material
+    from app.tasks.link_check import _do_check_single_link
+
+    result = await db.execute(select(Material).where(Material.id == material_id))
+    m = result.scalar_one_or_none()
+    if m is None:
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
+    if m.source_type != 'external' or not m.external_url:
+        return {'code': 40000, 'data': None, 'message': 'material is not an external link'}
+
+    status, failure_count = await _do_check_single_link(m)
+
+    return {
+        'code': 0,
+        'data': {
+            'link_status': status,
+            'link_failure_count': failure_count,
+        },
+        'message': 'link check completed',
+    }

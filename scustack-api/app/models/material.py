@@ -48,6 +48,13 @@ class Material(Base):
     is_pinned: Mapped[bool] = mapped_column(
         Boolean, nullable=False, insert_default=False, server_default='false'
     )
+    link_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    link_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    link_failure_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, insert_default=0, server_default='0'
+    )
     contributor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey('users.id'), nullable=True
     )

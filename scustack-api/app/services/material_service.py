@@ -4,7 +4,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from difflib import unified_diff
+
+import httpx
+
+from app.core import oss
 from app.models.material import Material, MaterialVersion
+
+TEXT_EXTENSIONS = {
+    'txt', 'md', 'py', 'js', 'ts', 'java', 'c', 'cpp', 'h', 'hpp',
+    'css', 'html', 'xml', 'json', 'yaml', 'yml', 'toml',
+    'ini', 'cfg', 'sh', 'bash', 'sql', 'r', 'go', 'rs', 'swift',
+    'kt', 'rb', 'php', 'pl', 'lua', 'vue', 'svelte', 'jsx', 'tsx',
+    'csv', 'log', 'tex', 'sty',
+}
 
 
 async def list_materials(db: AsyncSession, course_id: UUID | None = None,
@@ -175,12 +188,53 @@ async def get_version_diff(db: AsyncSession, material_id: UUID, version_id: UUID
     )
     prev_v = prev.scalar_one_or_none()
 
+    ext = target_v.storage_key.rsplit('.', 1)[-1].lower() if '.' in target_v.storage_key else ''
+    if ext not in TEXT_EXTENSIONS:
+        return {
+            'version_id': str(target_v.id),
+            'version_number': target_v.version_number,
+            'change_note': target_v.change_note,
+            'diff': None,
+            'message': 'diff available for text files only',
+        }
+
+    old_content = ''
+    new_content = ''
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            if prev_v:
+                old_url = oss.generate_download_url(prev_v.storage_key)
+                resp = await client.get(old_url)
+                if resp.status_code == 200:
+                    old_content = resp.text
+            new_url = oss.generate_download_url(target_v.storage_key)
+            resp = await client.get(new_url)
+            if resp.status_code == 200:
+                new_content = resp.text
+    except Exception:
+        return {
+            'version_id': str(target_v.id),
+            'version_number': target_v.version_number,
+            'change_note': target_v.change_note,
+            'diff': None,
+            'message': 'failed to retrieve file content for diff',
+        }
+
+    old_label = f'v{prev_v.version_number}' if prev_v else '(empty)'
+    new_label = f'v{target_v.version_number}'
+    diff_lines = list(unified_diff(
+        old_content.splitlines(keepends=True),
+        new_content.splitlines(keepends=True),
+        fromfile=old_label, tofile=new_label,
+    ))
+
     return {
         'version_id': str(target_v.id),
         'version_number': target_v.version_number,
         'change_note': target_v.change_note,
-        'diff': None,
-        'message': 'diff available for text files only' if not prev_v else f'comparing v{prev_v.version_number} → v{target_v.version_number}',
+        'diff': diff_lines[:500],
+        'truncated': len(diff_lines) > 500,
+        'message': f'comparing {old_label} → {new_label}',
     }
 
 

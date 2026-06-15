@@ -48,6 +48,9 @@ class MaterialResponse(BaseModel):
     rating_count: int
     download_count: int
     is_pinned: bool
+    link_checked_at: datetime | None = None
+    link_status: str | None = None
+    link_failure_count: int = 0
     contributor_id: UUID | None
     created_at: datetime
     updated_at: datetime
@@ -76,6 +79,13 @@ class DuplicateCheckResponse(BaseModel):
 
 class RatingRequest(BaseModel):
     score: int = Field(ge=1, le=5)
+
+
+class VersionCreate(BaseModel):
+    storage_key: str
+    file_hash: str
+    file_size: int
+    change_note: str | None = None
 
 
 class VersionResponse(BaseModel):

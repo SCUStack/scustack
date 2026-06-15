@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     OSS_ENDPOINT: str = ''
     OSS_BUCKET: str = ''
 
+    # Encryption (AES-256-GCM for PII fields)
+    ENCRYPTION_KEY: str = 'change-me-in-production'
+
     # JWT
     JWT_SECRET_KEY: str = 'change-me-in-production'
     JWT_ALGORITHM: str = 'HS256'

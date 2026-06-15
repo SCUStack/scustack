@@ -10,9 +10,7 @@ from app.core.config import settings
 
 
 def _get_key() -> bytes:
-    key = os.getenv('SCUSTACK_ENCRYPTION_KEY')
-    if not key:
-        raise RuntimeError('SCUSTACK_ENCRYPTION_KEY environment variable is required')
+    key = settings.ENCRYPTION_KEY
     return hashlib.sha256(key.encode()).digest()
 
 

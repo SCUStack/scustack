@@ -94,13 +94,15 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    import traceback, sys
+    traceback.print_exc()
     return JSONResponse(
         status_code=500,
         content={
             'code': ErrorCode.INTERNAL_ERROR,
             'data': None,
             'message': 'internal server error',
-            'detail': None,  # Never leak exception details
+            'detail': str(exc) if settings.DEBUG else None,
         },
     )
 

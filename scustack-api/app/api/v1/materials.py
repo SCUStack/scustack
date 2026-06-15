@@ -15,7 +15,7 @@ from app.core.permissions import Permission
 from app.dependencies import require_permission
 from app.schemas.material import (
     MaterialCreate, MaterialResponse, MaterialUpdate,
-    RatingRequest, VersionResponse,
+    RatingRequest, VersionCreate, VersionResponse,
 )
 from app.schemas.report import ReportCreate
 from app.services import material_service, report_service, review_service, user_service
@@ -155,6 +155,29 @@ async def rate_material(
 async def list_versions(material_id: UUID, db: AsyncSession = Depends(get_db)):
     versions = await material_service.list_versions(db, material_id)
     return {'code': 0, 'data': [VersionResponse.model_validate(v).model_dump(mode='json') for v in versions], 'message': 'ok'}
+
+
+@router.post('/{material_id}/versions')
+async def create_version(
+    material_id: UUID,
+    body: VersionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = await material_service.get_material(db, material_id)
+    if m is None:
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
+    if str(m.contributor_id) != str(current_user.id) and current_user.role not in ('maintainer', 'admin'):
+        return {'code': 40300, 'data': None, 'message': 'forbidden'}
+    v = await material_service.add_version(
+        db, material_id, current_user.id,
+        storage_key=body.storage_key,
+        file_hash=body.file_hash,
+        file_size=body.file_size,
+        change_note=body.change_note,
+    )
+    await db.commit()
+    return {'code': 0, 'data': VersionResponse.model_validate(v).model_dump(mode='json'), 'message': 'version created'}
 
 
 @router.get('/{material_id}/versions/{version_id}/diff')
