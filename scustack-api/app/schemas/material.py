@@ -72,3 +72,20 @@ class DuplicateCheckResponse(BaseModel):
     is_duplicate: bool
     existing_material_id: UUID | None = None
     existing_title: str | None = None
+
+
+class RatingRequest(BaseModel):
+    score: int = Field(ge=1, le=5)
+
+
+class VersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    material_id: UUID
+    version_number: int
+    file_hash: str
+    file_size: int
+    change_note: str | None
+    uploaded_by: UUID | None
+    created_at: datetime

@@ -77,6 +77,14 @@ async def soft_delete_material(db: AsyncSession, material_id: UUID, user_id: UUI
     return True
 
 
+async def get_latest_version(db: AsyncSession, material_id: UUID) -> MaterialVersion | None:
+    result = await db.execute(
+        select(MaterialVersion).where(MaterialVersion.material_id == material_id)
+        .order_by(MaterialVersion.version_number.desc()).limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def add_version(db: AsyncSession, material_id: UUID, user_id: UUID,
                       storage_key: str, file_hash: str, file_size: int,
                       change_note: str | None = None) -> MaterialVersion | None:
@@ -106,3 +114,82 @@ async def add_version(db: AsyncSession, material_id: UUID, user_id: UUID,
     db.add(v)
     await db.flush()
     return v
+
+
+async def rate_material(db: AsyncSession, material_id: UUID, user_id: UUID, score: int) -> None:
+    if score < 1 or score > 5:
+        raise ValueError('score must be between 1 and 5')
+
+    from app.models.user import User
+    from app.models.material import Material
+    from sqlalchemy import and_
+
+    # Check existing rating
+    from app.models.material import Material  # noqa: F811
+    # Use raw SQL to upsert
+    from sqlalchemy import text
+    await db.execute(
+        text("""
+            INSERT INTO ratings (material_id, user_id, score, created_at)
+            VALUES (:mid, :uid, :score, NOW())
+            ON CONFLICT (material_id, user_id) DO UPDATE SET score = :score, created_at = NOW()
+        """),
+        {'mid': material_id, 'uid': user_id, 'score': score},
+    )
+
+    # Recalculate average
+    result = await db.execute(
+        text('SELECT AVG(score)::numeric(3,2), COUNT(*) FROM ratings WHERE material_id = :mid'),
+        {'mid': material_id},
+    )
+    row = result.fetchone()
+    avg_val, cnt = row
+
+    m = await get_material(db, material_id)
+    if m:
+        m.average_rating = float(avg_val) if avg_val else 0
+        m.rating_count = cnt
+
+
+async def list_versions(db: AsyncSession, material_id: UUID) -> list[MaterialVersion]:
+    result = await db.execute(
+        select(MaterialVersion).where(MaterialVersion.material_id == material_id)
+        .order_by(MaterialVersion.version_number.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_version_diff(db: AsyncSession, material_id: UUID, version_id: UUID) -> dict:
+    target = await db.execute(
+        select(MaterialVersion).where(MaterialVersion.id == version_id, MaterialVersion.material_id == material_id)
+    )
+    target_v = target.scalar_one_or_none()
+    if not target_v:
+        raise ValueError('version not found')
+
+    prev = await db.execute(
+        select(MaterialVersion).where(
+            MaterialVersion.material_id == material_id,
+            MaterialVersion.version_number == target_v.version_number - 1,
+        )
+    )
+    prev_v = prev.scalar_one_or_none()
+
+    return {
+        'version_id': str(target_v.id),
+        'version_number': target_v.version_number,
+        'change_note': target_v.change_note,
+        'diff': None,
+        'message': 'diff available for text files only' if not prev_v else f'comparing v{prev_v.version_number} → v{target_v.version_number}',
+    }
+
+
+async def get_related(db: AsyncSession, course_id: UUID, exclude_id: UUID, limit: int = 3) -> list[Material]:
+    result = await db.execute(
+        select(Material).where(
+            Material.course_id == course_id,
+            Material.id != exclude_id,
+            Material.review_status == 'approved',
+        ).order_by(Material.download_count.desc()).limit(limit)
+    )
+    return list(result.scalars().all())
