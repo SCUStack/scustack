@@ -71,7 +71,7 @@ scustack-api/                 # FastAPI backend
 
 ### Git
 - Branch: `issue-NNN-short-description` from `main`
-- Commit: Conventional Commits — `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`，描述使用中文
+- Commit: Conventional Commits — `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:` with English descriptions
 - Never skip hooks. Never force-push to main.
 - Create new commits rather than amending.
 - Never pass a multi-line commit message as an inline PowerShell here-string (e.g. ``git commit -m @'...'@``). When used in a Bash-shell, each `@` will be interpreted as part of the commit message. Omit the `@` characters, e.g. ``git commit -m '...'``.
