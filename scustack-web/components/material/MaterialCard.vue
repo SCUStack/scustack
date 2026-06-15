@@ -2,6 +2,16 @@
   <NuxtLink :to="`/material/${item.id}`"
             class="block rounded-lg border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200 no-underline cursor-pointer overflow-hidden"
             :style="{ background: `linear-gradient(135deg, ${cardGradient(item)} 0%, #fff 100%)` }">
+    <!-- Cover image -->
+    <div v-if="coverSrc" class="relative w-full h-32 overflow-hidden bg-slate-100">
+      <img
+        :src="coverSrc"
+        :alt="item.title"
+        class="w-full h-full object-cover"
+        loading="lazy"
+        @error="onCoverError"
+      />
+    </div>
     <div class="p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
@@ -44,7 +54,23 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ item: Record<string, any>; highlight?: string }>()
+import { computed, ref } from 'vue'
+import { resolveCoverSync } from '~/composables/useCoverImage'
+import tagsData from '~/data/covers'
+
+const props = defineProps<{ item: Record<string, any>; highlight?: string }>()
+
+const coverSrc = ref(
+  resolveCoverSync({
+    id: props.item.id,
+    title: props.item.title,
+    category: props.item.category,
+  }, tagsData)
+)
+
+function onCoverError() {
+  coverSrc.value = ''
+}
 
 const pastelGradients: Record<string, string> = {
   '考试资料': '#f0abb8',
