@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import ClassVar
 
 from sqlalchemy import (
     BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric,
@@ -73,7 +74,7 @@ class Material(Base):
     )
 
     # Non-mapped — populated at query time by get_material
-    rating_distribution: dict | None = None
+    rating_distribution: ClassVar[dict | None] = None
 
 
 class MaterialVersion(Base):
