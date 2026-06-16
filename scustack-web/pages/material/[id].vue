@@ -256,7 +256,6 @@
     </div>
 
       <CommentSection v-if="route.params.id" :material-id="route.params.id as string" />
-    </div>
 
     <!-- Collection modal -->
     <div v-if="showCollectionModal" role="dialog" aria-modal="true" aria-label="收藏到合辑" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showCollectionModal = false">
