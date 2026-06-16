@@ -50,7 +50,8 @@ def download_picsum(category: str, filename: str, tags: list[str]) -> bool:
 
 def download_pexels(category: str, filename: str, tags: list[str], api_key: str) -> bool:
     """Download from Pexels API."""
-    query = ' '.join(tags[:3])
+    import urllib.parse
+    query = urllib.parse.quote(' '.join(tags[:3]))
     url = f'https://api.pexels.com/v1/search?query={query}&per_page=1&orientation=landscape'
 
     out_path = COVERS_DIR / category / filename
