@@ -3,6 +3,7 @@ from app.models.audit_log import AuditLog
 from app.models.bookmark import Bookmark
 from app.models.calendar import AcademicCalendar
 from app.models.college import College
+from app.models.copyright_complaint import CopyrightComplaint
 from app.models.correction import CorrectionSuggestion
 from app.models.course import Course
 from app.models.material import Material, MaterialVersion
@@ -17,5 +18,5 @@ __all__ = [
     'Base', 'User', 'RefreshToken', 'UserBadge', 'College', 'Course',
     'Material', 'MaterialVersion', 'Bookmark', 'CorrectionSuggestion', 'Notification',
     'ReviewLog', 'Report', 'AuditLog', 'AcademicCalendar',
-    'Wish', 'WishVote',
+    'Wish', 'WishVote', 'CopyrightComplaint',
 ]

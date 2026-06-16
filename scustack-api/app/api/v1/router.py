@@ -5,6 +5,7 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.bookmarks import router as bookmarks_router
 from app.api.v1.colleges import router as colleges_router
+from app.api.v1.copyright import router as copyright_router
 from app.api.v1.corrections import router as corrections_router
 from app.api.v1.courses import router as courses_router
 from app.api.v1.health import router as health_router
@@ -29,4 +30,5 @@ router.include_router(homepage_router, tags=['homepage'])
 router.include_router(about_router, tags=['about'])
 router.include_router(corrections_router, tags=['corrections'])
 router.include_router(admin_router, tags=['admin'])
+router.include_router(copyright_router, tags=['copyright'])
 router.include_router(wishes_router, tags=['wishes'])

@@ -18,7 +18,7 @@ from app.schemas.material import (
     RatingRequest, VersionCreate, VersionResponse,
 )
 from app.schemas.report import ReportCreate
-from app.services import material_service, report_service, review_service, upload_service, user_service
+from app.services import copyright_service, material_service, report_service, review_service, upload_service, user_service
 
 router = APIRouter(prefix='/materials', tags=['materials'])
 
@@ -73,6 +73,8 @@ async def create_material(
 
     kwargs = body.model_dump(exclude_none=True)
     if is_new:
+        kwargs['review_status'] = 'pending'
+    elif copyright_service.check_title_blocklist(body.title):
         kwargs['review_status'] = 'pending'
 
     m = await material_service.create_material(db, current_user.id, **kwargs)
