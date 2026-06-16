@@ -345,6 +345,119 @@ async def analytics(
     }
 
 
+@router.get('/analytics/trends')
+async def analytics_trends(
+    days: int = Query(30, le=90),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select, func, text
+
+    start = datetime.now(timezone.utc) - timedelta(days=days)
+    dates = [(start + timedelta(days=i)).strftime('%m-%d') for i in range(days)]
+
+    # Daily uploads
+    upload_rows = await db.execute(
+        select(func.date(Material.created_at), func.count(Material.id))
+        .where(Material.created_at >= start)
+        .group_by(func.date(Material.created_at)).order_by(func.date(Material.created_at))
+    )
+    uploads = {r[0].strftime('%m-%d'): r[1] for r in upload_rows.all()}
+
+    # Daily new users
+    user_rows = await db.execute(
+        select(func.date(User.created_at), func.count(User.id))
+        .where(User.created_at >= start)
+        .group_by(func.date(User.created_at)).order_by(func.date(User.created_at))
+    )
+    users = {r[0].strftime('%m-%d'): r[1] for r in user_rows.all()}
+
+    # Category distribution
+    cat_rows = await db.execute(
+        select(Material.category, func.count(Material.id))
+        .where(Material.review_status == 'approved')
+        .group_by(Material.category).order_by(func.count(Material.id).desc())
+    )
+    categories = [{'name': r[0], 'count': r[1]} for r in cat_rows.all()]
+
+    return {
+        'code': 0,
+        'data': {
+            'dates': dates,
+            'uploads': [uploads.get(d, 0) for d in dates],
+            'new_users': [users.get(d, 0) for d in dates],
+            'categories': categories,
+        },
+        'message': 'ok',
+    }
+
+
+@router.get('/dead-links')
+async def dead_links(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, le=50),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from sqlalchemy import select, func
+    from app.models.material import Material
+
+    stmt = select(Material).where(
+        Material.source_type == 'external',
+        Material.review_status == 'approved',
+        Material.link_status.in_(['dead', 'timeout']),
+    ).order_by(Material.link_checked_at.desc().nulls_last())
+
+    total = await db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    result = await db.execute(stmt.offset((page - 1) * page_size).limit(page_size))
+    items = []
+    for m in result.scalars().all():
+        items.append({
+            'id': str(m.id), 'title': m.title, 'external_url': m.external_url,
+            'link_status': m.link_status, 'link_failure_count': m.link_failure_count,
+            'link_checked_at': m.link_checked_at.isoformat() if m.link_checked_at else None,
+            'created_at': m.created_at.isoformat(),
+        })
+    return {'code': 0, 'data': {'items': items, 'total': total}, 'message': 'ok'}
+
+
+@router.get('/materials')
+async def admin_materials(
+    q: str | None = Query(None),
+    category: str | None = Query(None),
+    status: str | None = Query(None),
+    limit: int = Query(20, le=50),
+    offset: int = Query(0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from sqlalchemy import select, func, or_
+    from app.models.material import Material
+
+    stmt = select(Material)
+    if q:
+        stmt = stmt.where(Material.title.ilike(f'%{q}%'))
+    if category:
+        stmt = stmt.where(Material.category == category)
+    if status:
+        stmt = stmt.where(Material.review_status == status)
+    stmt = stmt.order_by(Material.created_at.desc())
+
+    total = await db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    result = await db.execute(stmt.offset(offset).limit(limit))
+    items = []
+    for m in result.scalars().all():
+        items.append({
+            'id': str(m.id), 'title': m.title, 'course_id': str(m.course_id),
+            'category': m.category, 'semester': m.semester, 'format': m.format,
+            'source_type': m.source_type, 'review_status': m.review_status,
+            'trust_status': m.trust_status, 'download_count': m.download_count or 0,
+            'created_at': m.created_at.isoformat(),
+        })
+    return {'code': 0, 'data': {'items': items, 'total': total}, 'message': 'ok'}
+
+
 # ── Link check ───────────────────────────────────────────────────────────────
 
 @router.post('/materials/{material_id}/check-link')
