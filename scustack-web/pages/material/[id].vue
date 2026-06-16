@@ -40,10 +40,8 @@
           </div>
           <div v-else-if="material.source_type === 'external' && material.external_url" class="mb-8">
             <h2 class="text-base font-medium text-slate-800 mb-3">外部链接</h2>
-            <button
-              @click="openExternalLink(material.external_url)"
-              class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 text-sm border-none bg-transparent cursor-pointer p-0"
-            >
+            <button @click="openExternalLink(material.external_url)"
+               class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 text-sm border-none bg-transparent cursor-pointer p-0">
               <AppIcon name="ExternalLink" :size="14" /> {{ material.external_url }}
             </button>
           </div>
@@ -182,6 +180,7 @@
           </div>
         </div>
       </div>
+    </div>
 
     <div v-else-if="!loading" class="max-w-7xl mx-auto px-4 py-16 text-center">
       <AppIcon name="FileX" :size="48" class="text-slate-300 mx-auto mb-4" />
@@ -262,10 +261,7 @@
         <h3 class="text-base font-medium text-slate-900 mb-4">收藏到合辑</h3>
         <div class="space-y-2 max-h-60 overflow-y-auto mb-4">
           <div v-for="col in userCollections" :key="col.id" class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors" @click="addToCollection(col.id)">
-            <div>
-              <p class="text-sm font-medium text-slate-700">{{ col.title }}</p>
-              <p class="text-[11px] text-slate-400">{{ col.is_public ? '公开' : '私密' }}</p>
-            </div>
+            <div><p class="text-sm font-medium text-slate-700">{{ col.title }}</p><p class="text-[11px] text-slate-400">{{ col.is_public ? '公开' : '私密' }}</p></div>
             <AppIcon name="Plus" :size="16" class="text-slate-400" />
           </div>
         </div>
@@ -288,9 +284,7 @@
         </div>
         <div class="flex gap-3">
           <button class="flex-1 h-9 rounded-md text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer" @click="showExternalConfirm = false">取消</button>
-          <a :href="externalLinkUrl" target="_blank" rel="noopener noreferrer nofollow"
-             class="flex-1 h-9 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline cursor-pointer inline-flex items-center justify-center"
-             @click="showExternalConfirm = false">继续访问</a>
+          <a :href="externalLinkUrl" target="_blank" rel="noopener noreferrer nofollow" class="flex-1 h-9 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline cursor-pointer inline-flex items-center justify-center" @click="showExternalConfirm = false">继续访问</a>
         </div>
       </div>
     </div>
@@ -314,7 +308,6 @@
           </div>
         </div>
       </div>
-    </div>
     </div>
   </div>
 </template>
@@ -351,29 +344,14 @@ const submittingCorrection = ref(false)
 const showExternalConfirm = ref(false)
 const externalLinkUrl = ref('')
 const externalLinkDomain = ref('')
-
-function openExternalLink(url: string) {
-  externalLinkUrl.value = url
-  try {
-    externalLinkDomain.value = new URL(url).hostname
-  } catch {
-    externalLinkDomain.value = url
-  }
-  showExternalConfirm.value = true
-}
-
-function openReport() {
-  if (!auth.isLoggedIn) { auth.openLogin(); return }
-  showReport.value = true
-}
-
 const showCollectionModal = ref(false)
 const userCollections = ref<any[]>([])
 const newCollectionTitle = ref('')
 
-function openCorrection() {
-  if (!auth.isLoggedIn) { auth.openLogin(); return }
-  showCorrection.value = true
+function openExternalLink(url: string) {
+  externalLinkUrl.value = url
+  try { externalLinkDomain.value = new URL(url).hostname } catch { externalLinkDomain.value = url }
+  showExternalConfirm.value = true
 }
 
 async function toggleCollection() {
@@ -408,6 +386,16 @@ async function createAndAdd() {
   } catch { toast.error('创建合辑失败') }
 }
 
+function openReport() {
+  if (!auth.isLoggedIn) { auth.openLogin(); return }
+  showReport.value = true
+}
+
+function openCorrection() {
+  if (!auth.isLoggedIn) { auth.openLogin(); return }
+  showCorrection.value = true
+}
+
 async function submitReport() {
   if (!reportReason.value) return
   submittingReport.value = true
@@ -426,9 +414,7 @@ async function submitReport() {
     } else {
       toast.error(resp.message || '提交失败')
     }
-  } catch {
-    toast.error('提交失败，请稍后重试')
-  }
+  } catch { toast.error('提交失败，请稍后重试') }
   submittingReport.value = false
 }
 
