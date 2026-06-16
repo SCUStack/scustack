@@ -7,8 +7,27 @@
       </div>
 
       <template v-else-if="college">
-        <h1 class="text-2xl font-semibold text-slate-900 mb-2">{{ college.name }}</h1>
-        <p class="text-sm text-slate-500 mb-6">共 {{ courses.length }} 门课程</p>
+        <div class="mb-8">
+          <h1 class="text-2xl font-semibold text-slate-900 mb-2">{{ college.name }}</h1>
+          <p v-if="college.description" class="text-sm text-slate-500 max-w-2xl mb-3">{{ college.description }}</p>
+          <div class="flex flex-wrap gap-3 text-sm text-slate-500">
+            <span class="inline-flex items-center gap-1">
+              <AppIcon name="BookOpen" :size="14" />
+              {{ courses.length }} 门课程
+            </span>
+            <span v-if="college.material_count" class="inline-flex items-center gap-1">
+              <AppIcon name="FileText" :size="14" />
+              {{ college.material_count }} 份资料
+            </span>
+            <a v-if="college.website" :href="college.website" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 no-underline">
+              <AppIcon name="ExternalLink" :size="14" />
+              学院官网
+            </a>
+          </div>
+        </div>
+
+        <h2 class="text-lg font-semibold text-slate-800 mb-4">开设课程</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <NuxtLink
             v-for="c in courses"
@@ -17,8 +36,7 @@
             class="block p-4 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 transition-all duration-200 no-underline cursor-pointer"
           >
             <h3 class="text-base font-medium text-slate-800">{{ c.name }}</h3>
-            <p v-if="c.category" class="text-xs text-slate-400 mt-1">{{ c.category }}</p>
-            <p v-if="c.credit" class="text-xs text-slate-400 mt-1">{{ c.credit }} 学分</p>
+            <p v-if="c.category" class="text-xs text-slate-400 mt-1">{{ c.category }}<span v-if="c.credit"> · {{ c.credit }} 学分</span></p>
           </NuxtLink>
         </div>
         <EmptyState v-if="courses.length === 0" icon="BookOpen" title="暂未收录课程" description="该学院下还没有课程资料" />
@@ -43,8 +61,8 @@ const { data, pending } = await useAsyncData(
   `college-detail-${route.params.id}`,
   async () => {
     const [collegeResp, courseResp] = await Promise.all([
-      $fetch<{ code: number; data: { id: string; name: string } | null }>(`${apiBase}/api/v1/colleges/${route.params.id}`),
-      $fetch<{ code: number; data: { id: string; name: string; category: string | null; credit: number | null }[] }>(`${apiBase}/api/v1/courses?college_id=${route.params.id}`),
+      $fetch<{ code: number; data: Record<string, any> | null }>(`${apiBase}/api/v1/colleges/${route.params.id}`),
+      $fetch<{ code: number; data: { id: string; name: string; category: string | null; credit: number | null; material_count?: number }[] }>(`${apiBase}/api/v1/courses?college_id=${route.params.id}`),
     ])
     return {
       college: collegeResp.code === 0 ? collegeResp.data : null,

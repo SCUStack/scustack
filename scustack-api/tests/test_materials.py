@@ -21,9 +21,10 @@ USER_ID = '00000000-0000-0000-0000-000000000001'
 class TestMaterialListAPI:
     async def test_list_empty(self, client):
         with patch('app.api.v1.materials.material_service.list_materials', new_callable=AsyncMock, return_value=[]):
-            resp = await client.get('/api/v1/materials')
-            assert resp.json()['code'] == 0
-            assert resp.json()['data'] == []
+            with patch('app.api.v1.materials.material_service.count_materials', new_callable=AsyncMock, return_value=0):
+                resp = await client.get('/api/v1/materials')
+                assert resp.json()['code'] == 0
+                assert resp.json()['data'] == {'items': [], 'total': 0}
 
     async def test_get_material_not_found(self, client):
         with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):

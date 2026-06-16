@@ -1,7 +1,8 @@
 <template>
-  <NuxtLink :to="`/material/${item.id}`"
-            class="relative rounded-lg overflow-hidden group cursor-pointer no-underline border border-slate-200 hover:shadow-lg transition-all duration-300 bg-slate-100"
-            style="min-height: 168px">
+  <NuxtLink
+    :to="`/material/${item.id}`"
+    class="group relative block h-[168px] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 no-underline shadow-sm transition-all duration-300 hover:border-primary-200 hover:shadow-lg"
+  >
     <img
       v-if="coverSrc"
       :src="coverSrc"
@@ -10,26 +11,57 @@
       loading="lazy"
       @error="onCoverError"
     />
-    <div class="absolute top-3 right-3 z-10">
-      <TrustBadge :status="item.trust_status" />
+    <div
+      v-else
+      class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 via-primary-50 to-slate-200 text-primary-200"
+    >
+      <AppIcon name="FileText" :size="42" />
     </div>
-    <div class="absolute inset-0 flex flex-col justify-end p-3.5 bg-gradient-to-t from-black/60 via-black/20 to-transparent">
-      <p class="text-sm font-semibold text-white mb-1.5 line-clamp-2 leading-snug">
+
+    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/5" />
+
+    <div class="absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-2">
+      <span
+        v-if="item.category"
+        class="min-w-0 truncate rounded-full bg-black/25 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm"
+      >
+        {{ item.category }}
+      </span>
+      <div class="ml-auto flex max-w-[70%] shrink-0 items-center justify-end gap-1.5">
+        <span
+          v-if="partsCount"
+          class="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm"
+        >
+          <AppIcon name="Files" :size="12" />
+          {{ partsCount }}
+        </span>
+        <TrustBadge :status="item.trust_status || 'unverified'" />
+      </div>
+    </div>
+
+    <div class="absolute inset-x-0 bottom-0 z-10 p-3.5">
+      <p class="line-clamp-2 text-sm font-semibold leading-snug text-white">
         <span v-if="highlight" v-html="highlightText(item.title, highlight)" />
         <span v-else>{{ item.title }}</span>
       </p>
-      <div class="flex items-center gap-2 text-xs text-white/60">
-        <span v-if="item.format" class="uppercase">{{ item.format }}</span>
-        <span v-if="item.rating_avg" class="flex items-center gap-0.5">★ {{ Number(item.rating_avg).toFixed(1) }}</span>
-        <span>↓ {{ item.download_count || 0 }}</span>
-        <span class="ml-auto">{{ timeAgo(item.created_at) }}</span>
+      <div class="mt-2 flex min-w-0 items-center gap-2 text-xs text-white/70">
+        <span v-if="item.format" class="shrink-0 uppercase">{{ item.format }}</span>
+        <span v-if="ratingText" class="inline-flex shrink-0 items-center gap-0.5">
+          <AppIcon name="Star" :size="12" />
+          {{ ratingText }}
+        </span>
+        <span class="inline-flex shrink-0 items-center gap-0.5">
+          <AppIcon name="Download" :size="12" />
+          {{ item.download_count || 0 }}
+        </span>
+        <span class="ml-auto shrink-0 text-white/55">{{ timeAgo(item.created_at) }}</span>
       </div>
     </div>
   </NuxtLink>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { resolveCoverSync } from '~/composables/useCoverImage'
 import tagsData from '~/data/covers'
 
@@ -46,6 +78,13 @@ const coverSrc = ref(
 function onCoverError() {
   coverSrc.value = ''
 }
+
+const partsCount = computed(() => props.item.parts?.length || 0)
+
+const ratingText = computed(() => {
+  const rating = Number(props.item.rating_avg ?? props.item.average_rating)
+  return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : ''
+})
 
 function highlightText(text: string, query: string): string {
   if (!query) return escapeHtml(text)
@@ -64,7 +103,9 @@ function escapeHtml(str: string): string {
 }
 
 function timeAgo(dateStr: string): string {
+  if (!dateStr) return '刚刚'
   const diff = Date.now() - new Date(dateStr).getTime()
+  if (!Number.isFinite(diff)) return '刚刚'
   const mins = Math.floor(diff / 60000)
   if (mins < 60) return `${mins || 1}分钟前`
   const hours = Math.floor(mins / 60)

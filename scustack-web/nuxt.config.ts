@@ -19,10 +19,12 @@ export default defineNuxtConfig({
   routeRules: {
     '/': { swr: 300 },
     '/search': { ssr: true },
+    '/course': { ssr: true },
     '/course/**': { ssr: true },
     '/material/**': { ssr: true },
     '/upload/**': { ssr: false },
     '/user/**': { ssr: false },
+    '/about': { swr: 300 },
     '/admin/**': { ssr: false },
   },
 

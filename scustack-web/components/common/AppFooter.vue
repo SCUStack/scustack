@@ -11,6 +11,7 @@
           <a href="https://github.com/yeyixiang2007/scustack" target="_blank" rel="noopener"
              class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">GitHub</a>
           <NuxtLink to="/colleges" class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">学院目录</NuxtLink>
+          <NuxtLink to="/about" class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">关于</NuxtLink>
         </nav>
       </div>
     </div>

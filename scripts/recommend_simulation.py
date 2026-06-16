@@ -1,8 +1,13 @@
 """Recommendation algorithm simulation — contributor exposure fairness.
 
-Final design (v5):
+Final design (v6):
   - Slot plan (2/2/2/4) is the binding fairness mechanism — cross-profile distribution
     is architecturally guaranteed, not parameter-sensitive
+  - Unrated new materials are eligible for cold-start slots, so uploads get fast
+    exposure before the first rating arrives
+  - Category diversity is capped in the first homepage window when alternatives exist
+  - Legacy high-value materials are scored by quality/heat instead of being removed
+    by an age cutoff
   - Universal decay (0.15) drives intra-profile rotation — gentle, predictable
   - Exploration boost (0.25) provides cross-profile lift — slot plan dominates, boost
     has minimal effect (validated by sensitivity sweep)
@@ -47,7 +52,9 @@ FRESHNESS_PEAK_DAYS = 7
 FRESHNESS_MAX_DAYS = 30
 
 COLD_START_HOURS = 24
-COLD_START_MIN_RATINGS = 1
+COLD_START_MIN_RATINGS = 0
+CATEGORY_DIVERSITY_WINDOW = TOP_K
+MAX_PER_CATEGORY_IN_WINDOW = 4
 
 TRUST_MULTIPLIER = {
     'maintainer_picked': 1.30,
@@ -281,16 +288,27 @@ def algorithm_slot_based(
 
     result = []
     used_ids = set()
+    category_counts: Counter[str] = Counter()
 
-    def pick_from(candidates, n, per_contrib_max=999):
+    def pick_from(candidates, n, per_contrib_max=999, use_category_cap=True):
         picked = []
         per_c = Counter()
         for m, s in candidates:
             if len(picked) >= n: break
             if m.id in used_ids or per_c[m.contributor_id] >= per_contrib_max: continue
+            next_position = len(result) + len(picked)
+            in_homepage_window = next_position < CATEGORY_DIVERSITY_WINDOW
+            if (
+                use_category_cap
+                and in_homepage_window
+                and category_counts[m.category] >= MAX_PER_CATEGORY_IN_WINDOW
+            ):
+                continue
             picked.append(m)
             used_ids.add(m.id)
             per_c[m.contributor_id] += 1
+            if in_homepage_window:
+                category_counts[m.category] += 1
         return picked
 
     cold_cutoff = now - timedelta(hours=COLD_START_HOURS)
@@ -314,6 +332,25 @@ def algorithm_slot_based(
     # Allow 2 per contributor here — quality can rise within the open pool
     # while cross-profile guarantees from earlier slots remain intact.
     result.extend(pick_from(remaining_pool, SLOT_PLAN['best_remaining'], per_contrib_max=2))
+
+    if len(result) < min(TOTAL_SLOTS, CATEGORY_DIVERSITY_WINDOW):
+        capped_refill_pool = [(m, s) for m, s in scored if m.id not in used_ids]
+        capped_refill_pool.sort(key=lambda x: x[1], reverse=True)
+        result.extend(pick_from(
+            capped_refill_pool,
+            min(TOTAL_SLOTS, CATEGORY_DIVERSITY_WINDOW) - len(result),
+            per_contrib_max=2,
+        ))
+
+    if len(result) < TOTAL_SLOTS:
+        refill_pool = [(m, s) for m, s in scored if m.id not in used_ids]
+        refill_pool.sort(key=lambda x: x[1], reverse=True)
+        result.extend(pick_from(
+            refill_pool,
+            TOTAL_SLOTS - len(result),
+            per_contrib_max=1,
+            use_category_cap=False,
+        ))
 
     return result
 
@@ -487,6 +524,90 @@ def stress_no_cold_start() -> tuple[list[Contributor], list[Material]]:
                 'unverified', end_date - timedelta(days=days_ago)))
     return contributors, materials
 
+def stress_unrated_cold_start() -> tuple[list[Contributor], list[Material]]:
+    """Recent unrated uploads should still have a cold-start path."""
+    contributors = [
+        Contributor(i, f'C{i}', STEADY, 4.0, 0.3, 1.0, 0.05)
+        for i in range(1, 13)
+    ]
+    end_date = datetime(2026, 6, 15)
+    materials = [
+        Material(1, 1, '课堂笔记', 3.5, 0, 20, 'unverified', end_date - timedelta(hours=2)),
+        Material(2, 2, '实验报告', 3.6, 0, 18, 'unverified', end_date - timedelta(hours=3)),
+    ]
+    for mid in range(3, 13):
+        materials.append(Material(
+            mid, mid, '考试资料', 4.2, 8, 200 - mid, 'unverified',
+            end_date - timedelta(days=10),
+        ))
+    return contributors, materials
+
+def stress_category_monopoly() -> tuple[list[Contributor], list[Material]]:
+    """A dominant category should not consume the whole homepage window."""
+    contributors = [
+        Contributor(i, f'C{i}', STEADY, 4.0, 0.3, 1.0, 0.05)
+        for i in range(1, 13)
+    ]
+    end_date = datetime(2026, 6, 15)
+    materials = []
+    for mid in range(1, 9):
+        materials.append(Material(
+            mid, mid, '考试资料', 5.0, 10, 1000 - mid, 'unverified',
+            end_date - timedelta(days=10),
+        ))
+    other_categories = ['课堂笔记', '教材', '习题集', '实验报告']
+    for offset, cat in enumerate(other_categories, start=9):
+        materials.append(Material(
+            offset, offset, cat, 3.6, 3, 40 - offset, 'unverified',
+            end_date - timedelta(days=10),
+        ))
+    return contributors, materials
+
+def stress_legacy_content() -> tuple[list[Contributor], list[Material]]:
+    """Old high-value material should remain eligible for recommendations."""
+    contributors = [
+        Contributor(i, f'C{i}', STEADY, 4.0, 0.3, 1.0, 0.05)
+        for i in range(1, 13)
+    ]
+    end_date = datetime(2026, 6, 15)
+    materials = [
+        Material(1, 1, '考试资料', 5.0, 80, 5000, 'maintainer_picked',
+                 end_date - timedelta(days=720)),
+    ]
+    for mid in range(2, 13):
+        materials.append(Material(
+            mid, mid, '考试资料' if mid % 2 == 0 else '课堂笔记',
+            3.0, 3, 20 + mid, 'unverified',
+            end_date - timedelta(days=14),
+        ))
+    return contributors, materials
+
+def validate_stress_cases(now: datetime) -> None:
+    """Fail fast when the simulation regresses on known recommendation risks."""
+    tc, tm = stress_unrated_cold_start()
+    for c in tc:
+        _contributor_profile_cache[c.id] = c.profile
+    recs = algorithm_slot_based(tm, now, recent_exposure={})
+    assert any(m.rating_count == 0 and m.created_at >= now - timedelta(hours=24) for m in recs), (
+        'unrated cold-start materials were not recommended'
+    )
+
+    tc, tm = stress_category_monopoly()
+    for c in tc:
+        _contributor_profile_cache[c.id] = c.profile
+    recs = algorithm_slot_based(tm, now, recent_exposure={})
+    first_window_counts = Counter(m.category for m in recs[:CATEGORY_DIVERSITY_WINDOW])
+    assert max(first_window_counts.values()) <= MAX_PER_CATEGORY_IN_WINDOW, (
+        f'category cap failed: {first_window_counts}'
+    )
+    assert len(first_window_counts) > 1, 'homepage window collapsed to one category'
+
+    tc, tm = stress_legacy_content()
+    for c in tc:
+        _contributor_profile_cache[c.id] = c.profile
+    recs = algorithm_slot_based(tm, now, recent_exposure={})
+    assert any(m.id == 1 for m in recs), 'legacy high-value material was not recommended'
+
 # ══════════════════════════════════════════════════════════════════════
 # Output helpers
 # ══════════════════════════════════════════════════════════════════════
@@ -547,6 +668,9 @@ def main():
         _contributor_profile_cache[c.id] = c.profile
 
     now = datetime(2026, 6, 15)
+    validate_stress_cases(now)
+    print('STRESS VALIDATION: passed known cold-start/diversity/legacy gates')
+    print()
 
     # ── Multi-seed robustness ─────────────────────────────────────
     seeds = [42, 123, 456, 789, 1024]

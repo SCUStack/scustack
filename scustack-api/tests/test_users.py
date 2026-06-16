@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.main import app
 
 
@@ -41,11 +41,14 @@ class TestUserProfile:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url='http://test') as client:
             resp = await client.get('/api/v1/me')
-            assert resp.status_code == 401
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body['code'] == 0
+            assert body['data'] is None
 
     async def test_get_me_ok(self):
         user = _make_user()
-        app.dependency_overrides[get_current_user] = lambda: user
+        app.dependency_overrides[get_optional_user] = lambda: user
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url='http://test') as client:
             resp = await client.get('/api/v1/me')

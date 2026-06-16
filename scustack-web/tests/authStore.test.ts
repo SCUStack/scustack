@@ -2,19 +2,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
+const authMocks = vi.hoisted(() => ({
+  verifyCode: vi.fn(),
+  getMe: vi.fn(),
+  refresh: vi.fn(),
+  logout: vi.fn(),
+  updateProfile: vi.fn(),
+  getUnreadCount: vi.fn(),
+}))
+
 // Mock useAuth composable before importing store
 vi.mock('../composables/useAuth', () => ({
-  useAuth: () => ({
-    verifyCode: vi.fn().mockResolvedValue({ code: 0, data: null, message: 'ok' }),
-    getMe: vi.fn().mockResolvedValue({ code: 0, data: {
-      id: 'uid', nickname: 'Test', role: 'student', avatar_url: null,
-      trust_score: 0, public_display_name: null,
-    }}),
-    refresh: vi.fn().mockResolvedValue({ code: 0 }),
-    logout: vi.fn().mockResolvedValue({ code: 0 }),
-    updateProfile: vi.fn().mockResolvedValue({ code: 0 }),
-    getUnreadCount: vi.fn().mockResolvedValue({ code: 0, data: { count: 5 } }),
-  }),
+  useAuth: () => authMocks,
 }))
 
 import { useAuthStore } from '../stores/auth'
@@ -22,7 +21,16 @@ import { useAuthStore } from '../stores/auth'
 describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.restoreAllMocks()
+    vi.clearAllMocks()
+    authMocks.verifyCode.mockResolvedValue({ code: 0, data: null, message: 'ok' })
+    authMocks.getMe.mockResolvedValue({ code: 0, data: {
+      id: 'uid', nickname: 'Test', role: 'student', avatar_url: null,
+      trust_score: 0, public_display_name: null,
+    }})
+    authMocks.refresh.mockResolvedValue({ code: 0 })
+    authMocks.logout.mockResolvedValue({ code: 0 })
+    authMocks.updateProfile.mockResolvedValue({ code: 0 })
+    authMocks.getUnreadCount.mockResolvedValue({ code: 0, data: { count: 5 } })
   })
 
   it('starts with user as null and not logged in', () => {
@@ -67,6 +75,17 @@ describe('useAuthStore', () => {
     await store.login('13800000000', '123456')
     await store.fetchUnreadCount()
     expect(store.unreadNotificationCount).toBe(5)
+  })
+
+  it('fetchUser treats 401 responses as a guest session', async () => {
+    const store = useAuthStore()
+    await store.login('13800000000', '123456')
+    authMocks.getMe.mockRejectedValueOnce({ response: { status: 401 } })
+
+    await expect(store.fetchUser()).resolves.toBeUndefined()
+
+    expect(store.user).toBeNull()
+    expect(store.isLoggedIn).toBe(false)
   })
 
   it('updateProfile merges user fields', async () => {

@@ -16,8 +16,8 @@ async def get_college(db: AsyncSession, college_id: UUID) -> College | None:
     return result.scalar_one_or_none()
 
 
-async def create_college(db: AsyncSession, name: str, slug: str, sort_order: int = 0) -> College:
-    college = College(name=name, slug=slug, sort_order=sort_order)
+async def create_college(db: AsyncSession, name: str, slug: str, sort_order: int = 0, description: str | None = None, website: str | None = None) -> College:
+    college = College(name=name, slug=slug, sort_order=sort_order, description=description, website=website)
     db.add(college)
     await db.flush()
     return college

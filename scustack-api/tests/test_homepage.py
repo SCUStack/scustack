@@ -1,6 +1,7 @@
 """Tests for homepage recommendation algorithm."""
 import math
 import uuid
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,6 +18,8 @@ from app.services.homepage_service import (
     get_personalized_recommendations,
     get_stats,
     get_calendar_label,
+    CATEGORY_DIVERSITY_WINDOW,
+    MAX_PER_CATEGORY_IN_WINDOW,
     W_QUALITY,
     W_HEAT,
     W_FRESHNESS,
@@ -323,6 +326,96 @@ class TestFullPipeline:
                 result = await get_calendar_recommendations(mock_db)
                 result_ids = {m.id for m in result}
                 assert recent_good.id in result_ids
+
+    @pytest.mark.asyncio
+    async def test_cold_start_includes_unrated_recent_materials(self):
+        now = datetime.now(timezone.utc)
+        unrated = make_material(
+            cid='a' * 32,
+            category='课堂笔记',
+            avg_rating=0,
+            rating_count=0,
+            download_count=1,
+        )
+        unrated.created_at = now - timedelta(hours=2)
+
+        mats = [unrated] + [
+            make_material(
+                cid=f'{i:032d}',
+                category='考试资料',
+                avg_rating=4.5,
+                rating_count=8,
+                download_count=300 - i,
+            )
+            for i in range(1, 25)
+        ]
+        count_rows = [(m.contributor_id, 5) for m in mats]
+        mock_db = _mock_db_query((mats, True), ([], False), (count_rows, False))
+
+        with patch('app.services.homepage_service.get_exposures', new=AsyncMock(return_value={})):
+            with patch('app.services.homepage_service.bump_exposure', new=AsyncMock()):
+                result = await get_calendar_recommendations(mock_db)
+                assert unrated.id in {m.id for m in result}
+
+    @pytest.mark.asyncio
+    async def test_category_diversity_caps_first_homepage_window(self):
+        dominant = [
+            make_material(
+                cid=f'{i:032d}',
+                category='考试资料',
+                avg_rating=5,
+                rating_count=10,
+                download_count=1000 - i,
+            )
+            for i in range(1, 9)
+        ]
+        alternatives = [
+            make_material(cid='00000000000000000000000000000009', category='课堂笔记'),
+            make_material(cid='00000000000000000000000000000010', category='教材'),
+            make_material(cid='00000000000000000000000000000011', category='习题集'),
+            make_material(cid='00000000000000000000000000000012', category='实验报告'),
+        ]
+        mats = dominant + alternatives
+        count_rows = [(m.contributor_id, 5) for m in mats]
+        mock_db = _mock_db_query((mats, True), ([], False), (count_rows, False))
+
+        with patch('app.services.homepage_service.get_exposures', new=AsyncMock(return_value={})):
+            with patch('app.services.homepage_service.bump_exposure', new=AsyncMock()):
+                result = await get_calendar_recommendations(mock_db)
+                first_window = result[:CATEGORY_DIVERSITY_WINDOW]
+                counts = Counter(m.category for m in first_window)
+                assert max(counts.values()) <= MAX_PER_CATEGORY_IN_WINDOW
+                assert len(counts) > 1
+
+    @pytest.mark.asyncio
+    async def test_legacy_high_value_material_remains_eligible(self):
+        legacy = make_material(
+            cid='a' * 32,
+            category='考试资料',
+            avg_rating=5,
+            rating_count=80,
+            download_count=5000,
+            trust_status='maintainer_picked',
+            created_days_ago=720,
+        )
+        mats = [legacy] + [
+            make_material(
+                cid=f'{i:032d}',
+                category='课堂笔记',
+                avg_rating=3,
+                rating_count=3,
+                download_count=20 + i,
+                created_days_ago=14,
+            )
+            for i in range(1, 25)
+        ]
+        count_rows = [(m.contributor_id, 5) for m in mats]
+        mock_db = _mock_db_query((mats, True), ([], False), (count_rows, False))
+
+        with patch('app.services.homepage_service.get_exposures', new=AsyncMock(return_value={})):
+            with patch('app.services.homepage_service.bump_exposure', new=AsyncMock()):
+                result = await get_calendar_recommendations(mock_db)
+                assert legacy.id in {m.id for m in result}
 
     @pytest.mark.asyncio
     async def test_exposure_decay_spreads_contributors(self):

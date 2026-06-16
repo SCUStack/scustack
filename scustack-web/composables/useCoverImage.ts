@@ -227,15 +227,52 @@ export async function resolveCover(item: { id?: string; title?: string; category
  * Synchronous version that uses a pre-loaded tags object.
  * Useful for SSR/build-time where async import isn't needed.
  */
+// ── Category inference (fallback when API category doesn't match cover keys)
+
+const CATEGORY_KW_SETS: [string, ReadonlySet<string>][] = [
+  ['考试资料', CAT_KW],
+  ['复习提纲', REVIEW_KW],
+  ['课堂笔记', NOTES_KW],
+  ['教材', TEXTBOOK_KW],
+  ['习题集', PROBLEM_KW],
+  ['实验报告', LAB_KW],
+  ['历年真题', PAST_KW],
+  ['课件讲义', SLIDES_KW],
+]
+
+function inferCategory(title: string): string | null {
+  let best = ''
+  let bestCount = 0
+  for (const [cat, kwSet] of CATEGORY_KW_SETS) {
+    let count = 0
+    for (const kw of kwSet) {
+      if (title.includes(kw)) count++
+    }
+    if (count > bestCount) {
+      bestCount = count
+      best = cat
+    }
+  }
+  return bestCount > 0 ? best : null
+}
+
 export function resolveCoverSync(
   item: { id?: string; title?: string; category?: string },
   tags: TagsData,
 ): string {
   const title = item.title || ''
-  const category = item.category || ''
   const id = item.id || title
+  let category = item.category || ''
 
-  const pool = tags[category]
+  // Exact match first, then fallback to inference from title
+  let pool = tags[category]
+  if (!pool || pool.length === 0) {
+    const inferred = inferCategory(title)
+    if (inferred) {
+      category = inferred
+      pool = tags[category]
+    }
+  }
   if (!pool || pool.length === 0) return ''
 
   let bestFile = ''

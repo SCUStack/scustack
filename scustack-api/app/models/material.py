@@ -5,7 +5,7 @@ from sqlalchemy import (
     BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric,
     String, Text, func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -54,6 +54,9 @@ class Material(Base):
     link_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     link_failure_count: Mapped[int] = mapped_column(
         Integer, nullable=False, insert_default=0, server_default='0'
+    )
+    parts: Mapped[list | None] = mapped_column(
+        JSONB, nullable=True
     )
     contributor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey('users.id'), nullable=True

@@ -10,6 +10,7 @@
         <p class="text-sm text-slate-500">
           {{ course.college?.name }} · {{ course.category || '未分类' }}
           <span v-if="course.credit">· {{ course.credit }} 学分</span>
+          <span v-if="total">· {{ total }} 份资料</span>
         </p>
         <div class="mt-3 flex items-center gap-3">
           <button
@@ -53,8 +54,36 @@
         </select>
       </div>
 
-      <div class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <MaterialCard v-for="item in materials" :key="item.id" :item="item" />
+      </div>
+
+      <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 py-8">
+        <button
+          :disabled="currentPage <= 1"
+          class="px-3 py-1.5 text-sm border border-slate-200 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer transition-colors duration-150"
+          @click="goToPage(currentPage - 1)"
+        >
+          上一页
+        </button>
+        <button
+          v-for="p in pageNumbers"
+          :key="p"
+          :class="[
+            'px-3 py-1.5 text-sm border rounded-md cursor-pointer transition-colors duration-150',
+            p === currentPage ? 'bg-primary-500 text-white border-primary-500' : 'border-slate-200 hover:bg-slate-50 text-slate-600',
+          ]"
+          @click="goToPage(p)"
+        >
+          {{ p }}
+        </button>
+        <button
+          :disabled="currentPage >= totalPages"
+          class="px-3 py-1.5 text-sm border border-slate-200 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer transition-colors duration-150"
+          @click="goToPage(currentPage + 1)"
+        >
+          下一页
+        </button>
       </div>
 
       <div v-if="loading" class="py-8">
@@ -75,6 +104,8 @@ const course = ref<any>(null)
 const materials = ref<any[]>([])
 const loading = ref(true)
 const isFollowing = ref(false)
+const total = ref(0)
+const PAGE_SIZE = 21
 
 async function toggleFollow() {
   if (!auth.isLoggedIn) {
@@ -91,8 +122,25 @@ const inCourseQuery = ref('')
 const inCourseCategory = ref('')
 const inCourseSemester = ref('')
 const inCourseSort = ref('relevance')
-const categories = ['课堂笔记', '考试资料', '作业', '实验报告', '代码', '教材', '复习提纲', '其他']
+const categories = ['课堂笔记', '考试资料', '复习提纲', '教材', '习题集', '实验报告', '历年真题', '课件讲义']
 const semesters = ['2026-2027-1', '2025-2026-2', '2025-2026-1', '2024-2025-2', '2024-2025-1']
+const currentPage = ref(1)
+const hasQueryFilters = computed(() => Boolean(inCourseQuery.value || inCourseCategory.value || inCourseSemester.value))
+const totalPages = computed(() => Math.ceil(total.value / PAGE_SIZE) || 1)
+
+const pageNumbers = computed(() => {
+  const pages: number[] = []
+  const tp = totalPages.value
+  const cur = currentPage.value
+  let start = Math.max(1, cur - 2)
+  let end = Math.min(tp, cur + 2)
+  if (end - start < 4) {
+    if (start === 1) end = Math.min(tp, start + 4)
+    else start = Math.max(1, end - 4)
+  }
+  for (let i = start; i <= end; i++) pages.push(i)
+  return pages
+})
 
 const breadcrumbs = computed(() => [
   { label: '首页', to: '/' },
@@ -100,20 +148,60 @@ const breadcrumbs = computed(() => [
   { label: course.value?.name || '...' },
 ])
 
-async function searchInCourse() {
+async function fetchCourseMaterials(page = 1) {
   loading.value = true
-  const params = new URLSearchParams({
-    course_id: route.params.id as string,
-    sort: inCourseSort.value,
-    page: '1', page_size: '20',
-  })
-  if (inCourseQuery.value) params.set('q', inCourseQuery.value)
-  if (inCourseCategory.value) params.set('category', inCourseCategory.value)
-  if (inCourseSemester.value) params.set('semester', inCourseSemester.value)
+  currentPage.value = page
+  try {
+    if (hasQueryFilters.value) {
+      const params = new URLSearchParams({
+        course_id: route.params.id as string,
+        sort: inCourseSort.value,
+        page: String(page),
+        page_size: String(PAGE_SIZE),
+      })
+      if (inCourseQuery.value) params.set('q', inCourseQuery.value)
+      if (inCourseCategory.value) params.set('category', inCourseCategory.value)
+      if (inCourseSemester.value) params.set('semester', inCourseSemester.value)
 
-  const resp = await $fetch<{ code: number; data: { items: any[] } }>(`${apiBase}/api/v1/search?${params.toString()}`)
-  if (resp.code === 0) materials.value = resp.data.items
-  loading.value = false
+      const resp = await $fetch<{ code: number; data?: { items?: any[]; total?: number } }>(`${apiBase}/api/v1/search?${params.toString()}`)
+      const items = resp.code === 0 && Array.isArray(resp.data?.items) ? resp.data.items : []
+      materials.value = items
+      total.value = resp.code === 0 && typeof resp.data?.total === 'number' ? resp.data.total : items.length
+      return
+    }
+
+    const offset = (page - 1) * PAGE_SIZE
+    const params = new URLSearchParams({
+      course_id: route.params.id as string,
+      sort: inCourseSort.value === 'relevance' ? 'newest' : inCourseSort.value,
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    })
+    if (inCourseCategory.value) params.set('category', inCourseCategory.value)
+    if (inCourseSemester.value) params.set('semester', inCourseSemester.value)
+
+    const resp = await $fetch<{ code: number; data?: any[]; total?: number }>(`${apiBase}/api/v1/materials?${params.toString()}`)
+    const items = resp.code === 0 && Array.isArray(resp.data) ? resp.data : []
+    materials.value = items
+    total.value = resp.code === 0 && typeof resp.total === 'number' ? resp.total : items.length
+  } catch (e) {
+    console.error('[course] fetchCourseMaterials failed page=%d:', page, e)
+    if (page === 1) materials.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+function searchInCourse() {
+  currentPage.value = 1
+  void fetchCourseMaterials(1)
+}
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value) return
+  fetchCourseMaterials(page)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function saveRecentCourse() {
@@ -135,16 +223,14 @@ function saveRecentCourse() {
 
 onMounted(async () => {
   try {
-    const [courseResp, searchResp] = await Promise.all([
+    const [courseResp] = await Promise.all([
       $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/courses/${route.params.id}`),
-      $fetch<{ code: number; data: { items: any[] } }>(`${apiBase}/api/v1/search?course_id=${route.params.id}&page_size=20`),
     ])
     if (courseResp.code === 0) {
       course.value = courseResp.data
       saveRecentCourse()
     }
-    if (searchResp.code === 0) materials.value = searchResp.data.items
   } catch { /* noop */ }
-  loading.value = false
+  await fetchCourseMaterials(1)
 })
 </script>

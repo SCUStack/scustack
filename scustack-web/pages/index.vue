@@ -40,10 +40,11 @@
 
     <!-- Hot courses — compact row -->
     <ClientOnly>
+      <div>
       <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
-          <NuxtLink to="/colleges" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
+          <NuxtLink to="/course" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
             查看更多 →
           </NuxtLink>
         </div>
@@ -101,6 +102,7 @@
             <div class="flex items-center gap-2 text-xs text-white/60">
               <span class="uppercase">{{ item.format }}</span>
               <span>↓ {{ item.download_count || 0 }}</span>
+              <span v-if="item.category">· {{ item.category }}</span>
               <span class="ml-auto">{{ timeAgo(item.created_at) }}</span>
             </div>
           </div>
@@ -112,7 +114,18 @@
     <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
       <h2 class="text-lg font-semibold text-slate-800 mb-4">近期更新</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MaterialCard v-for="item in recentItems" :key="item.id" :item="item" />
+        <MaterialCard v-for="item in visibleRecentItems" :key="item.id" :item="item" />
+        <!-- "View all" as the last card in grid -->
+        <NuxtLink
+          v-if="recentItems.length > 0"
+          to="/search"
+          class="relative rounded-lg overflow-hidden group cursor-pointer no-underline border-2 border-dashed border-slate-300 hover:border-primary-400 transition-all duration-300 flex flex-col items-center justify-center bg-slate-50 hover:bg-primary-50/30"
+          style="min-height: 168px"
+        >
+          <AppIcon name="Search" :size="32" class="text-slate-300 group-hover:text-primary-400 mb-2 transition-colors duration-300" />
+          <p class="text-sm font-medium text-slate-500 group-hover:text-primary-600 transition-colors duration-300">更多资料</p>
+          <p class="text-xs text-slate-400 mt-1">{{ totalMaterialCount ? `${totalMaterialCount} 份资料` : '浏览所有课程和资料' }}</p>
+        </NuxtLink>
       </div>
       <div ref="recentSentinel" class="h-4" />
       <div v-if="recentLoading" class="py-4">
@@ -139,6 +152,7 @@
         </NuxtLink>
       </div>
     </section>
+      </div>
     </ClientOnly>
   </div>
 </template>
@@ -156,9 +170,18 @@ const calendarItems = ref<any[]>([])
 const recentItems = ref<any[]>([])
 const recentCursor = ref(0)
 const recentLoading = ref(false)
+const allRecentLoaded = ref(false)
+const totalMaterialCount = ref(0)
 const recentSentinel = ref<HTMLElement | null>(null)
 const hotCourses = ref<any[]>([])
 const colleges = ref<{ id: string; name: string }[]>([])
+
+const visibleRecentItems = computed(() => {
+  if (recentItems.value.length <= 2) return recentItems.value
+  const overflow = (recentItems.value.length + 1) % 3
+  const count = overflow === 0 ? recentItems.value.length : recentItems.value.length - overflow
+  return recentItems.value.slice(0, count)
+})
 
 const banners = [
   { image: 'https://picsum.photos/seed/scu1/1200/300', title: '期末考试资料热力上线', subtitle: '历年真题、复习提纲助你冲刺高分' },
@@ -186,24 +209,29 @@ onMounted(async () => {
       recentItems.value = d.recent_updates || []
       recentCursor.value = (d.recent_updates || []).length
       hotCourses.value = d.hot_courses || []
+      totalMaterialCount.value = d.stats?.material_count || 0
     }
     if (collegeResp.code === 0) colleges.value = collegeResp.data
   } catch { /* noop */ }
 
   if (recentSentinel.value) {
-    let allRecentLoaded = false
+    const MAX_RECENT = 89
     const recentObserver = new IntersectionObserver(async (entries) => {
-      if (allRecentLoaded || !entries[0]?.isIntersecting || recentLoading.value) return
+      if (allRecentLoaded.value || !entries[0]?.isIntersecting || recentLoading.value) return
       recentLoading.value = true
       try {
         const resp = await $fetch<{ code: number; data: any }>(
-          `${apiBase}/api/v1/homepage?cursor=${recentCursor.value}`,
+          `${apiBase}/api/v1/homepage?cursor=${recentCursor.value}&limit=15`,
         )
         if (resp.code === 0 && resp.data?.recent_updates?.length) {
           recentItems.value.push(...resp.data.recent_updates)
           recentCursor.value += resp.data.recent_updates.length
+          if (recentItems.value.length >= MAX_RECENT) {
+            allRecentLoaded.value = true
+            recentObserver.disconnect()
+          }
         } else {
-          allRecentLoaded = true
+          allRecentLoaded.value = true
         }
       } catch { /* noop */ }
       recentLoading.value = false

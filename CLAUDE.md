@@ -6,7 +6,7 @@
 
 ## Issue-driven development
 
-All work is driven by issues defined in `docs/ISSUES.md`. Each issue is a vertical slice across all layers (schema → API → UI → test). Before starting any work:
+All work is driven by issues on GitHub. Each issue is a vertical slice across all layers (schema → API → UI → test). Before starting any work:
 
 1. Read the target issue's full description, acceptance criteria, and `Blocked by` field
 2. Verify all blocking issues are completed before starting

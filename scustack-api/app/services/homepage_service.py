@@ -40,7 +40,9 @@ TRUST_SCORE_MAP = {
 }
 
 COLD_START_HOURS = 24
-COLD_START_MIN_RATINGS = 1
+COLD_START_MIN_RATINGS = 0
+CATEGORY_DIVERSITY_WINDOW = 8
+MAX_PER_CATEGORY_IN_WINDOW = 4
 NEWCOMER_DAYS = 30
 VULNERABLE_MAX_MATERIALS = 3
 
@@ -139,6 +141,11 @@ def _pick_from(
     already: set[uuid.UUID],
     n: int,
     per_contrib_max: int = 1,
+    category_counts: Counter[str] | None = None,
+    result_offset: int = 0,
+    category_window: int = CATEGORY_DIVERSITY_WINDOW,
+    max_per_category_in_window: int = MAX_PER_CATEGORY_IN_WINDOW,
+    enforce_category_cap: bool = True,
 ) -> list[Material]:
     picked: list[Material] = []
     per_contrib: dict[str, int] = Counter()
@@ -150,9 +157,20 @@ def _pick_from(
         cid = str(m.contributor_id) if m.contributor_id else ''
         if per_contrib[cid] >= per_contrib_max:
             continue
+        next_position = result_offset + len(picked)
+        in_diversity_window = next_position < category_window
+        if (
+            enforce_category_cap
+            and category_counts is not None
+            and in_diversity_window
+            and category_counts[m.category] >= max_per_category_in_window
+        ):
+            continue
         picked.append(m)
         already.add(m.id)
         per_contrib[cid] += 1
+        if category_counts is not None and in_diversity_window:
+            category_counts[m.category] += 1
     return picked
 
 
@@ -181,9 +199,10 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
 
     Architecture:
       Calendar quality (3 slots) → best calendar-matched, any contributor
-      Cold start        (2 slots) → materials < 24h old, ≥1 rating
+      Cold start        (2 slots) → materials < 24h old, including unrated uploads
       Exploration       (1 slot)  → vulnerable contributors only
       Best remaining    (4 slots) → top scorers, per_contrib_max=2
+      Diversity cap     (first 8 slots) → max 4 per category when alternatives exist
     """
     now = datetime.now(timezone.utc)
     month = now.month
@@ -192,13 +211,11 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
     )
 
     # ── Fetch eligible materials ─────────────────────────────────
-    six_months_ago = now - timedelta(days=180)
     result = await db.execute(
         select(Material)
         .where(
             Material.review_status == 'approved',
             Material.trust_status != 'doubtful',
-            Material.created_at >= six_months_ago,
         )
         .order_by(Material.created_at.desc())
     )
@@ -238,11 +255,29 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
 
     cold_cutoff = now - timedelta(hours=COLD_START_HOURS)
     used: set[uuid.UUID] = set()
+    category_counts: Counter[str] = Counter()
+
+    def pick(
+        candidates: list[tuple[Material, float]],
+        n: int,
+        per_contrib_max: int = 1,
+        enforce_category_cap: bool = True,
+    ) -> list[Material]:
+        return _pick_from(
+            candidates,
+            used,
+            n,
+            per_contrib_max=per_contrib_max,
+            category_counts=category_counts,
+            result_offset=len(result_mats),
+            enforce_category_cap=enforce_category_cap,
+        )
 
     # Phase 1: Calendar quality
     calendar_pool = [(m, s) for m, s in scored if m.category in calendar_targets]
     calendar_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats = _pick_from(calendar_pool, used, SLOT_PLAN['calendar_quality'], per_contrib_max=1)
+    result_mats: list[Material] = []
+    result_mats.extend(pick(calendar_pool, SLOT_PLAN['calendar_quality'], per_contrib_max=1))
 
     # Phase 2: Cold start
     cold_pool = [
@@ -251,7 +286,7 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
         and (m.rating_count or 0) >= COLD_START_MIN_RATINGS
     ]
     cold_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(cold_pool, used, SLOT_PLAN['cold_start'], per_contrib_max=1))
+    result_mats.extend(pick(cold_pool, SLOT_PLAN['cold_start'], per_contrib_max=1))
 
     # Phase 3: Exploration (vulnerable contributors only)
     explore_pool = [
@@ -259,12 +294,31 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
         if str(m.contributor_id) in vulnerable_ids
     ]
     explore_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(explore_pool, used, SLOT_PLAN['exploration'], per_contrib_max=1))
+    result_mats.extend(pick(explore_pool, SLOT_PLAN['exploration'], per_contrib_max=1))
 
     # Phase 4: Best remaining
     remaining_pool = [(m, s) for m, s in scored if m.id not in used]
     remaining_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(remaining_pool, used, SLOT_PLAN['best_remaining'], per_contrib_max=2))
+    result_mats.extend(pick(remaining_pool, SLOT_PLAN['best_remaining'], per_contrib_max=2))
+
+    if len(result_mats) < min(TOTAL_SLOTS, CATEGORY_DIVERSITY_WINDOW):
+        capped_refill_pool = [(m, s) for m, s in scored if m.id not in used]
+        capped_refill_pool.sort(key=lambda x: x[1], reverse=True)
+        result_mats.extend(pick(
+            capped_refill_pool,
+            min(TOTAL_SLOTS, CATEGORY_DIVERSITY_WINDOW) - len(result_mats),
+            per_contrib_max=2,
+        ))
+
+    if len(result_mats) < TOTAL_SLOTS:
+        refill_pool = [(m, s) for m, s in scored if m.id not in used]
+        refill_pool.sort(key=lambda x: x[1], reverse=True)
+        result_mats.extend(pick(
+            refill_pool,
+            TOTAL_SLOTS - len(result_mats),
+            per_contrib_max=1,
+            enforce_category_cap=False,
+        ))
 
     # ── Record exposures ─────────────────────────────────────────
     for m in result_mats:
@@ -367,13 +421,11 @@ async def get_personalized_recommendations(
     )
 
     # ── Fetch eligible materials ─────────────────────────────────
-    six_months_ago = now - timedelta(days=180)
     result = await db.execute(
         select(Material)
         .where(
             Material.review_status == 'approved',
             Material.trust_status != 'doubtful',
-            Material.created_at >= six_months_ago,
         )
         .order_by(Material.created_at.desc())
     )
@@ -421,11 +473,33 @@ async def get_personalized_recommendations(
 
     cold_cutoff = now - timedelta(hours=COLD_START_HOURS)
     used: set[uuid.UUID] = set()
+    category_counts: Counter[str] = Counter()
+
+    def pick(
+        candidates: list[tuple[Material, float]],
+        n: int,
+        per_contrib_max: int = 1,
+        enforce_category_cap: bool = True,
+    ) -> list[Material]:
+        return _pick_from(
+            candidates,
+            used,
+            n,
+            per_contrib_max=per_contrib_max,
+            category_counts=category_counts,
+            result_offset=len(result_mats),
+            enforce_category_cap=enforce_category_cap,
+        )
 
     # Phase 1: Calendar quality
     calendar_pool = [(m, s) for m, s in scored if m.category in calendar_targets]
     calendar_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats = _pick_from(calendar_pool, used, PERSONALIZED_SLOT_PLAN['calendar_quality'], per_contrib_max=1)
+    result_mats: list[Material] = []
+    result_mats.extend(pick(
+        calendar_pool,
+        PERSONALIZED_SLOT_PLAN['calendar_quality'],
+        per_contrib_max=1,
+    ))
 
     # Phase 2: Cold start
     cold_pool = [
@@ -434,7 +508,11 @@ async def get_personalized_recommendations(
         and (m.rating_count or 0) >= COLD_START_MIN_RATINGS
     ]
     cold_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(cold_pool, used, PERSONALIZED_SLOT_PLAN['cold_start'], per_contrib_max=1))
+    result_mats.extend(pick(
+        cold_pool,
+        PERSONALIZED_SLOT_PLAN['cold_start'],
+        per_contrib_max=1,
+    ))
 
     # Phase 3: Exploration (vulnerable contributors only)
     explore_pool = [
@@ -442,7 +520,11 @@ async def get_personalized_recommendations(
         if str(m.contributor_id) in vulnerable_ids
     ]
     explore_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(explore_pool, used, PERSONALIZED_SLOT_PLAN['exploration'], per_contrib_max=1))
+    result_mats.extend(pick(
+        explore_pool,
+        PERSONALIZED_SLOT_PLAN['exploration'],
+        per_contrib_max=1,
+    ))
 
     # Phase 4: College affinity (materials from user's inferred college)
     if inferred_college is not None and college_material_ids:
@@ -451,7 +533,11 @@ async def get_personalized_recommendations(
             if m.id in college_material_ids
         ]
         college_pool.sort(key=lambda x: x[1], reverse=True)
-        result_mats.extend(_pick_from(college_pool, used, PERSONALIZED_SLOT_PLAN['college_affinity'], per_contrib_max=1))
+        result_mats.extend(pick(
+            college_pool,
+            PERSONALIZED_SLOT_PLAN['college_affinity'],
+            per_contrib_max=1,
+        ))
 
     # Phase 5: Course affinity (bookmarked courses + preferred categories)
     course_pool = [
@@ -460,12 +546,39 @@ async def get_personalized_recommendations(
         or (preferred_cats and m.category in preferred_cats)
     ]
     course_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(course_pool, used, PERSONALIZED_SLOT_PLAN['course_affinity'], per_contrib_max=1))
+    result_mats.extend(pick(
+        course_pool,
+        PERSONALIZED_SLOT_PLAN['course_affinity'],
+        per_contrib_max=1,
+    ))
 
     # Phase 6: Best remaining
     remaining_pool = [(m, s) for m, s in scored if m.id not in used]
     remaining_pool.sort(key=lambda x: x[1], reverse=True)
-    result_mats.extend(_pick_from(remaining_pool, used, PERSONALIZED_SLOT_PLAN['best_remaining'], per_contrib_max=2))
+    result_mats.extend(pick(
+        remaining_pool,
+        PERSONALIZED_SLOT_PLAN['best_remaining'],
+        per_contrib_max=2,
+    ))
+
+    if len(result_mats) < min(PERSONALIZED_TOTAL_SLOTS, CATEGORY_DIVERSITY_WINDOW):
+        capped_refill_pool = [(m, s) for m, s in scored if m.id not in used]
+        capped_refill_pool.sort(key=lambda x: x[1], reverse=True)
+        result_mats.extend(pick(
+            capped_refill_pool,
+            min(PERSONALIZED_TOTAL_SLOTS, CATEGORY_DIVERSITY_WINDOW) - len(result_mats),
+            per_contrib_max=2,
+        ))
+
+    if len(result_mats) < PERSONALIZED_TOTAL_SLOTS:
+        refill_pool = [(m, s) for m, s in scored if m.id not in used]
+        refill_pool.sort(key=lambda x: x[1], reverse=True)
+        result_mats.extend(pick(
+            refill_pool,
+            PERSONALIZED_TOTAL_SLOTS - len(result_mats),
+            per_contrib_max=1,
+            enforce_category_cap=False,
+        ))
 
     # ── Record exposures ─────────────────────────────────────────
     for m in result_mats:

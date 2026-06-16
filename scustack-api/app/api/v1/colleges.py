@@ -1,11 +1,14 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.dependencies import get_current_user, require_permission
 from app.core.permissions import Permission
+from app.models.course import Course
+from app.models.material import Material
 from app.schemas.college import CollegeCreate, CollegeUpdate, CollegeResponse
 from app.services import college_service
 
@@ -23,7 +26,21 @@ async def get_college(college_id: UUID, db: AsyncSession = Depends(get_db)):
     college = await college_service.get_college(db, college_id)
     if college is None:
         return {'code': 40400, 'data': None, 'message': 'college not found'}
-    return {'code': 0, 'data': CollegeResponse.model_validate(college).model_dump(mode='json'), 'message': 'ok'}
+
+    course_count = await db.scalar(
+        select(func.count()).select_from(Course).where(Course.college_id == college_id, Course.is_active == True)
+    )
+    material_count = await db.scalar(
+        select(func.count())
+        .select_from(Material)
+        .join(Course, Material.course_id == Course.id)
+        .where(Course.college_id == college_id, Material.review_status == 'approved')
+    )
+
+    data = CollegeResponse.model_validate(college).model_dump(mode='json')
+    data['course_count'] = course_count or 0
+    data['material_count'] = material_count or 0
+    return {'code': 0, 'data': data, 'message': 'ok'}
 
 
 @router.post('')
@@ -32,7 +49,7 @@ async def create_college(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(require_permission(Permission.MATERIALS_MODERATE)),
 ):
-    college = await college_service.create_college(db, body.name, body.slug, body.sort_order)
+    college = await college_service.create_college(db, body.name, body.slug, body.sort_order, body.description, body.website)
     await db.commit()
     return {'code': 0, 'data': CollegeResponse.model_validate(college).model_dump(mode='json'), 'message': 'college created'}
 
