@@ -222,6 +222,79 @@
       </div>
     </section>
 
+    <!-- Sponsor -->
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+      <div class="bg-gradient-to-br from-amber-50 via-white to-orange-50 border border-amber-200 rounded-2xl p-6 sm:p-8">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-700 text-xs font-medium mb-3">
+            <AppIcon name="Heart" :size="14" />
+            支持我们
+          </div>
+          <h2 class="text-xl font-semibold text-slate-900 mb-2">赞助川大课栈</h2>
+          <p class="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+            川大课栈是完全公益的平台，服务器、存储、短信等费用全部由学生自费承担。
+            每一份赞助都将直接用于维持平台运转，让知识共享持续下去。
+          </p>
+        </div>
+
+        <!-- Cost breakdown -->
+        <div class="grid sm:grid-cols-4 gap-3 mb-8 max-w-2xl mx-auto">
+          <div class="text-center p-3 bg-white/70 rounded-lg border border-slate-100">
+            <AppIcon name="Server" :size="18" class="text-slate-400 mx-auto mb-1" />
+            <p class="text-xs font-medium text-slate-700">服务器</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">~¥200/月</p>
+          </div>
+          <div class="text-center p-3 bg-white/70 rounded-lg border border-slate-100">
+            <AppIcon name="HardDrive" :size="18" class="text-slate-400 mx-auto mb-1" />
+            <p class="text-xs font-medium text-slate-700">对象存储</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">~¥50/月</p>
+          </div>
+          <div class="text-center p-3 bg-white/70 rounded-lg border border-slate-100">
+            <AppIcon name="Smartphone" :size="18" class="text-slate-400 mx-auto mb-1" />
+            <p class="text-xs font-medium text-slate-700">短信服务</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">~¥30/月</p>
+          </div>
+          <div class="text-center p-3 bg-white/70 rounded-lg border border-slate-100">
+            <AppIcon name="Globe" :size="18" class="text-slate-400 mx-auto mb-1" />
+            <p class="text-xs font-medium text-slate-700">域名</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">~¥10/月</p>
+          </div>
+        </div>
+
+        <!-- QR code area -->
+        <div class="text-center">
+          <p class="text-xs text-slate-400 mb-4">扫码赞赏，金额随意</p>
+          <div class="inline-flex gap-6">
+            <div class="text-center">
+              <div class="w-40 h-40 rounded-xl bg-slate-100 flex items-center justify-center mb-2 border border-slate-200">
+                <div class="text-center">
+                  <AppIcon name="Wallet" :size="32" class="text-emerald-400 mx-auto mb-1" />
+                  <p class="text-[10px] text-slate-400">微信赞赏码</p>
+                  <p class="text-[10px] text-slate-300 mt-1">请替换为实际二维码</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500">微信支付</p>
+            </div>
+            <div class="text-center">
+              <div class="w-40 h-40 rounded-xl bg-slate-100 flex items-center justify-center mb-2 border border-slate-200">
+                <div class="text-center">
+                  <AppIcon name="Wallet" :size="32" class="text-blue-400 mx-auto mb-1" />
+                  <p class="text-[10px] text-slate-400">支付宝收款码</p>
+                  <p class="text-[10px] text-slate-300 mt-1">请替换为实际二维码</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500">支付宝</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-center text-[11px] text-slate-400 mt-6">
+          赞助为自愿行为，不附带任何商业回报。感谢每一位支持者
+          <AppIcon name="Heart" :size="11" class="inline text-rose-400 align-text-bottom" />
+        </p>
+      </div>
+    </section>
+
     <!-- Footer links -->
     <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
       <div class="grid sm:grid-cols-3 gap-4">
