@@ -24,18 +24,6 @@
         />
       </div>
 
-      <button
-        class="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center cursor-pointer transition-colors duration-150 border-0 z-10"
-        @click="prevBanner"
-      >
-        <AppIcon name="ChevronLeft" :size="18" />
-      </button>
-      <button
-        class="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center cursor-pointer transition-colors duration-150 border-0 z-10"
-        @click="nextBanner"
-      >
-        <AppIcon name="ChevronRight" :size="18" />
-      </button>
     </section>
 
     <!-- Hot courses — compact row -->
