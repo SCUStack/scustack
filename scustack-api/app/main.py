@@ -9,6 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
+from app.middleware.anti_proxy import AntiProxyMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.schemas.common import ErrorCode
 
@@ -42,6 +43,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(AntiProxyMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,

@@ -64,3 +64,15 @@ def require_permission(*permissions: Permission):
         return current_user
 
     return checker
+
+
+async def require_confirmation(confirm_token: str, current_user: User = Depends(get_current_user)) -> bool:
+    """Validate a confirmation token from /auth/confirm-password."""
+    from app.core.redis import cache_get, cache_delete
+    stored = await cache_get(f'confirm:{confirm_token}')
+    if stored is None:
+        raise HTTPException(status_code=403, detail='confirmation required')
+    if stored != str(current_user.id):
+        raise HTTPException(status_code=403, detail='invalid confirmation token')
+    await cache_delete(f'confirm:{confirm_token}')
+    return True

@@ -6,7 +6,7 @@ from fastapi.responses import Response as FastAPIResponse
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.redis import RateLimiter
+from app.core.redis import RateLimiter, cache_set, cache_get, cache_delete
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.auth import (
@@ -214,6 +214,35 @@ async def logout(
         await db.commit()
     _clear_token_cookies(response)
     return {'code': 0, 'data': None, 'message': 'logged out'}
+
+
+@router.post('/confirm-password')
+async def confirm_password(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verify password and return a one-time confirmation token for sensitive operations."""
+    import bcrypt, secrets
+    from app.core.security import encrypt_pii
+
+    password = body.get('password', '')
+    if not password:
+        return {'code': 40000, 'data': None, 'message': 'password required'}
+
+    result = await db.execute(
+        __import__('sqlalchemy').select(User).where(User.id == current_user.id)
+    )
+    user = result.scalar_one_or_none()
+    if user is None or user.password_hash is None:
+        return {'code': 40000, 'data': None, 'message': 'no password set'}
+
+    if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+        return {'code': 40100, 'data': None, 'message': 'incorrect password'}
+
+    token = secrets.token_urlsafe(32)
+    await cache_set(f'confirm:{token}', str(current_user.id), ttl=300)
+    return {'code': 0, 'data': {'confirm_token': token, 'expires_in': 300}, 'message': 'ok'}
 
 
 @router.get('/me')
