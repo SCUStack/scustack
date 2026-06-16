@@ -113,3 +113,71 @@ async def _do_gc_orphan_files():
             },
         ))
         await db.commit()
+
+
+@app.task(queue='default')
+def backup_database():
+    asyncio.run(_do_backup_database())
+
+
+async def _do_backup_database():
+    import subprocess, gzip, tempfile, os
+    from app.core.config import settings
+
+    started_at = time.time()
+    now = datetime.now(timezone.utc)
+    filename = f"backup-{now.strftime('%Y%m%d-%H%M%S')}.sql.gz"
+    tmp_path = os.path.join(tempfile.gettempdir(), filename)
+
+    try:
+        env = os.environ.copy()
+        env['PGPASSWORD'] = settings.DB_PASSWORD
+
+        with open(tmp_path, 'wb') as f:
+            dump = subprocess.Popen(
+                ['pg_dump', '-h', settings.DB_HOST, '-p', str(settings.DB_PORT),
+                 '-U', settings.DB_USER, '-d', settings.DB_NAME, '--no-owner', '--no-acl'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+            )
+            compressed = gzip.compress(dump.stdout.read())
+            f.write(compressed)
+            dump.wait()
+
+        if dump.returncode != 0:
+            raise RuntimeError(f'pg_dump failed: {dump.stderr.read().decode()}')
+
+        file_size = os.path.getsize(tmp_path)
+        oss_key = f'backups/database/{filename}'
+
+        if oss._has_oss:
+            bucket = oss._get_bucket()
+            bucket.put_object_from_file(oss_key, tmp_path)
+
+        elapsed_ms = int((time.time() - started_at) * 1000)
+
+        async with async_session() as db:
+            db.add(AuditLog(
+                user_id=None,
+                action='database_backup',
+                resource='database',
+                detail={
+                    'filename': filename,
+                    'oss_key': oss_key,
+                    'file_size': file_size,
+                    'elapsed_ms': elapsed_ms,
+                },
+            ))
+            await db.commit()
+
+    except Exception as e:
+        async with async_session() as db:
+            db.add(AuditLog(
+                user_id=None,
+                action='database_backup_failed',
+                resource='database',
+                detail={'error': str(e)[:500], 'filename': filename},
+            ))
+            await db.commit()
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
