@@ -125,7 +125,5 @@ if not settings.is_dev:
             raise RuntimeError(f'Refusing to start in production with insecure defaults: {issues}')
 
 
-app.include_router(v1_router, prefix='/api/v1')
-
 
 app.include_router(v1_router, prefix='/api/v1')
