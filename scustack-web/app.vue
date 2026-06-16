@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 useHead({
-  titleTemplate: '%s | 川大课栈',
+  titleTemplate: '%s | 川流课栈',
   meta: [
     { charset: 'utf-8' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1' },

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # SMS
     SMS_ACCESS_KEY_ID: str = ''
     SMS_ACCESS_KEY_SECRET: str = ''
-    SMS_SIGN_NAME: str = '川大课栈'
+    SMS_SIGN_NAME: str = '川流课栈'
     SMS_TEMPLATE_CODE: str = ''
 
     # WeChat

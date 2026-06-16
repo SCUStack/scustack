@@ -1,4 +1,4 @@
-# 川大课栈 启动指南
+# 川流课栈 启动指南
 
 ## 环境要求
 
@@ -180,7 +180,7 @@ pnpm dev:api
 pnpm dev:web
 ```
 
-验证：浏览器打开 [http://localhost:3000](http://localhost:3000)，应看到川大课栈首页。
+验证：浏览器打开 [http://localhost:3000](http://localhost:3000)，应看到川流课栈首页。
 
 ### 5.3 API 代理
 

@@ -2,7 +2,7 @@
 
 ## Project context
 
-川大课栈 (SCU Course Stack) — public-welfare course material sharing platform for Sichuan University students. Stack: Nuxt 3 + Element Plus + Tailwind (frontend), FastAPI + SQLAlchemy async + Celery (backend), PostgreSQL 16, Elasticsearch 8 + IK, Redis 7, Alibaba Cloud OSS.
+川流课栈 (SCU Course Stack) — public-welfare course material sharing platform for Sichuan University students. Stack: Nuxt 3 + Element Plus + Tailwind (frontend), FastAPI + SQLAlchemy async + Celery (backend), PostgreSQL 16, Elasticsearch 8 + IK, Redis 7, Alibaba Cloud OSS.
 
 ## Issue-driven development
 

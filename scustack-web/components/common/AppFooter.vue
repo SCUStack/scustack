@@ -5,7 +5,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
         <!-- Brand -->
         <div>
-          <h4 class="text-sm font-semibold text-slate-800 mb-3">川大课栈</h4>
+          <h4 class="text-sm font-semibold text-slate-800 mb-3">川流课栈</h4>
           <p class="text-xs text-slate-500 leading-relaxed">
             四川大学公益课程资料共享平台<br />
             由学生社区维护，无广告、无收费
@@ -56,7 +56,7 @@
       <!-- Bottom bar -->
       <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-400">
-          <span>&copy; {{ currentYear }} 川大课栈</span>
+          <span>&copy; {{ currentYear }} 川流课栈</span>
           <span class="hidden sm:inline">·</span>
           <span>公益 · 无广告 · 开源</span>
         </div>

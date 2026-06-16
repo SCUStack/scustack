@@ -14,7 +14,7 @@
       <div class="flex items-center gap-4 pl-3 sm:pl-4">
         <NuxtLink to="/" class="flex items-center gap-1.5 font-semibold text-lg no-underline" :class="isHome && !scrolled ? 'text-white' : 'text-primary-800'">
           <AppIcon name="GraduationCap" :size="22" />
-          <span class="hidden sm:inline">川大课栈</span>
+          <span class="hidden sm:inline">川流课栈</span>
         </NuxtLink>
         <NuxtLink to="/" class="text-sm no-underline transition-colors duration-150" :class="isHome && !scrolled ? 'text-white/80 hover:text-white' : 'text-slate-700 hover:text-primary-600'">
           首页

@@ -1,4 +1,4 @@
-# 川大课栈 第一阶段审计报告
+﻿# 川流课栈 第一阶段审计报告
 
 > 审计日期：2026-06-15 | 审计范围：ARCHITECTURE.md / ISSUES.md / PRD.md / UI-UX-DESIGN.md 交叉审计 + 代码实现验证
 

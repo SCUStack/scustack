@@ -4,7 +4,7 @@
       <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 h-14 flex items-center justify-between">
         <NuxtLink to="/" class="flex items-center gap-2 text-primary-800 font-semibold text-lg no-underline">
           <AppIcon name="GraduationCap" :size="24" />
-          <span>川大课栈 · 管理后台</span>
+          <span>川流课栈 · 管理后台</span>
         </NuxtLink>
         <div class="flex items-center gap-3">
           <span class="text-sm text-slate-500">{{ auth.user?.nickname }}</span>

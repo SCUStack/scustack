@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title='川大课栈 API',
+    title='川流课栈 API',
     description='SCU Course Stack — 公益课程资料共享平台',
     version='0.1.0',
     lifespan=lifespan,

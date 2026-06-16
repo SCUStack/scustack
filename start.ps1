@@ -1,4 +1,4 @@
-# 川大课栈 Windows 启动脚本
+# 川流课栈 Windows 启动脚本
 # 用法: PowerShell 中执行 .\start.ps1
 # 如果提示执行策略限制，先运行: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
@@ -16,7 +16,7 @@ function Err   { Write-Host "[ERR]  $args" -ForegroundColor Red }
 # ═══════════════════════════════════════════
 Write-Host ""
 Write-Host "═══════════════════════════════════════════"
-Write-Host "  川大课栈 启动脚本 (Windows)"
+Write-Host "  川流课栈 启动脚本 (Windows)"
 Write-Host "═══════════════════════════════════════════"
 Write-Host ""
 

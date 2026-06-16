@@ -17,4 +17,4 @@ async def test_openapi_docs(client):
     assert response.status_code == 200
 
     spec = response.json()
-    assert spec['info']['title'] == '川大课栈 API'
+    assert spec['info']['title'] == '川流课栈 API'

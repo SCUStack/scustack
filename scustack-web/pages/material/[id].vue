@@ -278,7 +278,7 @@
       <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
         <div class="text-center mb-4">
           <AppIcon name="ExternalLink" :size="36" class="text-amber-500 mx-auto mb-3" />
-          <h3 class="text-base font-medium text-slate-900 mb-1">即将离开川大课栈</h3>
+          <h3 class="text-base font-medium text-slate-900 mb-1">即将离开川流课栈</h3>
           <p class="text-sm text-slate-500">您将访问外部网站，请注意个人信息安全</p>
           <p class="text-xs text-slate-400 mt-2 bg-slate-50 rounded px-2 py-1 font-mono break-all">{{ externalLinkDomain }}</p>
         </div>

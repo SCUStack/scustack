@@ -7,7 +7,7 @@
       <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(59,130,246,0.15),transparent_50%)]" />
       <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(245,158,11,0.08),transparent_50%)]" />
       <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 text-center">
-        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">川大课栈</h1>
+        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">川流课栈</h1>
         <p class="text-lg text-primary-200/80 max-w-xl mx-auto mb-10 leading-relaxed">
           四川大学课程资料共享平台<br />
           <span class="text-primary-200/60">由学生贡献 · 为学生服务 · 公益 · 开源</span>
@@ -42,14 +42,14 @@
             <AppIcon name="Lightbulb" :size="14" />
             我们的初心
           </div>
-          <h2 class="text-xl font-semibold text-slate-900 mb-4">为什么做川大课栈</h2>
+          <h2 class="text-xl font-semibold text-slate-900 mb-4">为什么做川流课栈</h2>
           <div class="space-y-3 text-sm text-slate-600 leading-relaxed">
             <p>
               每个学期末，朋友圈和课程群里都会出现同样的场景：求笔记、求真题、求复习提纲。
               这些宝贵的资料往往随着学长学姐的毕业而消失，学弟学妹们又得从零开始收集。
             </p>
             <p>
-              川大课栈的初衷很简单 —— <strong class="text-slate-800">让知识传承下去</strong>。
+              川流课栈的初衷很简单 —— <strong class="text-slate-800">让知识传承下去</strong>。
               我们搭建一个公共的资料共享空间，让每一届学生的笔记、真题、复习资料都能
               被下一届同学看到和使用。
             </p>
@@ -80,18 +80,17 @@
             <AppIcon name="Info" :size="14" />
             重要声明
           </div>
-          <h2 class="text-xl font-semibold text-slate-900 mb-4">关于"川大"名称</h2>
+          <h2 class="text-xl font-semibold text-slate-900 mb-4">关于我们与四川大学</h2>
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
             <div class="flex gap-3">
               <AppIcon name="AlertTriangle" :size="18" class="text-amber-500 shrink-0 mt-0.5" />
               <div class="text-sm text-amber-800 leading-relaxed space-y-2">
                 <p>
-                  川大课栈是由<strong>四川大学在校学生自发组织并维护的公益平台</strong>，
+                  川流课栈是由<strong>四川大学在校学生自发组织并维护的公益平台</strong>，
                   并非四川大学的官方网站或下属机构。
                 </p>
                 <p>
-                  平台名称中的"川大"仅用于描述服务对象群体，<strong>不表示四川大学的认可或授权</strong>。
-                  平台运营中使用的相关标识仅用于非营利性学术交流目的，其知识产权归四川大学所有。
+                  本平台<strong>不表示四川大学的认可或授权</strong>，不以四川大学名义从事任何官方活动。
                 </p>
               </div>
             </div>
@@ -99,7 +98,6 @@
           <div class="mt-4 text-xs text-slate-400 leading-relaxed space-y-1">
             <p>· 本平台对学生永久免费，不进行任何商业化运营</p>
             <p>· 所有资料由用户自愿上传，仅供学习参考</p>
-            <p>· 如四川大学提出异议，本平台将立即停止使用相关标识</p>
           </div>
         </div>
       </div>
@@ -230,9 +228,9 @@
             <AppIcon name="Heart" :size="14" />
             支持我们
           </div>
-          <h2 class="text-xl font-semibold text-slate-900 mb-2">赞助川大课栈</h2>
+          <h2 class="text-xl font-semibold text-slate-900 mb-2">赞助川流课栈</h2>
           <p class="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
-            川大课栈是完全公益的平台，服务器、存储、短信等费用全部由学生自费承担。
+            川流课栈是完全公益的平台，服务器、存储、短信等费用全部由学生自费承担。
             每一份赞助都将直接用于维持平台运转，让知识共享持续下去。
           </p>
         </div>

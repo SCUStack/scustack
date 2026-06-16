@@ -103,7 +103,7 @@ async function submitComment() {
   if (!content.value.trim()) return
   submitting.value = true
   try {
-    const resp = await $fetch(`${apiBase}/api/v1/materials/${props.materialId}/comments`, {
+    const resp = await $fetch<{ code: number; message: string }>(`${apiBase}/api/v1/materials/${props.materialId}/comments`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: content.value.trim() }),
     })
@@ -118,7 +118,7 @@ function startReply(id: string) { replyingTo.value = id; replyContent.value = ''
 async function submitReply(parentId: string) {
   if (!replyContent.value.trim()) return
   try {
-    const resp = await $fetch(`${apiBase}/api/v1/materials/${props.materialId}/comments`, {
+    const resp = await $fetch<{ code: number; message: string }>(`${apiBase}/api/v1/materials/${props.materialId}/comments`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: replyContent.value.trim(), parent_id: parentId }),
     })

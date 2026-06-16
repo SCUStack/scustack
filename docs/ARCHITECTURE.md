@@ -1,4 +1,4 @@
-# 川大课栈 技术架构书
+﻿# 川流课栈 技术架构书
 
 ## 目录
 
@@ -22,7 +22,7 @@
 
 ### 1.1 架构哲学
 
-川大课栈的技术架构遵循以下核心原则：
+川流课栈的技术架构遵循以下核心原则：
 
 - **安全第一**：用户上传文件不经过应用服务器，PII 数据加密存储，所有 API 端点实施速率限制
 - **搜索即核心**：全文搜索质量不可妥协，中文分词 + 自定义词典是基础能力
@@ -1598,7 +1598,7 @@ OSS_CDN_DOMAIN=https://files.scustack.cn
 # 短信服务 (阿里云 SMS)
 SMS_ACCESS_KEY_ID=<key>
 SMS_ACCESS_KEY_SECRET=<secret>
-SMS_SIGN_NAME=川大课栈
+SMS_SIGN_NAME=川流课栈
 SMS_TEMPLATE_CODE=SMS_123456789
 
 # 微信开放平台

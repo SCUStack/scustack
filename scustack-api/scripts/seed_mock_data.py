@@ -462,7 +462,7 @@ async def seed():
                 nickname='管理员',
                 role='maintainer',
                 trust_score=100,
-                public_display_name='川大课栈管理员',
+                public_display_name='川流课栈管理员',
                 password_hash=MOCK_PASSWORD_HASH,
             )
             db.add(maintainer)

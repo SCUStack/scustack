@@ -160,7 +160,7 @@ const visibleRecentItems = computed(() => {
 
 const banners = [
   { image: 'https://picsum.photos/seed/scu1/1200/300', title: '期末考试资料热力上线', subtitle: '历年真题、复习提纲助你冲刺高分' },
-  { image: 'https://picsum.photos/seed/scu2/1200/300', title: '川大课栈全新改版', subtitle: '更快的搜索，更好的体验' },
+  { image: 'https://picsum.photos/seed/scu2/1200/300', title: '川流课栈全新改版', subtitle: '更快的搜索，更好的体验' },
   { image: 'https://picsum.photos/seed/scu3/1200/300', title: '贡献资料，助力同学', subtitle: '上传你的笔记和资料，共建学习社区' },
 ]
 const activeBanner = ref(0)
@@ -220,7 +220,7 @@ onUnmounted(() => {
 })
 
 function cardHeight(idx: number): string {
-  const heights = ['280px', '168px', '168px', '168px', '168px', '168px', '168px', '168px']
+  const heights = ['348px', '168px', '168px', '168px', '168px', '168px', '168px', '168px']
   return heights[idx] || '168px'
 }
 

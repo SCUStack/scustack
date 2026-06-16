@@ -1,7 +1,7 @@
 [project]
 name = "scustack-api"
 version = "0.1.0"
-description = "川大课栈 FastAPI backend"
+description = "川流课栈 FastAPI backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

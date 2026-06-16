@@ -179,7 +179,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 const titleText = computed(() => {
   if (mode.value === 'register') return '注册账号'
   if (mode.value === 'sms' && smsStep.value === 'code') return '输入验证码'
-  return '登录川大课栈'
+  return '登录川流课栈'
 })
 
 function switchMode(key: string) {

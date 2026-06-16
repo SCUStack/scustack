@@ -8,11 +8,11 @@
       <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
         <p class="text-amber-800 font-medium text-xs mb-1">重要提示</p>
         <p class="text-amber-700 text-xs leading-relaxed">
-          川大课栈是由<strong>四川大学在校学生自发组织并维护的公益资料共享平台</strong>，<strong>并非四川大学的官方网站或下属机构</strong>，不以四川大学名义从事任何活动。本平台名称中的"川大"仅用于描述平台的服务对象群体，不代表与四川大学存在任何隶属、授权、赞助或合作关系。请您在使用本平台前仔细阅读本隐私政策，特别是以加粗或下划线标注的条款。如您不同意本政策的任何内容，请立即停止使用本平台。
+          川流课栈是由<strong>四川大学在校学生自发组织并维护的公益资料共享平台</strong>，<strong>并非四川大学的官方网站或下属机构</strong>。请您在使用本平台前仔细阅读本隐私政策，特别是以加粗或下划线标注的条款。如您不同意本政策的任何内容，请立即停止使用本平台。
         </p>
       </div>
 
-      <p>川大课栈（以下简称"本平台"或"我们"）是由四川大学在校学生社区维护的公益资料共享平台。我们深知个人信息对您的重要性，并承诺依据《中华人民共和国个人信息保护法》（以下简称"《个保法》"）、《中华人民共和国网络安全法》、《中华人民共和国数据安全法》及相关法律法规，采取合理必要的措施保护您的个人信息安全。</p>
+      <p>川流课栈（以下简称"本平台"或"我们"）是由四川大学在校学生社区维护的公益资料共享平台。我们深知个人信息对您的重要性，并承诺依据《中华人民共和国个人信息保护法》（以下简称"《个保法》"）、《中华人民共和国网络安全法》、《中华人民共和国数据安全法》及相关法律法规，采取合理必要的措施保护您的个人信息安全。</p>
       <p>本隐私政策旨在向您说明我们如何收集、使用、存储、共享和保护您的个人信息，以及您享有的相关权利。本政策适用于本平台提供的所有产品和服务。</p>
 
       <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">一、定义</h2>
@@ -206,7 +206,7 @@
       <ul class="list-disc pl-5 space-y-1">
         <li><strong>电子邮箱</strong>：<a href="mailto:admin@scustack.com" class="text-primary-600 hover:text-primary-700">admin@scustack.com</a></li>
         <li><strong>GitHub Issues</strong>：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener" class="text-primary-600 hover:text-primary-700">yeyixiang2007/scustack/issues</a></li>
-        <li><strong>通信地址</strong>：四川省成都市一环路南一段 24 号四川大学</li>
+        <li><strong>通信地址</strong>：四川省成都市</li>
       </ul>
       <p>我们将在收到您的请求后 <strong>15 个工作日内</strong>予以回复。如果您对我们的回复不满意，或认为我们的个人信息处理行为损害了您的合法权益，您可以向履行个人信息保护职责的部门进行投诉或举报，或向有管辖权的人民法院提起诉讼。</p>
     </div>
