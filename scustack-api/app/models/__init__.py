@@ -4,6 +4,7 @@ from app.models.bookmark import Bookmark
 from app.models.calendar import AcademicCalendar
 from app.models.college import College
 from app.models.account_deletion import AccountDeletion
+from app.models.announcement import Announcement
 from app.models.collection import Collection, CollectionItem
 from app.models.comment import Comment
 from app.models.content_blocklist import ContentBlocklist

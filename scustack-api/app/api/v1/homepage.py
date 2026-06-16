@@ -49,3 +49,11 @@ async def get_homepage(
         'message': 'ok',
         '_debug': {'cursor': cursor, 'limit': limit, 'recent_count': len(recent)},
     }
+
+
+@router.get('/announcements/active')
+async def active_announcements(db: AsyncSession = Depends(get_db)):
+    from app.services.announcement_service import get_active
+    items = await get_active(db)
+    data = [{'id': str(a.id), 'title': a.title, 'content': a.content, 'severity': a.severity, 'action_text': a.action_text, 'action_url': a.action_url} for a in items]
+    return {'code': 0, 'data': data, 'message': 'ok'}

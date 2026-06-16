@@ -510,6 +510,58 @@ async def delete_blocklist(
     return {'code': 0, 'data': None, 'message': 'deleted' if ok else 'not found'}
 
 
+# ── Announcements ─────────────────────────────────────────────────────────────
+
+@router.get('/announcements')
+async def list_announcements(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.announcement_service import list_all as _list
+    items = await _list(db)
+    data = [{'id': str(a.id), 'title': a.title, 'content': a.content, 'severity': a.severity, 'action_text': a.action_text, 'action_url': a.action_url, 'is_active': a.is_active, 'start_at': a.start_at.isoformat() if a.start_at else None, 'end_at': a.end_at.isoformat() if a.end_at else None, 'created_at': a.created_at.isoformat()} for a in items]
+    return {'code': 0, 'data': data, 'message': 'ok'}
+
+
+@router.post('/announcements')
+async def create_announcement(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.announcement_service import create as _create
+    a = await _create(db, current_user.id,
+        title=body['title'], content=body.get('content'), severity=body.get('severity', 'info'),
+        action_text=body.get('action_text'), action_url=body.get('action_url'),
+    )
+    await db.commit()
+    return {'code': 0, 'data': {'id': str(a.id)}, 'message': 'ok'}
+
+
+@router.patch('/announcements/{aid}')
+async def update_announcement(
+    aid: UUID, body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.announcement_service import update as _update
+    a = await _update(db, aid, **body)
+    if a is None: return {'code': 40400, 'data': None, 'message': 'not found'}
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'ok'}
+
+
+@router.delete('/announcements/{aid}')
+async def delete_announcement(
+    aid: UUID, db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.announcement_service import delete as _delete
+    ok = await _delete(db, aid)
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'deleted' if ok else 'not found'}
+
+
 # ── Link check ───────────────────────────────────────────────────────────────
 
 @router.post('/materials/{material_id}/check-link')
