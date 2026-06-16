@@ -94,8 +94,12 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback, sys
-    traceback.print_exc()
+    if settings.DEBUG:
+        import traceback
+        traceback.print_exc()
+    else:
+        import logging
+        logging.getLogger('scustack').error('Unhandled exception: %s %s', type(exc).__name__, str(exc)[:200])
     return JSONResponse(
         status_code=500,
         content={
@@ -105,6 +109,19 @@ async def global_exception_handler(request: Request, exc: Exception):
             'detail': str(exc) if settings.DEBUG else None,
         },
     )
+
+
+if not settings.is_dev:
+    issues = settings.validate_secrets()
+    if issues:
+        import sys, logging
+        for issue in issues:
+            logging.getLogger('scustack').critical('SECURITY: %s', issue)
+        if settings.APP_ENV == 'prod':
+            raise RuntimeError(f'Refusing to start in production with insecure defaults: {issues}')
+
+
+app.include_router(v1_router, prefix='/api/v1')
 
 
 app.include_router(v1_router, prefix='/api/v1')

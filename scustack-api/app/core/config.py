@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     APP_ENV: Literal['dev', 'staging', 'prod'] = 'dev'
     DEBUG: bool = True
 
+    _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
+        'JWT_SECRET_KEY', 'ENCRYPTION_KEY', 'DB_PASSWORD',
+    )
+
     CORS_ORIGINS: list[str] = ['http://localhost:3000']
 
     # Database
@@ -50,6 +54,21 @@ class Settings(BaseSettings):
     WECHAT_APP_SECRET: str = ''
 
     model_config = {'env_prefix': 'SCUSTACK_', 'env_file': '.env'}
+
+    def validate_secrets(self) -> list[str]:
+        """Check required secrets are not using default values. Returns list of issues."""
+        issues: list[str] = []
+        defaults = {
+            'JWT_SECRET_KEY': 'change-me-in-production',
+            'ENCRYPTION_KEY': 'change-me-in-production',
+            'DB_PASSWORD': 'scustack',
+        }
+        for name in self._REQUIRED_IN_PRODUCTION:
+            current = getattr(self, name, None)
+            default = defaults.get(name)
+            if current == default:
+                issues.append(f'{name} is still set to default value')
+        return issues
 
     @property
     def DATABASE_URL(self) -> str:

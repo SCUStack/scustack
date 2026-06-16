@@ -1,5 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
@@ -25,8 +27,9 @@ TOKENS = {'access_token': 'at', 'refresh_token': 'rt', 'token_type': 'bearer'}
 
 class TestSmsSend:
     async def test_send_ok(self, client):
+        phone = f'1380013{str(uuid4().int)[:4]}'
         with patch('app.api.v1.auth.send_sms_code', new_callable=AsyncMock):
-            resp = await client.post('/api/v1/auth/sms/send', json={'phone': '13800138000'})
+            resp = await client.post('/api/v1/auth/sms/send', json={'phone': phone})
             assert resp.json()['code'] == 0
 
     async def test_send_invalid_phone(self, client):
@@ -39,16 +42,18 @@ class TestSmsSend:
         async def _raise(*args, **kwargs):
             raise SmsSendError('too frequent')
 
+        phone = f'1380014{str(uuid4().int)[:4]}'
         with patch('app.api.v1.auth.send_sms_code', side_effect=_raise):
-            resp = await client.post('/api/v1/auth/sms/send', json={'phone': '13800138000'})
+            resp = await client.post('/api/v1/auth/sms/send', json={'phone': phone})
             assert resp.json()['code'] == 42900
 
 
 class TestSmsVerify:
     async def test_verify_ok_sets_cookies(self, client):
+        phone = f'1380013{str(uuid4().int)[:4]}'
         with patch('app.api.v1.auth.verify_sms_code', new_callable=AsyncMock, return_value=TOKENS):
             resp = await client.post('/api/v1/auth/sms/verify',
-                                     json={'phone': '13800138000', 'code': '000000'})
+                                     json={'phone': phone, 'code': '000000'})
             assert resp.status_code == 200
             body = resp.json()
             assert body['code'] == 0

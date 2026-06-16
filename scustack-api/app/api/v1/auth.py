@@ -72,6 +72,9 @@ def _clear_token_cookies(response: Response) -> None:
 @router.post('/sms/send')
 async def sms_send(body: SmsSendRequest, request: Request):
     ip = request.client.host if request.client else 'unknown'
+    phone_daily = RateLimiter(max_requests=5, window_seconds=86400)
+    if not await phone_daily.is_allowed(f'sms:daily:{body.phone}'):
+        return {'code': 42900, 'data': None, 'message': 'daily sms limit reached'}
     try:
         await send_sms_code(body.phone, ip)
     except SmsSendError as e:

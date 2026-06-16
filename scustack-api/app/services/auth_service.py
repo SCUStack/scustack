@@ -207,6 +207,16 @@ async def _record_failed_attempt(phone: str) -> None:
         await cache_set(f'lock:verify:{phone}', '1', ttl=3600)
     elif attempts >= 10:
         await cache_set(f'lock:verify:{phone}', '1', ttl=900)
+
+
+async def _record_password_fail(phone_hash: str) -> None:
+    """Track consecutive password failures. Lock after 5 attempts for 15 minutes."""
+    key = f'failed:pw:{phone_hash}'
+    count = await cache_get(key)
+    attempts = (int(count) + 1) if count else 1
+    await cache_set(key, str(attempts), ttl=3600)
+    if attempts >= 5:
+        await cache_set(f'lock:pw:{phone_hash}', '1', ttl=900)
     elif attempts >= 5:
         await cache_set(f'lock:verify:{phone}', '1', ttl=60)
 
@@ -252,18 +262,28 @@ async def register_with_password(db: AsyncSession, phone: str, password: str, ip
 
 async def login_with_password(db: AsyncSession, phone: str, password: str, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
     phone_hash = hash_pii(phone)
+
+    lock_ttl = await cache_get(f'lock:pw:{phone_hash}')
+    if lock_ttl is not None:
+        await _audit_auth(db, 'login_locked', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent)
+        raise PasswordError('too many failed attempts, try again later')
+
     encrypted_phone = encrypt_pii(phone)
     result = await db.execute(select(User).where(User.phone == encrypted_phone))
     user = result.scalar_one_or_none()
 
     if user is None or user.password_hash is None:
+        await _record_password_fail(phone_hash)
         await _audit_auth(db, 'login_failed', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'user_not_found_or_no_password'})
         raise PasswordError('invalid phone or password')
     if not user.is_active:
         raise PasswordError('account is disabled')
     if not _verify_password(password, user.password_hash):
+        await _record_password_fail(phone_hash)
         await _audit_auth(db, 'login_failed', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'wrong_password'})
         raise PasswordError('invalid phone or password')
+
+    await cache_delete(f'failed:pw:{phone_hash}')
 
     tokens = await _issue_tokens(db, user, ip_address, user_agent)
     await _audit_auth(db, 'login_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'password'})
