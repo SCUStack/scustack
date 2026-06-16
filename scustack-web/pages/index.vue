@@ -71,11 +71,9 @@
         </NuxtLink>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <NuxtLink
+        <div
           v-for="(item, idx) in calendarItems.slice(0, 8)" :key="item.id"
-          :to="`/material/${item.id}`"
           :class="[
-            'relative rounded-lg overflow-hidden group cursor-pointer no-underline border border-slate-200 hover:shadow-lg transition-all duration-300 bg-slate-100',
             idx === 0 ? 'lg:col-span-3 lg:row-span-2 col-span-2' : '',
             idx === 1 || idx === 2 ? 'col-span-1' : '',
             idx === 3 ? 'col-span-1' : '',
@@ -84,29 +82,9 @@
             idx === 6 ? 'lg:col-span-2 col-span-1' : '',
             idx === 7 ? 'lg:col-span-2 col-span-1' : '',
           ]"
-          :style="{ minHeight: cardHeight(idx) }"
         >
-          <img
-            v-if="coverFor(item)"
-            :src="coverFor(item)"
-            class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            :alt="item.title"
-          />
-          <div class="absolute top-3 right-3 z-10">
-            <TrustBadge :status="item.trust_status" />
-          </div>
-          <div class="absolute inset-0 flex flex-col justify-end p-3.5 bg-gradient-to-t from-black/60 via-black/20 to-transparent">
-            <p class="text-sm font-semibold text-white mb-1.5 line-clamp-2 leading-snug" :class="idx === 0 ? 'lg:text-base' : ''">
-              {{ item.title }}
-            </p>
-            <div class="flex items-center gap-2 text-xs text-white/60">
-              <span class="uppercase">{{ item.format }}</span>
-              <span>↓ {{ item.download_count || 0 }}</span>
-              <span v-if="item.category">· {{ item.category }}</span>
-              <span class="ml-auto">{{ timeAgo(item.created_at) }}</span>
-            </div>
-          </div>
-        </NuxtLink>
+          <MaterialCard :item="item" :style="{ height: cardHeight(idx) }" />
+        </div>
       </div>
     </section>
 
@@ -158,9 +136,6 @@
 </template>
 
 <script setup lang="ts">
-import { resolveCoverSync } from '~/composables/useCoverImage'
-import tagsData from '~/data/covers'
-
 definePageMeta({ title: '首页' })
 
 const { apiBase } = useRuntimeConfig().public
@@ -244,13 +219,9 @@ onUnmounted(() => {
   if (bannerTimer) clearInterval(bannerTimer)
 })
 
-function coverFor(item: Record<string, any>): string {
-  return resolveCoverSync({ id: item.id, title: item.title, category: item.category }, tagsData)
-}
-
 function cardHeight(idx: number): string {
-  const heights = ['280px', '130px', '130px', '150px', '150px', '150px', '140px', '140px']
-  return heights[idx] || '140px'
+  const heights = ['280px', '168px', '168px', '168px', '168px', '168px', '168px', '168px']
+  return heights[idx] || '168px'
 }
 
 const academicColors = [
