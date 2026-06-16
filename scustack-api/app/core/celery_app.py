@@ -25,6 +25,7 @@ app.conf.update(
         'app.tasks.scan.*': {'queue': 'scan'},
         'app.tasks.thumbnail.*': {'queue': 'thumbnail'},
         'app.tasks.counter_sync.*': {'queue': 'default'},
+        'app.tasks.cleanup.*': {'queue': 'default'},
     },
     beat_schedule={
         'check-dead-links-daily': {
@@ -38,6 +39,10 @@ app.conf.update(
         'sync-download-counters': {
             'task': 'app.tasks.counter_sync.sync_download_counters',
             'schedule': crontab(minute='*/5'),
+        },
+        'gc-orphan-files-weekly': {
+            'task': 'app.tasks.cleanup.gc_orphan_files',
+            'schedule': crontab(hour=4, minute=53, day_of_week=0),
         },
     },
 )

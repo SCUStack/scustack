@@ -66,8 +66,72 @@ def generate_watermarked_image_url(storage_key: str, watermark_text: str, expire
     return f'{base_url}?x-oss-process={process}'
 
 
+def list_objects(prefix: str = '', max_keys: int = 1000, marker: str = '') -> list[dict]:
+    """List OSS objects with pagination. Returns list of {key, size, last_modified}."""
+    if not _has_oss:
+        return []
+    bucket = _get_bucket()
+    result = bucket.list_objects(prefix=prefix, max_keys=max_keys, marker=marker)
+    objects = []
+    for obj in result.object_list:
+        objects.append({
+            'key': obj.key,
+            'size': obj.size,
+            'last_modified': obj.last_modified,  # Unix timestamp (float)
+        })
+    return objects
+
+
+def list_all_objects(prefix: str = '', max_per_page: int = 100) -> list[dict]:
+    """List all OSS objects under a prefix, handling pagination."""
+    if not _has_oss:
+        return []
+    bucket = _get_bucket()
+    all_objects = []
+    marker = ''
+    while True:
+        result = bucket.list_objects(prefix=prefix, max_keys=max_per_page, marker=marker)
+        for obj in result.object_list:
+            all_objects.append({
+                'key': obj.key,
+                'size': obj.size,
+                'last_modified': obj.last_modified,
+            })
+        if not result.next_marker:
+            break
+        marker = result.next_marker
+    return all_objects
+
+
+def get_object_size(storage_key: str) -> int | None:
+    """Get object size in bytes, or None if object doesn't exist."""
+    if not _has_oss:
+        return None
+    bucket = _get_bucket()
+    try:
+        meta = bucket.get_object_meta(storage_key)
+        return meta.content_length
+    except Exception:
+        return None
+
+
 def delete_object(storage_key: str) -> None:
     if not _has_oss:
         return
     bucket = _get_bucket()
     bucket.delete_object(storage_key)
+
+
+def delete_objects(storage_keys: list[str]) -> int:
+    """Batch delete OSS objects. Returns count of deleted objects."""
+    if not _has_oss or not storage_keys:
+        return 0
+    bucket = _get_bucket()
+    deleted = 0
+    for key in storage_keys:
+        try:
+            bucket.delete_object(key)
+            deleted += 1
+        except Exception:
+            continue
+    return deleted
