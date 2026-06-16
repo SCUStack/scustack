@@ -159,9 +159,9 @@ const visibleRecentItems = computed(() => {
 })
 
 const banners = [
-  { image: 'https://picsum.photos/seed/scu1/1200/300', title: '期末考试资料热力上线', subtitle: '历年真题、复习提纲助你冲刺高分' },
-  { image: 'https://picsum.photos/seed/scu2/1200/300', title: '川流课栈全新改版', subtitle: '更快的搜索，更好的体验' },
-  { image: 'https://picsum.photos/seed/scu3/1200/300', title: '贡献资料，助力同学', subtitle: '上传你的笔记和资料，共建学习社区' },
+  { image: '/banners/b1.jpg', title: '知识川流不息', subtitle: '让每一份笔记都找到需要它的人' },
+  { image: '/banners/b2.jpg', title: '取之学生，用之学生', subtitle: '公益、开源、无广告的学习资料共享平台' },
+  { image: '/banners/b3.jpg', title: '共建学习社区', subtitle: '上传你的资料，帮助学弟学妹少走弯路' },
 ]
 const activeBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
