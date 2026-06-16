@@ -314,7 +314,7 @@
         </NuxtLink>
         <a href="https://github.com/yeyixiang2007/scustack" target="_blank" rel="noopener"
            class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 hover:border-primary-200 hover:bg-primary-50/50 no-underline transition-all group">
-          <AppIcon name="GitHub" :size="20" class="text-slate-400 group-hover:text-primary-500 transition-colors" />
+          <AppIcon name="Code2" :size="20" class="text-slate-400 group-hover:text-primary-500 transition-colors" />
           <div>
             <p class="text-sm font-medium text-slate-700">开源代码</p>
             <p class="text-xs text-slate-400">MIT License · 欢迎贡献</p>

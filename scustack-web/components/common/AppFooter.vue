@@ -41,7 +41,7 @@
             <li>
               <a href="https://github.com/yeyixiang2007/scustack" target="_blank" rel="noopener"
                  class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 no-underline transition-colors">
-                <AppIcon name="GitHub" :size="12" /> GitHub
+                <AppIcon name="Code2" :size="12" /> GitHub
               </a>
             </li>
             <li>
