@@ -23,18 +23,17 @@ tags_data = json.loads(content[start:end+1])
 
 # ── Download strategies ───────────────────────────────────────────
 
-def download_loremflickr(category: str, filename: str, tags: list[str]) -> bool:
-    """Download from LoremFlickr (CC-licensed, free, no API key).
+def download_picsum(category: str, filename: str, tags: list[str]) -> bool:
+    """Download from Picsum Photos (free, no API key, CC-licensed).
 
-    Uses the category + subject tags as search keywords.
+    Uses filename hash as the random seed for deterministic images.
     """
-    # Build search query from most relevant tags
-    keywords = '+'.join(tags[:3])  # first 3 tags
-    url = f'https://loremflickr.com/800/400/{keywords}?random={hash(filename) & 0xFFFF}'
+    seed = abs(hash(filename)) % 10000
+    url = f'https://picsum.photos/seed/{seed}/800/400'
 
     out_path = COVERS_DIR / category / filename
     if out_path.exists() and out_path.stat().st_size > 500:
-        return True  # already downloaded
+        return True
 
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -45,7 +44,7 @@ def download_loremflickr(category: str, filename: str, tags: list[str]) -> bool:
             out_path.write_bytes(data)
             return True
     except Exception as e:
-        print(f'    ✗ LoremFlickr: {e}')
+        print(f'    ✗ Picsum: {e}')
         return False
 
 
@@ -81,7 +80,7 @@ def download_pexels(category: str, filename: str, tags: list[str], api_key: str)
 def main():
     api_key = os.environ.get('PEXELS_API_KEY', '')
     use_pexels = bool(api_key)
-    source = 'Pexels API' if use_pexels else 'LoremFlickr'
+    source = 'Pexels API' if use_pexels else 'Picsum Photos'
 
     total = sum(len(v) for v in tags_data.values())
     downloaded = 0
@@ -105,7 +104,7 @@ def main():
             if use_pexels:
                 ok = download_pexels(category, filename, all_tags, api_key)
             else:
-                ok = download_loremflickr(category, filename, all_tags)
+                ok = download_picsum(category, filename, all_tags)
 
             if ok:
                 downloaded += 1
@@ -123,7 +122,7 @@ def main():
 
     if not use_pexels:
         print()
-        print('TIP: Set PEXELS_API_KEY env var for higher-quality images.')
+        print('TIP: Set PEXELS_API_KEY env var for curated, higher-quality images.')
         print('  Get a free key at https://www.pexels.com/api/')
 
 

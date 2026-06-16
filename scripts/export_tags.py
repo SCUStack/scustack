@@ -37,7 +37,7 @@ def write_covers_ts(data: dict, path: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description='Export cover tags')
-    parser.add_argument('--ext', default='svg', choices=['svg', 'webp'],
+    parser.add_argument('--ext', default='svg', choices=['svg', 'webp', 'jpg'],
                         help='Image file extension (default: svg)')
     args = parser.parse_args()
 
