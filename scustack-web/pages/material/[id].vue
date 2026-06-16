@@ -107,7 +107,7 @@
                 <AppIcon name="Edit3" :size="14" /> 建议修正
               </button>
 
-              <button @click="showReport = true"
+              <button @click="openReport"
                       class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors duration-150">
                 <AppIcon name="AlertTriangle" :size="14" /> 举报
               </button>
@@ -332,6 +332,14 @@ function openExternalLink(url: string) {
     externalLinkDomain.value = url
   }
   showExternalConfirm.value = true
+}
+
+function openReport() {
+  if (!auth.isLoggedIn) {
+    auth.openLogin()
+    return
+  }
+  showReport.value = true
 }
 
 async function submitReport() {
