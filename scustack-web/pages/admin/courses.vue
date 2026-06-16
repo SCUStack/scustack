@@ -123,9 +123,9 @@ async function loadCourses() {
   const params = new URLSearchParams()
   if (collegeFilter.value) params.set('college_id', collegeFilter.value)
   try {
-    const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/courses?${params.toString()}`)
+    const resp = await $fetch<{ code: number; data: any[] | { items: any[]; total: number } }>(`${apiBase}/api/v1/courses?${params.toString()}`)
     if (resp.code === 0) {
-      let items = resp.data
+      let items = Array.isArray(resp.data) ? resp.data : (resp.data as any).items || []
       if (searchQuery.value) items = items.filter((c: any) => c.name.includes(searchQuery.value))
       courses.value = items
       total.value = items.length
