@@ -11,6 +11,29 @@ function Ok    { Write-Host "[OK]  $args" -ForegroundColor Green }
 function Warn  { Write-Host "[WARN] $args" -ForegroundColor Yellow }
 function Err   { Write-Host "[ERR]  $args" -ForegroundColor Red }
 
+function Clear-Port {
+    param([int]$Port)
+    $conns = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }
+    if (-not $conns) { return $true }
+    $killed = $false
+    foreach ($c in $conns) {
+        $pid_val = $c.OwningProcess
+        if ($pid_val -eq 0) { continue }
+        $proc = Get-Process -Id $pid_val -ErrorAction SilentlyContinue
+        if ($proc) {
+            Stop-Process -Id $pid_val -Force -ErrorAction SilentlyContinue
+            Log "已停止 $($proc.ProcessName) (PID $pid_val) 释放端口 $Port"
+            $killed = $true
+        } else {
+            Warn "端口 $Port 被 PID $pid_val 占用，但进程无法访问（可能为 WSL relay），尝试强制释放..."
+            taskkill /F /PID $pid_val 2>$null | Out-Null
+        }
+    }
+    if ($killed) { Start-Sleep -Seconds 2 }
+    $still = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }
+    return -not $still
+}
+
 # ═══════════════════════════════════════════
 # 0. Prerequisites
 # ═══════════════════════════════════════════
@@ -177,16 +200,11 @@ if ((Test-Path $webModules) -or (Test-Path $rootModules)) {
 # 8. Start backend
 # ═══════════════════════════════════════════
 Log "清理端口 8000 上的残留进程..."
-$pids = (netstat -ano 2>$null | Select-String ":8000 " | ForEach-Object { ($_ -split '\s+')[-1] } | Where-Object { $_ -ne "0" } | Sort-Object -Unique)
-if ($pids) {
-    foreach ($pid_val in $pids) {
-        $proc = Get-Process -Id $pid_val -ErrorAction SilentlyContinue
-        if ($proc -and $proc.ProcessName -eq "python") {
-            Stop-Process -Id $pid_val -Force
-            Log "已停止残留进程 PID $pid_val"
-        }
-    }
+$portOk = Clear-Port 8000
+if (-not $portOk) {
+    Warn "端口 8000 无法释放（WSL relay 僵尸进程），将尝试端口 8001"
 }
+$API_PORT = if ($portOk) { 8000 } else { 8001 }
 
 Log "清理 Python 缓存..."
 Get-ChildItem -Path $apiDir -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -195,14 +213,14 @@ Ok "Python 缓存已清理"
 # Use current shell's python path so venv is inherited
 $pythonPath = (Get-Command python).Source
 Log "Python: $pythonPath"
-Log "启动后端 (uvicorn :8000)..."
-$apiProc = Start-Process -FilePath $pythonPath -ArgumentList "-m", "uvicorn", "app.main:app", "--reload", "--port", "8000" -PassThru -WindowStyle Hidden -WorkingDirectory $apiDir
+Log "启动后端 (uvicorn :${API_PORT})..."
+$apiProc = Start-Process -FilePath $pythonPath -ArgumentList "-m", "uvicorn", "app.main:app", "--reload", "--port", "$API_PORT" -PassThru -WindowStyle Hidden -WorkingDirectory $apiDir
 Start-Sleep -Seconds 3
 
 # Verify backend responds (use curl.exe, more reliable than Invoke-WebRequest in PS 5.1)
 $backendOk = $false
 for ($i = 0; $i -lt 10; $i++) {
-    $result = curl.exe -s -o NUL -w "%{http_code}" http://localhost:8000/api/v1/health 2>$null
+    $result = curl.exe -s -o NUL -w "%{http_code}" http://localhost:${API_PORT}/api/v1/health 2>$null
     if ($result -eq "200") {
         $backendOk = $true
         break
@@ -211,10 +229,10 @@ for ($i = 0; $i -lt 10; $i++) {
 }
 
 if ($backendOk) {
-    Ok "后端已启动 -> http://localhost:8000"
-    Ok "API 文档    -> http://localhost:8000/docs"
+    Ok "后端已启动 -> http://localhost:${API_PORT}"
+    Ok "API 文档    -> http://localhost:${API_PORT}/docs"
 } else {
-    Err "后端启动超时，请手动检查: cd scustack-api && uvicorn app.main:app --reload --port 8000"
+    Err "后端启动超时，请手动检查: cd scustack-api && uvicorn app.main:app --reload --port ${API_PORT}"
     Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue
     exit 1
 }
@@ -223,15 +241,12 @@ if ($backendOk) {
 # 9. Start frontend
 # ═══════════════════════════════════════════
 Log "清理端口 3000 上的残留进程..."
-$pids = (netstat -ano 2>$null | Select-String ":3000 " | ForEach-Object { ($_ -split '\s+')[-1] } | Where-Object { $_ -ne "0" } | Sort-Object -Unique)
-if ($pids) {
-    foreach ($pid_val in $pids) {
-        $proc = Get-Process -Id $pid_val -ErrorAction SilentlyContinue
-        if ($proc -and $proc.ProcessName -eq "node") {
-            Stop-Process -Id $pid_val -Force
-            Log "已停止残留进程 PID $pid_val"
-        }
-    }
+Clear-Port 3000 | Out-Null
+
+# Pass API port to frontend if we fell back to 8001
+if ($API_PORT -ne 8000) {
+    $env:NUXT_PUBLIC_API_BASE = "http://localhost:${API_PORT}"
+    Warn "前端将连接后端端口 ${API_PORT}"
 }
 
 Write-Host ""
@@ -239,8 +254,8 @@ Write-Host "══════════════════════�
 Write-Host "  全部启动完成！" -ForegroundColor Green
 Write-Host ""
 Write-Host "  前端:  http://localhost:3000"
-Write-Host "  后端:  http://localhost:8000"
-Write-Host "  API:   http://localhost:8000/docs"
+Write-Host "  后端:  http://localhost:${API_PORT}"
+Write-Host "  API:   http://localhost:${API_PORT}/docs"
 Write-Host ""
 Write-Host "  按 Ctrl+C 停止所有服务"
 Write-Host "═══════════════════════════════════════════"
