@@ -338,17 +338,23 @@ async function submitReport() {
   if (!reportReason.value) return
   submittingReport.value = true
   try {
-    await $fetch(`${apiBase}/api/v1/materials/${route.params.id}/reports`, {
+    const resp = await $fetch<{ code: number; message: string }>(`${apiBase}/api/v1/materials/${route.params.id}/reports`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: reportReason.value, description: reportDesc.value }),
     })
-    showReport.value = false
-    reportReason.value = ''
-    reportDesc.value = ''
-    toast.success('举报已提交')
-  } catch { /* noop */ }
+    if (resp.code === 0) {
+      showReport.value = false
+      reportReason.value = ''
+      reportDesc.value = ''
+      toast.success('举报已提交')
+    } else {
+      toast.error(resp.message || '提交失败')
+    }
+  } catch {
+    toast.error('提交失败，请稍后重试')
+  }
   submittingReport.value = false
 }
 
