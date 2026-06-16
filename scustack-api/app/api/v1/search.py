@@ -55,6 +55,18 @@ async def search_endpoint(
         format=format, trust_status=trust_status,
         sort=sort, page=page, page_size=page_size,
     )
+
+    # Log zero-result searches for analytics
+    if q and result.get('total', 0) == 0:
+        try:
+            from app.core.database import async_session
+            from app.models.audit_log import AuditLog
+            async with async_session() as sdb:
+                sdb.add(AuditLog(user_id=None, action='search_no_result', resource='search', detail={'query': q[:100]}))
+                await sdb.commit()
+        except Exception:
+            pass
+
     return {'code': 0, 'data': result, 'message': 'ok'}
 
 

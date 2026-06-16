@@ -562,6 +562,127 @@ async def delete_announcement(
     return {'code': 0, 'data': None, 'message': 'deleted' if ok else 'not found'}
 
 
+# ── Storage stats ─────────────────────────────────────────────────────────────
+
+@router.get('/storage/stats')
+async def storage_stats(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from sqlalchemy import select, func
+    from app.models.audit_log import AuditLog
+    from app.models.material import Material, MaterialVersion
+    from app.core import oss
+
+    total_materials = await db.scalar(select(func.count(Material.id))) or 0
+    hosted = await db.scalar(select(func.count(Material.id)).where(Material.source_type == 'hosted')) or 0
+    total_file_size = await db.scalar(select(func.coalesce(func.sum(Material.file_size), 0))) or 0
+
+    # Last GC and backup from audit logs
+    gc_log = await db.execute(
+        select(AuditLog).where(AuditLog.action == 'gc_orphan_files').order_by(AuditLog.created_at.desc()).limit(1)
+    )
+    gc = gc_log.scalar_one_or_none()
+    backup_log = await db.execute(
+        select(AuditLog).where(AuditLog.action == 'database_backup').order_by(AuditLog.created_at.desc()).limit(5)
+    )
+    backups = [{'action': b.action, 'detail': b.detail, 'created_at': b.created_at.isoformat()} for b in backup_log.scalars().all()]
+
+    return {
+        'code': 0,
+        'data': {
+            'total_materials': total_materials,
+            'hosted_count': hosted,
+            'external_count': total_materials - hosted,
+            'total_file_size': total_file_size,
+            'last_gc': {'detail': gc.detail, 'at': gc.created_at.isoformat()} if gc else None,
+            'recent_backups': backups,
+        },
+        'message': 'ok',
+    }
+
+
+# ── Upload stats ──────────────────────────────────────────────────────────────
+
+@router.get('/analytics/upload-stats')
+async def upload_stats(
+    days: int = Query(30, le=90),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select, func, text
+    from app.models.material import Material
+
+    start = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Format distribution
+    fmt_rows = await db.execute(
+        select(Material.format, func.count(Material.id))
+        .where(Material.format.isnot(None))
+        .group_by(Material.format).order_by(func.count(Material.id).desc())
+    )
+    formats = [{'format': r[0], 'count': r[1]} for r in fmt_rows.all()]
+
+    # Source type distribution
+    src_rows = await db.execute(
+        select(Material.source_type, func.count(Material.id))
+        .group_by(Material.source_type)
+    )
+    sources = [{'type': r[0], 'count': r[1]} for r in src_rows.all()]
+
+    # Review stats
+    approved = await db.scalar(select(func.count(Material.id)).where(Material.review_status == 'approved')) or 0
+    rejected = await db.scalar(select(func.count(Material.id)).where(Material.review_status == 'rejected')) or 0
+    pending = await db.scalar(select(func.count(Material.id)).where(Material.review_status == 'pending')) or 0
+
+    # Top contributors (by material count)
+    contrib_rows = await db.execute(
+        select(Material.contributor_id, func.count(Material.id).label('cnt'))
+        .where(Material.contributor_id.isnot(None), Material.review_status == 'approved')
+        .group_by(Material.contributor_id).order_by(text('cnt DESC')).limit(20)
+    )
+    contributors = [{'user_id': str(r[0]), 'material_count': r[1]} for r in contrib_rows.all()]
+
+    return {
+        'code': 0,
+        'data': {
+            'formats': formats, 'sources': sources,
+            'review': {'approved': approved, 'rejected': rejected, 'pending': pending},
+            'top_contributors': contributors,
+        },
+        'message': 'ok',
+    }
+
+
+# ── Search analytics ──────────────────────────────────────────────────────────
+
+@router.get('/analytics/search-stats')
+async def search_stats(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from sqlalchemy import select, func, text
+    from app.models.audit_log import AuditLog
+
+    # Recent search-not-found from audit logs
+    no_result_rows = await db.execute(
+        select(AuditLog.detail, func.count(AuditLog.id).label('cnt'))
+        .where(AuditLog.action == 'search_no_result')
+        .group_by(AuditLog.detail['query'].astext)
+        .order_by(text('cnt DESC')).limit(30)
+    )
+    no_results = [{'query': r[0].get('query', ''), 'count': r[1]} for r in no_result_rows.all() if r[0]]
+
+    return {
+        'code': 0,
+        'data': {
+            'no_results': no_results,
+        },
+        'message': 'ok',
+    }
+
+
 # ── Link check ───────────────────────────────────────────────────────────────
 
 @router.post('/materials/{material_id}/check-link')
