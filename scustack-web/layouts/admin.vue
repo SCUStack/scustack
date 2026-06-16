@@ -57,10 +57,17 @@ const navItems: NavItem[] = [
   { label: '数据分析', to: '/admin/analytics' },
   { label: '审核队列', to: '/admin/review', badge: 0 },
   { label: '举报处理', to: '/admin/reports', badge: 0 },
+  { label: '资料管理', to: '/admin/materials' },
   { label: '课程管理', to: '/admin/courses' },
   { label: '学院管理', to: '/admin/colleges' },
   { label: '用户管理', to: '/admin/users' },
   { label: '校历管理', to: '/admin/calendar' },
+  { label: '全站通知', to: '/admin/announcements' },
+  { label: '屏蔽列表', to: '/admin/blocklist' },
+  { label: '失效链接', to: '/admin/dead-links' },
+  { label: '搜索分析', to: '/admin/search-analytics' },
+  { label: '上传统计', to: '/admin/upload-stats' },
+  { label: '存储监控', to: '/admin/storage' },
   { label: '审计日志', to: '/admin/audit-logs' },
 ]
 
