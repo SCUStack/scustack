@@ -59,6 +59,7 @@ class MaterialResponse(BaseModel):
     average_rating: float
     rating_count: int
     download_count: int
+    rating_distribution: dict[str, int] | None = None
     is_pinned: bool
     link_checked_at: datetime | None = None
     link_status: str | None = None

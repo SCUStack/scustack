@@ -179,6 +179,7 @@
     <LoginModal />
     <ToastContainer />
     <AnnouncementBanner />
+    <FeedbackButton />
 
     <!-- Spacer for fixed navbar -->
     <div :class="isHome ? '' : 'h-14'" />

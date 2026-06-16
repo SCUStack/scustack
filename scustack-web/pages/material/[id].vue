@@ -84,7 +84,7 @@
               </button>
 
               <div class="pt-1">
-                <RatingWidget :material-id="material.id" :initial-rating="material.average_rating" :rating-count="material.rating_count" />
+                <RatingWidget :material-id="material.id" :initial-rating="material.average_rating" :rating-count="material.rating_count" :distribution="material.rating_distribution" />
               </div>
 
               <button @click="toggleBookmark"

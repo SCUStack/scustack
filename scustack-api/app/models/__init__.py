@@ -6,6 +6,7 @@ from app.models.college import College
 from app.models.account_deletion import AccountDeletion
 from app.models.announcement import Announcement
 from app.models.rate_limit_log import RateLimitLog
+from app.models.feedback import Feedback
 from app.models.collection import Collection, CollectionItem
 from app.models.comment import Comment
 from app.models.content_blocklist import ContentBlocklist
@@ -26,5 +27,5 @@ __all__ = [
     'Material', 'MaterialVersion', 'Bookmark', 'CorrectionSuggestion', 'Notification',
     'ReviewLog', 'Report', 'AuditLog', 'AcademicCalendar',
     'Wish', 'WishVote', 'CopyrightComplaint', 'AccountDeletion',
-    'Collection', 'CollectionItem', 'Comment', 'ContentBlocklist',
+    'Feedback', 'Collection', 'CollectionItem', 'Comment', 'ContentBlocklist',
 ]

@@ -67,7 +67,27 @@ async def search_endpoint(
         except Exception:
             pass
 
+    # Track search keyword for hot trends (Redis sorted set, 7-day TTL)
+    if q.strip():
+        try:
+            from app.core.redis import redis
+            await redis.zincrby('search:hot:weekly', 1, q.strip()[:100])
+            await redis.expire('search:hot:weekly', 604800)
+        except Exception:
+            pass
+
     return {'code': 0, 'data': result, 'message': 'ok'}
+
+
+@router.get('/search/hot')
+async def hot_search_endpoint():
+    try:
+        from app.core.redis import redis
+        results = await redis.zrevrange('search:hot:weekly', 0, 9, withscores=True)
+        keywords = [{'text': kw.decode('utf-8') if isinstance(kw, bytes) else kw, 'count': int(score)} for kw, score in results]
+    except Exception:
+        keywords = []
+    return {'code': 0, 'data': {'keywords': keywords}, 'message': 'ok'}
 
 
 @router.get('/search/suggest')

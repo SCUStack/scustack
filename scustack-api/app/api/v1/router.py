@@ -5,6 +5,7 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.bookmarks import router as bookmarks_router
 from app.api.v1.collections import router as collections_router
+from app.api.v1.feedback import router as feedback_router
 from app.api.v1.colleges import router as colleges_router
 from app.api.v1.comments import router as comments_router
 from app.api.v1.copyright import router as copyright_router
@@ -19,6 +20,7 @@ from app.api.v1.users import router as users_router
 from app.api.v1.wishes import router as wishes_router
 
 router = APIRouter()
+router.include_router(feedback_router, tags=['feedback'])
 router.include_router(health_router, tags=['health'])
 router.include_router(auth_router, tags=['auth'])
 router.include_router(users_router, tags=['users'])

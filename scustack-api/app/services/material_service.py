@@ -93,6 +93,13 @@ async def get_material(db: AsyncSession, material_id: UUID) -> Material | None:
                 user_badges = await get_user_badges(db, user.id)
                 user.badges = user_badges
             m.contributor = user
+        from sqlalchemy import text as sa_text
+        dist_result = await db.execute(
+            sa_text('SELECT score, COUNT(*) FROM ratings WHERE material_id = :mid GROUP BY score ORDER BY score'),
+            {'mid': material_id},
+        )
+        dist = {str(r[0]): r[1] for r in dist_result.fetchall()}
+        m.rating_distribution = {str(k): dist.get(str(k), 0) for k in range(1, 6)}
     return m
 
 
