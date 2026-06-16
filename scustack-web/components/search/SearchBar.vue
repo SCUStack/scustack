@@ -160,8 +160,8 @@ async function fetchHotSearches() {
 
 const inputClass = computed(() =>
   props.variant === 'hero'
-    ? 'w-full h-14 pl-10 pr-10 border border-slate-200 rounded-lg text-base outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 shadow-sm transition-shadow duration-200'
-    : 'w-full h-10 pl-9 pr-8 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200'
+    ? 'w-full h-14 pl-10 pr-10 border border-slate-200 rounded-lg text-base text-slate-800 bg-white outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 shadow-sm transition-shadow duration-200'
+    : 'w-full h-10 pl-9 pr-8 border border-slate-200 rounded-md text-sm text-slate-800 bg-white outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200'
 )
 
 function onInput() {
