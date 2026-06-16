@@ -7,24 +7,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.copyright_complaint import CopyrightComplaint
 
-COPYRIGHT_TITLE_BLOCKLIST = frozenset({
-    '高等数学第七版课后答案',
-    '同济高数第七版',
-    '考研英语历年真题详解',
-})
-
-
 def generate_ticket_number() -> str:
     return f'DMCA-{datetime.now(timezone.utc).strftime("%Y%m%d")}-{secrets.token_hex(4).upper()}'
 
 
-def check_title_blocklist(title: str) -> bool:
-    """Return True if the title matches a known copyrighted title."""
-    title_lower = title.lower().strip()
-    for blocked in COPYRIGHT_TITLE_BLOCKLIST:
-        if blocked.lower() in title_lower:
-            return True
-    return False
+async def check_title_blocklist(title: str) -> bool:
+    """Return True if the title matches a known copyrighted title from DB."""
+    try:
+        from app.core.database import async_session
+        from app.services.blocklist_service import check_title_blocklist as _check
+        async with async_session() as db:
+            return await _check(db, title)
+    except Exception:
+        # Fallback to hardcoded check if DB unavailable
+        _FALLBACK = frozenset({'高等数学第七版课后答案', '同济高数第七版', '考研英语历年真题详解'})
+        title_lower = title.lower().strip()
+        for b in _FALLBACK:
+            if b.lower() in title_lower:
+                return True
+        return False
 
 
 async def create_complaint(

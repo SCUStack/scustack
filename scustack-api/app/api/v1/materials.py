@@ -74,7 +74,7 @@ async def create_material(
     kwargs = body.model_dump(exclude_none=True)
     if is_new:
         kwargs['review_status'] = 'pending'
-    elif copyright_service.check_title_blocklist(body.title):
+    elif await copyright_service.check_title_blocklist(body.title):
         kwargs['review_status'] = 'pending'
 
     m = await material_service.create_material(db, current_user.id, **kwargs)

@@ -458,6 +458,58 @@ async def admin_materials(
     return {'code': 0, 'data': {'items': items, 'total': total}, 'message': 'ok'}
 
 
+# ── Content blocklist ──────────────────────────────────────────────────────────
+
+@router.get('/blocklist')
+async def list_blocklist(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.blocklist_service import list_all
+    entries = await list_all(db)
+    data = [{'id': str(e.id), 'pattern': e.pattern, 'block_type': e.block_type, 'reason': e.reason, 'is_active': e.is_active, 'created_at': e.created_at.isoformat()} for e in entries]
+    return {'code': 0, 'data': data, 'message': 'ok'}
+
+
+@router.post('/blocklist')
+async def create_blocklist(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.blocklist_service import create_entry
+    e = await create_entry(db, body['pattern'], body.get('block_type', 'title'), body.get('reason'))
+    await db.commit()
+    return {'code': 0, 'data': {'id': str(e.id)}, 'message': 'ok'}
+
+
+@router.patch('/blocklist/{entry_id}')
+async def update_blocklist(
+    entry_id: UUID,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.blocklist_service import update_entry
+    e = await update_entry(db, entry_id, **body)
+    if e is None:
+        return {'code': 40400, 'data': None, 'message': 'not found'}
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'ok'}
+
+
+@router.delete('/blocklist/{entry_id}')
+async def delete_blocklist(
+    entry_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from app.services.blocklist_service import delete_entry
+    ok = await delete_entry(db, entry_id)
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'deleted' if ok else 'not found'}
+
+
 # ── Link check ───────────────────────────────────────────────────────────────
 
 @router.post('/materials/{material_id}/check-link')
