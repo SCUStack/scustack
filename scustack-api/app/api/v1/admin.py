@@ -683,6 +683,53 @@ async def search_stats(
     }
 
 
+# ── Security / Rate limit logs ────────────────────────────────────────────────
+
+@router.get('/security/logs')
+async def rate_limit_logs(
+    limit: int = Query(50, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from sqlalchemy import select, func
+    from app.models.rate_limit_log import RateLimitLog
+    result = await db.execute(select(RateLimitLog).order_by(RateLimitLog.created_at.desc()).limit(limit))
+    items = [{'ip_hash': r.ip_hash, 'endpoint': r.endpoint, 'limit_type': r.limit_type, 'created_at': r.created_at.isoformat()} for r in result.scalars().all()]
+    today = func.date_trunc('day', func.now())
+    top = await db.execute(
+        select(RateLimitLog.ip_hash, func.count(RateLimitLog.id).label('cnt'))
+        .where(RateLimitLog.created_at >= today).group_by(RateLimitLog.ip_hash)
+        .order_by(func.count(RateLimitLog.id).desc()).limit(20)
+    )
+    top_ips = [{'ip_hash': r[0], 'count': r[1]} for r in top.all()]
+    return {'code': 0, 'data': {'items': items, 'top_ips': top_ips}, 'message': 'ok'}
+
+
+# ── Duplicate detection ───────────────────────────────────────────────────────
+
+@router.get('/duplicates')
+async def duplicates(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    from sqlalchemy import select, func, text
+    from app.models.material import Material
+    hash_rows = await db.execute(
+        select(Material.file_hash, func.array_agg(Material.id).label('ids'), func.count(Material.id).label('cnt'))
+        .where(Material.file_hash.isnot(None), Material.review_status != 'removed')
+        .group_by(Material.file_hash).having(func.count(Material.id) > 1).order_by(text('cnt DESC')).limit(20)
+    )
+    hash_dupes = [{'file_hash': r[0], 'material_ids': [str(x) for x in r[1]], 'count': r[2]} for r in hash_rows.all()]
+    title_rows = await db.execute(text("""
+        SELECT a.id AS id1, b.id AS id2, a.title, a.course_id
+        FROM materials a JOIN materials b ON a.course_id = b.course_id
+        WHERE a.id < b.id AND a.review_status != 'removed' AND b.review_status != 'removed'
+        AND LEFT(a.title, 10) = LEFT(b.title, 10) AND a.title != b.title LIMIT 30
+    """))
+    title_dupes = [{'id1': str(r[0]), 'id2': str(r[1]), 'title': r[2], 'course_id': str(r[3])} for r in title_rows.all()]
+    return {'code': 0, 'data': {'hash_duplicates': hash_dupes, 'title_similar': title_dupes}, 'message': 'ok'}
+
+
 # ── Link check ───────────────────────────────────────────────────────────────
 
 @router.post('/materials/{material_id}/check-link')

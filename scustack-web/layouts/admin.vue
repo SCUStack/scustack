@@ -68,6 +68,8 @@ const navItems: NavItem[] = [
   { label: '搜索分析', to: '/admin/search-analytics' },
   { label: '上传统计', to: '/admin/upload-stats' },
   { label: '存储监控', to: '/admin/storage' },
+  { label: '安全监控', to: '/admin/security' },
+  { label: '重复检测', to: '/admin/duplicates' },
   { label: '审计日志', to: '/admin/audit-logs' },
 ]
 
