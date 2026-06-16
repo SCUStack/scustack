@@ -11,6 +11,8 @@ class AntiProxyMiddleware(BaseHTTPMiddleware):
     """Block cross-origin API requests to prevent unauthorized proxy/mirroring."""
 
     async def dispatch(self, request: Request, call_next):
+        if settings.is_dev:
+            return await call_next(request)
         if not request.url.path.startswith('/api/'):
             return await call_next(request)
 

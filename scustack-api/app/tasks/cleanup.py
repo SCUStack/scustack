@@ -17,6 +17,24 @@ _MAX_DELETE_PER_RUN = 1000
 
 
 @app.task(queue='default')
+def process_account_deletions():
+    asyncio.run(_do_process_account_deletions())
+
+
+async def _do_process_account_deletions():
+    from app.services.deletion_service import process_expired_deletions
+    async with async_session() as db:
+        count = await process_expired_deletions(db)
+        if count:
+            from app.models.audit_log import AuditLog
+            db.add(AuditLog(
+                user_id=None, action='process_account_deletions',
+                resource='users', detail={'processed_count': count},
+            ))
+        await db.commit()
+
+
+@app.task(queue='default')
 def gc_orphan_files():
     asyncio.run(_do_gc_orphan_files())
 

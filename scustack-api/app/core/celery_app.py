@@ -40,6 +40,10 @@ app.conf.update(
             'task': 'app.tasks.counter_sync.sync_download_counters',
             'schedule': crontab(minute='*/5'),
         },
+        'process-account-deletions-daily': {
+            'task': 'app.tasks.cleanup.process_account_deletions',
+            'schedule': crontab(hour=5, minute=23),
+        },
         'gc-orphan-files-weekly': {
             'task': 'app.tasks.cleanup.gc_orphan_files',
             'schedule': crontab(hour=4, minute=53, day_of_week=0),

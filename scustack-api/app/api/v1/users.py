@@ -226,3 +226,60 @@ async def deactivate_account(
         return {'code': 50000, 'data': None, 'message': 'deactivation failed'}
     await db.commit()
     return {'code': 0, 'data': None, 'message': 'account deactivated'}
+
+
+@router.post('/delete-account')
+async def delete_account(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Request permanent account deletion with 30-day grace period."""
+    from app.services.deletion_service import request_deletion
+    deletion = await request_deletion(db, current_user.id)
+    await db.commit()
+    if deletion:
+        return {
+            'code': 0,
+            'data': {
+                'scheduled_at': deletion.scheduled_at.isoformat(),
+                'message': f'账户将在 {deletion.scheduled_at.strftime("%Y-%m-%d")} 永久删除，在此之前可撤销',
+            },
+            'message': 'ok',
+        }
+    return {'code': 0, 'data': None, 'message': 'account deletion cancelled and account reactivated'}
+
+
+@router.post('/cancel-deletion')
+async def cancel_deletion(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cancel a pending account deletion request."""
+    from app.services.deletion_service import cancel_deletion
+    ok = await cancel_deletion(db, current_user.id)
+    await db.commit()
+    if ok:
+        return {'code': 0, 'data': None, 'message': 'deletion cancelled, account reactivated'}
+    return {'code': 40400, 'data': None, 'message': 'no pending deletion request found'}
+
+
+@router.get('/deletion-status')
+async def deletion_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get current account deletion status."""
+    from app.services.deletion_service import get_deletion_status
+    deletion = await get_deletion_status(db, current_user.id)
+    if deletion is None:
+        return {'code': 0, 'data': None, 'message': 'ok'}
+    return {
+        'code': 0,
+        'data': {
+            'status': deletion.status,
+            'requested_at': deletion.requested_at.isoformat(),
+            'scheduled_at': deletion.scheduled_at.isoformat() if deletion.scheduled_at else None,
+            'cancelled_at': deletion.cancelled_at.isoformat() if deletion.cancelled_at else None,
+        },
+        'message': 'ok',
+    }

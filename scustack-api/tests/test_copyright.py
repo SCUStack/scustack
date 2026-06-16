@@ -114,23 +114,24 @@ class TestCopyrightAPI:
             yield c
 
     async def test_submit_complaint_ok(self, client):
-        with patch('app.api.v1.copyright.copyright_service.create_complaint') as mock_create:
-            mock_complaint = MagicMock()
-            mock_complaint.ticket_number = 'DMCA-20260616-ABCD'
-            mock_complaint.created_at = MagicMock()
-            mock_complaint.created_at.isoformat.return_value = '2026-06-16T00:00:00+00:00'
-            mock_create.return_value = mock_complaint
+        with patch('app.api.v1.copyright.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True):
+            with patch('app.api.v1.copyright.copyright_service.create_complaint') as mock_create:
+                mock_complaint = MagicMock()
+                mock_complaint.ticket_number = 'DMCA-20260616-ABCD'
+                mock_complaint.created_at = MagicMock()
+                mock_complaint.created_at.isoformat.return_value = '2026-06-16T00:00:00+00:00'
+                mock_create.return_value = mock_complaint
 
-            resp = await client.post('/api/v1/copyright/complaint', json={
-                'complainant_name': 'Test',
-                'contact_email': 'test@example.com',
-                'infringing_url': 'https://scustack.com/material/123',
-                'statement': 'This is my copyrighted work, I declare...',
-            })
-            assert resp.status_code == 200
-            data = resp.json()
-            assert data['code'] == 0
-            assert data['data']['ticket_number'] == 'DMCA-20260616-ABCD'
+                resp = await client.post('/api/v1/copyright/complaint', json={
+                    'complainant_name': 'Test',
+                    'contact_email': 'test@example.com',
+                    'infringing_url': 'https://scustack.com/material/123',
+                    'statement': 'This is my copyrighted work, I declare...',
+                })
+                assert resp.status_code == 200
+                data = resp.json()
+                assert data['code'] == 0
+                assert data['data']['ticket_number'] == 'DMCA-20260616-ABCD'
 
     async def test_submit_complaint_invalid(self, client):
         resp = await client.post('/api/v1/copyright/complaint', json={
