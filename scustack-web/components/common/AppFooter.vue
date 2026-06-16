@@ -12,6 +12,7 @@
              class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">GitHub</a>
           <NuxtLink to="/colleges" class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">学院目录</NuxtLink>
           <NuxtLink to="/about" class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">关于</NuxtLink>
+          <NuxtLink to="/copyright" class="text-slate-400 hover:text-slate-600 no-underline transition-colors duration-150">版权投诉</NuxtLink>
         </nav>
       </div>
     </div>
