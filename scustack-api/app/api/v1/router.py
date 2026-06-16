@@ -13,6 +13,7 @@ from app.api.v1.materials import router as materials_router
 from app.api.v1.search import router as search_router
 from app.api.v1.upload import router as upload_router
 from app.api.v1.users import router as users_router
+from app.api.v1.wishes import router as wishes_router
 
 router = APIRouter()
 router.include_router(health_router, tags=['health'])
@@ -28,3 +29,4 @@ router.include_router(homepage_router, tags=['homepage'])
 router.include_router(about_router, tags=['about'])
 router.include_router(corrections_router, tags=['corrections'])
 router.include_router(admin_router, tags=['admin'])
+router.include_router(wishes_router, tags=['wishes'])

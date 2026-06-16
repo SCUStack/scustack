@@ -11,9 +11,11 @@ from app.models.report import Report
 from app.models.review_log import ReviewLog
 from app.models.user import RefreshToken, User
 from app.models.user_badge import UserBadge
+from app.models.wish import Wish, WishVote
 
 __all__ = [
     'Base', 'User', 'RefreshToken', 'UserBadge', 'College', 'Course',
     'Material', 'MaterialVersion', 'Bookmark', 'CorrectionSuggestion', 'Notification',
     'ReviewLog', 'Report', 'AuditLog', 'AcademicCalendar',
+    'Wish', 'WishVote',
 ]

@@ -91,6 +91,8 @@
       </div>
 
       <EmptyState v-if="!loading && materials.length === 0" icon="FolderOpen" title="该课程暂无资料" description="成为第一位贡献者" action-label="上传资料" action-to="/upload" />
+
+      <WishList v-if="course" :course-id="course.id" />
     </div>
   </div>
 </template>

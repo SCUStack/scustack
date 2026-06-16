@@ -10,7 +10,18 @@
         <p class="text-xs text-slate-400 mt-1">{{ form.title.length }}/200</p>
       </div>
 
-      <CollegeCourseSelect @update:college-id="(id: string) => form.collegeId = id" @update:course-id="(id: string) => form.courseId = id" />
+      <CollegeCourseSelect @update:college-id="(id: string) => form.collegeId = id" @update:course-id="onCourseChange" />
+
+      <div v-if="openWishes.length" class="p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <label class="block text-sm font-medium text-slate-700 mb-2">
+          <AppIcon name="Heart" :size="14" class="inline text-rose-500 mr-1" />
+          满足心愿（可选）
+        </label>
+        <select v-model="form.fulfillWishId" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
+          <option value="">不关联心愿</option>
+          <option v-for="w in openWishes" :key="w.id" :value="w.id">{{ w.title }}（{{ w.vote_count }} 人需要）</option>
+        </select>
+      </div>
 
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-2">资料分类 *</label>
@@ -89,13 +100,14 @@ const semesters = ['2026-2027-1', '2025-2026-2', '2025-2026-1', '2024-2025-2', '
 const form = reactive({
   title: '', collegeId: '', courseId: '', category: '', semester: '',
   teacher: '', sourceType: 'hosted' as 'hosted' | 'external',
-  externalUrl: '', description: '',
+  externalUrl: '', description: '', fulfillWishId: '',
 })
 
 const selectedFile = ref<File | null>(null)
 const dropZoneRef = ref()
 const submitting = ref(false)
 const errorMsg = ref('')
+const openWishes = ref<any[]>([])
 const { apiBase } = useRuntimeConfig().public
 const toast = useToast()
 
@@ -110,6 +122,17 @@ function onFileChange(file: File | null) {
   selectedFile.value = file
 }
 
+async function onCourseChange(id: string) {
+  form.courseId = id
+  form.fulfillWishId = ''
+  openWishes.value = []
+  if (!id) return
+  try {
+    const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/wishes?course_id=${id}&status=open&sort=votes&page_size=10`)
+    if (resp.code === 0) openWishes.value = resp.data || []
+  } catch { /* noop */ }
+}
+
 function saveDraft() {
   localStorage.setItem('uploadDraft', JSON.stringify({ ...form }))
 }
@@ -117,6 +140,7 @@ function saveDraft() {
 async function submit() {
   errorMsg.value = ''
   submitting.value = true
+  let createdMaterialId = ''
   try {
     const { apiBase } = useRuntimeConfig().public
 
@@ -146,7 +170,7 @@ async function submit() {
       dropZoneRef.value?.setUploading(true, 100)
 
       const ext = f.name.split('.').pop()?.toLowerCase() || ''
-      const materialResp = await $fetch<{ code: number; message: string }>(`${apiBase}/api/v1/materials`, {
+      const materialResp = await $fetch<{ code: number; message: string; data?: { id: string } }>(`${apiBase}/api/v1/materials`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title, course_id: form.courseId, category: form.category,
@@ -157,8 +181,9 @@ async function submit() {
         }),
       })
       if (materialResp.code !== 0) { errorMsg.value = materialResp.message; submitting.value = false; return }
+      createdMaterialId = materialResp.data?.id || ''
     } else if (form.sourceType === 'external') {
-      const materialResp = await $fetch<{ code: number; message: string }>(`${apiBase}/api/v1/materials`, {
+      const materialResp = await $fetch<{ code: number; message: string; data?: { id: string } }>(`${apiBase}/api/v1/materials`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title, course_id: form.courseId, category: form.category,
@@ -168,9 +193,20 @@ async function submit() {
         }),
       })
       if (materialResp.code !== 0) { errorMsg.value = materialResp.message; submitting.value = false; return }
+      createdMaterialId = materialResp.data?.id || ''
     }
 
     localStorage.removeItem('uploadDraft')
+
+    if (form.fulfillWishId && createdMaterialId) {
+      try {
+        await $fetch(`${apiBase}/api/v1/wishes/${form.fulfillWishId}/fulfill`, {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ material_id: createdMaterialId }),
+        })
+      } catch { /* non-critical */ }
+    }
+
     toast.success('上传成功')
     navigateTo('/user/contributions')
   } catch (e: unknown) {
