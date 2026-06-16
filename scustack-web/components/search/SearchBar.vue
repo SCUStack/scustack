@@ -25,6 +25,7 @@
     <div
       v-if="panelVisible"
       class="absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow z-50 max-h-80 overflow-y-auto"
+      @mousedown.prevent
     >
       <!-- Autocomplete suggestions (when query has text) -->
       <template v-if="query && suggestions.length > 0">

@@ -18,7 +18,7 @@
     <!-- Distribution popover -->
     <div
       v-if="showDist && ratingCount > 0 && distribution"
-      class="absolute bottom-full left-0 mb-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50"
+      class="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50"
     >
       <p class="text-xs font-medium text-slate-700 mb-2">评分分布</p>
       <div v-for="star in 5" :key="star" class="flex items-center gap-2 mb-1 last:mb-0">

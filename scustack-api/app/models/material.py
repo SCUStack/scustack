@@ -72,6 +72,9 @@ class Material(Base):
         'MaterialVersion', back_populates='material', cascade='all, delete-orphan'
     )
 
+    # Non-mapped — populated at query time by get_material
+    rating_distribution: dict | None = None
+
 
 class MaterialVersion(Base):
     __tablename__ = 'material_versions'
