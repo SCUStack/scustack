@@ -182,7 +182,6 @@
           </div>
         </div>
       </div>
-    </div>
 
     <div v-else-if="!loading" class="max-w-7xl mx-auto px-4 py-16 text-center">
       <AppIcon name="FileX" :size="48" class="text-slate-300 mx-auto mb-4" />
