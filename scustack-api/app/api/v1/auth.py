@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +23,7 @@ from app.services.auth_service import (
     login_with_password,
     refresh_tokens,
     register_with_password,
+    revoke_all_sessions,
     revoke_refresh_token,
     revoke_session,
     send_sms_code,
@@ -176,8 +177,35 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
 
 
 @router.post('/logout')
-async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def logout(
+    request: Request,
+    response: Response,
+    all: bool = Query(False, alias='all'),
+    db: AsyncSession = Depends(get_db),
+):
     token = request.cookies.get(REFRESH_COOKIE)
+    if all:
+        from app.dependencies import get_current_user
+        try:
+            user_id_str = None
+            if token:
+                from app.core.security import decode_token, hash_token
+                # Try to decode access token to get user_id
+                access_token = request.cookies.get(ACCESS_COOKIE)
+                if access_token:
+                    try:
+                        payload = decode_token(access_token)
+                        user_id_str = payload.get('sub')
+                    except Exception:
+                        pass
+            if user_id_str:
+                count = await revoke_all_sessions(db, user_id_str, except_token=token)
+                await db.commit()
+                _clear_token_cookies(response)
+                return {'code': 0, 'data': {'revoked': count}, 'message': f'all {count} sessions revoked'}
+        except Exception:
+            pass
+
     if token:
         await revoke_refresh_token(db, token, _get_ip(request), _get_ua(request))
         await db.commit()

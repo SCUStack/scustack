@@ -57,17 +57,76 @@ async def send_sms_code(phone: str, ip: str) -> None:
     await cache_set(f'sms:code:{phone}', hash_code(code, phone), ttl=300)
 
 
-async def _issue_tokens(db: AsyncSession, user: User) -> dict[str, str]:
+MAX_SESSIONS = 10
+
+
+def _derive_device_name(user_agent: str | None) -> str | None:
+    """Extract browser+OS from User-Agent string for display."""
+    if not user_agent:
+        return None
+    ua = user_agent
+    # Extract browser
+    browser = ''
+    if 'Edg/' in ua:
+        browser = 'Edge'
+    elif 'Chrome/' in ua and 'Chromium' not in ua:
+        browser = 'Chrome'
+    elif 'Firefox/' in ua:
+        browser = 'Firefox'
+    elif 'Safari/' in ua and 'Chrome/' not in ua:
+        browser = 'Safari'
+    else:
+        browser = ''
+
+    # Extract OS
+    os = ''
+    if 'Windows' in ua:
+        os = 'Windows'
+    elif 'Mac OS' in ua:
+        os = 'macOS'
+    elif 'Linux' in ua and 'Android' not in ua:
+        os = 'Linux'
+    elif 'Android' in ua:
+        os = 'Android'
+    elif 'iPhone' in ua or 'iPad' in ua:
+        os = 'iOS'
+    else:
+        os = ''
+
+    if browser and os:
+        return f'{browser} on {os}'
+    return browser or os or None
+
+
+async def _issue_tokens(db: AsyncSession, user: User, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
     access_token = create_access_token(str(user.id), user.role)
     refresh_token_str = generate_refresh_token()
+
+    device_name = _derive_device_name(user_agent) or 'Unknown device'
 
     refresh = RefreshToken(
         user_id=user.id,
         token_hash=hash_token(refresh_token_str),
         expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        ip_address=ip_address,
+        user_agent=user_agent[:500] if user_agent else None,
+        device_name=device_name,
     )
     db.add(refresh)
     await db.flush()
+
+    # Enforce concurrent session limit: revoke oldest if over max
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user.id,
+            RefreshToken.revoked == False,
+            RefreshToken.id != refresh.id,
+        ).order_by(RefreshToken.created_at.asc())
+    )
+    active = list(result.scalars().all())
+    if len(active) >= MAX_SESSIONS:
+        for old in active[:len(active) - MAX_SESSIONS + 1]:
+            old.revoked = True
 
     return {
         'access_token': access_token,
@@ -120,7 +179,7 @@ async def verify_sms_code(db: AsyncSession, phone: str, code: str, ip_address: s
     if not user.is_active:
         raise SmsVerifyError('account is disabled')
 
-    tokens = await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user, ip_address, user_agent)
     await _audit_auth(db, 'login_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'sms'})
     return tokens
 
@@ -186,7 +245,7 @@ async def register_with_password(db: AsyncSession, phone: str, password: str, ip
     db.add(user)
     await db.flush()
 
-    tokens = await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user, ip_address, user_agent)
     await _audit_auth(db, 'register_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'password'})
     return tokens
 
@@ -206,7 +265,7 @@ async def login_with_password(db: AsyncSession, phone: str, password: str, ip_ad
         await _audit_auth(db, 'login_failed', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'wrong_password'})
         raise PasswordError('invalid phone or password')
 
-    tokens = await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user, ip_address, user_agent)
     await _audit_auth(db, 'login_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'password'})
     return tokens
 
@@ -255,7 +314,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str, ip_address: s
     if user is None or not user.is_active:
         raise AuthError('user not found or disabled')
 
-    tokens = await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user, ip_address, user_agent)
     await _audit_auth(db, 'token_refresh', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'token_prefix': token_prefix})
     return tokens
 
@@ -273,6 +332,26 @@ async def revoke_refresh_token(db: AsyncSession, refresh_token_str: str, ip_addr
         await _audit_auth(db, 'token_revoked', user_id=stored.user_id, ip_address=ip_address, user_agent=user_agent, detail={'token_prefix': token_prefix, 'reason': 'logout'})
 
 
+async def revoke_all_sessions(db: AsyncSession, user_id: str, except_token: str | None = None) -> int:
+    """Revoke all active refresh tokens for a user. Returns count revoked."""
+    from sqlalchemy import update as sql_update
+    stmt = (
+        sql_update(RefreshToken)
+        .where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked == False,
+            RefreshToken.expires_at > datetime.now(timezone.utc),
+        )
+        .values(revoked=True)
+    )
+    if except_token:
+        except_hash = hash_token(except_token)
+        stmt = stmt.where(RefreshToken.token_hash != except_hash)
+    result = await db.execute(stmt)
+    await db.flush()
+    return result.rowcount
+
+
 async def get_user_sessions(db: AsyncSession, user_id: str) -> list[dict]:
     now = datetime.now(timezone.utc)
     result = await db.execute(
@@ -286,6 +365,8 @@ async def get_user_sessions(db: AsyncSession, user_id: str) -> list[dict]:
     for t in result.scalars().all():
         sessions.append({
             'id': str(t.id),
+            'device_name': t.device_name or 'Unknown device',
+            'ip_address': t.ip_address or '',
             'created_at': t.created_at.isoformat(),
             'expires_at': t.expires_at.isoformat(),
         })
