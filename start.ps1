@@ -25,8 +25,14 @@ function Clear-Port {
             Log "已停止 $($proc.ProcessName) (PID $pid_val) 释放端口 $Port"
             $killed = $true
         } else {
-            Warn "端口 $Port 被 PID $pid_val 占用，但进程无法访问（可能为 WSL relay），尝试强制释放..."
-            taskkill /F /PID $pid_val 2>$null | Out-Null
+            Warn "端口 $Port 被 PID $pid_val 占用（WSL relay），尝试从 WSL 内部释放..."
+            $wslResult = wsl -e sh -c "fuser -k ${Port}/tcp 2>/dev/null; echo \$?" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $wslResult -match '0') {
+                Log "已通过 WSL 释放端口 $Port"
+                $killed = $true
+            } else {
+                Warn "端口 $Port 无法释放，将使用 fallback 端口"
+            }
         }
     }
     if ($killed) { Start-Sleep -Seconds 2 }
