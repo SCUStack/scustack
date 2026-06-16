@@ -6,7 +6,7 @@ import random
 from datetime import date, datetime, timedelta, timezone
 
 import bcrypt
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.core.database import async_session
 from app.core.security import encrypt_pii
@@ -603,6 +603,59 @@ async def seed():
 
         await db.commit()
         print(f'Created {new_events} calendar events')
+
+        # ── 7. Seed individual rating rows (so rating_distribution has data) ──
+        result = await db.execute(
+            select(Material.id, Material.average_rating, Material.rating_count)
+            .where(Material.review_status == 'approved')
+        )
+        all_materials = [(r[0], float(r[1]), r[2]) for r in result.fetchall() if r[2] > 0]
+        rating_count = 0
+        for mid, avg_rating, rc in all_materials:
+            # Check if ratings already exist
+            existing = await db.scalar(
+                select(func.count()).select_from(text('ratings')).where(text('material_id = :mid')).params(mid=mid)
+            )
+            if existing and existing > 0:
+                continue
+            # Generate individual ratings that approximate the stored average
+            for i in range(min(rc, 25)):  # cap at 25 per material to keep seeding fast
+                # Bias toward the average with some noise
+                base = max(1, min(5, round(avg_rating + random.uniform(-1.5, 1.5))))
+                score = max(1, min(5, random.choices([1, 2, 3, 4, 5], weights=[
+                    5 if base <= 2 else 2,
+                    10 if base <= 3 else 5,
+                    20,
+                    30 if base >= 4 else 15,
+                    35 if base >= 4 else 10,
+                ])[0]))
+                await db.execute(
+                    text('INSERT INTO ratings (material_id, user_id, score, created_at) '
+                         'VALUES (:mid, (SELECT id FROM users ORDER BY RANDOM() LIMIT 1), :score, '
+                         'NOW() - (:days || \' days\')::interval) '
+                         'ON CONFLICT (material_id, user_id) DO NOTHING'),
+                    {'mid': mid, 'score': score, 'days': str(random.randint(0, 120))},
+                )
+                rating_count += 1
+        await db.commit()
+        print(f'Seeded {rating_count} individual rating rows across {len(all_materials)} materials')
+
+        # ── 8. Seed Redis hot search keywords ──
+        try:
+            from app.core.redis import redis
+            hot_keywords = {
+                '高等数学': 156, '线性代数': 132, 'C语言程序设计': 118, '大学物理': 97,
+                '概率论与数理统计': 89, '数据结构与算法': 76, '大学英语四级': 68, '马克思主义原理': 62,
+                '操作系统': 55, '计算机网络': 48, '数据库系统概论': 42, '软件工程导论': 38,
+                '编译原理': 35, '离散数学': 31, 'Java程序设计': 28, 'Python基础': 25,
+                '电路分析基础': 22, '微积分': 20, '毛概': 18, '计算机组成原理': 15,
+            }
+            for kw, score in hot_keywords.items():
+                await redis.zadd('search:hot:weekly', {kw: score})
+            await redis.expire('search:hot:weekly', 604800)
+            print(f'Seeded {len(hot_keywords)} Redis hot search keywords')
+        except Exception as e:
+            print(f'Redis hot search seed skipped: {e}')
 
         # ── Summary ──
         cc = (await db.execute(select(func.count()).select_from(Course))).scalar()
