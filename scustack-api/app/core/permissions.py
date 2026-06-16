@@ -30,6 +30,7 @@ ROLE_PERMISSIONS: dict[str, set[Permission]] = {
         Permission.MATERIALS_DELETE_ANY,
         Permission.MATERIALS_MODERATE,
         Permission.MATERIALS_PIN,
+        Permission.USERS_MANAGE,
         Permission.AUDIT_READ,
     },
     'admin': set(Permission),
