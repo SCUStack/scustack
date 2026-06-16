@@ -245,6 +245,31 @@ async def confirm_password(
     return {'code': 0, 'data': {'confirm_token': token, 'expires_in': 300}, 'message': 'ok'}
 
 
+@router.post('/consents')
+async def record_consents(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.services.consent_service import record_consents
+    try:
+        await record_consents(db, current_user.id, body)
+    except ValueError as e:
+        return {'code': 40000, 'data': None, 'message': str(e)}
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'ok'}
+
+
+@router.get('/consents/status')
+async def consent_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.services.consent_service import check_missing_consents
+    missing = await check_missing_consents(db, current_user.id)
+    return {'code': 0, 'data': {'missing': missing, 'all_granted': len(missing) == 0}, 'message': 'ok'}
+
+
 @router.get('/me')
 async def me(current_user: User = Depends(get_current_user)):
     return {

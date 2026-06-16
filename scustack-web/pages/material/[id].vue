@@ -97,6 +97,11 @@
                 <AppIcon :name="isBookmarked ? 'BookmarkCheck' : 'Bookmark'" :size="14" /> {{ isBookmarked ? '已收藏' : '收藏' }}
               </button>
 
+              <button @click="toggleCollection"
+                      class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
+                <AppIcon name="FolderPlus" :size="14" /> 收藏到合辑
+              </button>
+
               <button @click="copyShareLink"
                       class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors duration-150">
                 <AppIcon name="Share2" :size="14" /> 分享
@@ -250,6 +255,30 @@
       </div>
     </div>
 
+      <CommentSection v-if="route.params.id" :material-id="route.params.id as string" />
+    </div>
+
+    <!-- Collection modal -->
+    <div v-if="showCollectionModal" role="dialog" aria-modal="true" aria-label="收藏到合辑" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showCollectionModal = false">
+      <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+        <h3 class="text-base font-medium text-slate-900 mb-4">收藏到合辑</h3>
+        <div class="space-y-2 max-h-60 overflow-y-auto mb-4">
+          <div v-for="col in userCollections" :key="col.id" class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors" @click="addToCollection(col.id)">
+            <div>
+              <p class="text-sm font-medium text-slate-700">{{ col.title }}</p>
+              <p class="text-[11px] text-slate-400">{{ col.is_public ? '公开' : '私密' }}</p>
+            </div>
+            <AppIcon name="Plus" :size="16" class="text-slate-400" />
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <input v-model="newCollectionTitle" maxlength="200" class="flex-1 h-9 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500" placeholder="新建合辑名称" @keydown.enter="createAndAdd" />
+          <button :disabled="!newCollectionTitle.trim()" class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 disabled:bg-slate-200 disabled:text-slate-400 cursor-pointer transition-colors" @click="createAndAdd">新建</button>
+        </div>
+        <button class="mt-3 w-full h-9 rounded-md text-sm text-slate-500 hover:text-slate-700 cursor-pointer transition-colors border-none bg-transparent" @click="showCollectionModal = false">取消</button>
+      </div>
+    </div>
+
     <!-- External link confirmation -->
     <div v-if="showExternalConfirm" role="dialog" aria-modal="true" aria-label="外部链接确认" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showExternalConfirm = false">
       <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
@@ -339,9 +368,45 @@ function openReport() {
   showReport.value = true
 }
 
+const showCollectionModal = ref(false)
+const userCollections = ref<any[]>([])
+const newCollectionTitle = ref('')
+
 function openCorrection() {
   if (!auth.isLoggedIn) { auth.openLogin(); return }
   showCorrection.value = true
+}
+
+async function toggleCollection() {
+  if (!auth.isLoggedIn) { auth.openLogin(); return }
+  showCollectionModal.value = true
+  try {
+    const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/collections`, { credentials: 'include' })
+    if (resp.code === 0) userCollections.value = resp.data
+  } catch { /* noop */ }
+}
+
+async function addToCollection(collectionId: string) {
+  try {
+    const resp = await $fetch(`${apiBase}/api/v1/collections/${collectionId}/items`, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ material_id: route.params.id }),
+    })
+    if (resp.code === 0) { toast.success('已添加到合辑'); showCollectionModal.value = false }
+    else toast.error(resp.message)
+  } catch { toast.error('添加失败') }
+}
+
+async function createAndAdd() {
+  if (!newCollectionTitle.value.trim()) return
+  try {
+    const resp = await $fetch<{ code: number; data: { id: string } }>(`${apiBase}/api/v1/collections`, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newCollectionTitle.value.trim() }),
+    })
+    if (resp.code === 0) { await addToCollection(resp.data.id); newCollectionTitle.value = '' }
+    else toast.error('创建合辑失败')
+  } catch { toast.error('创建合辑失败') }
 }
 
 async function submitReport() {
