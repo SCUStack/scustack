@@ -8,11 +8,23 @@
             <AppIcon name="X" :size="20" />
           </button>
 
-          <h2 class="text-lg font-semibold text-slate-900 mb-4">
-            {{ step === 'phone' ? '手机号登录' : '输入验证码' }}
-          </h2>
+          <h2 class="text-lg font-semibold text-slate-900 mb-4">{{ titleText }}</h2>
 
-          <template v-if="step === 'phone'">
+          <!-- Mode tabs -->
+          <div class="flex border-b border-slate-200 mb-4">
+            <button
+              v-for="tab in tabs"
+              :key="tab.key"
+              class="flex-1 pb-2 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer"
+              :class="mode === tab.key ? 'border-primary-600 text-primary-700' : 'border-transparent text-slate-400 hover:text-slate-600'"
+              @click="switchMode(tab.key)"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <!-- SMS login -->
+          <template v-if="mode === 'sms' && smsStep === 'phone'">
             <form @submit.prevent="sendCode">
               <label class="block text-sm text-slate-600 mb-1">手机号</label>
               <input
@@ -30,10 +42,9 @@
                 {{ loading ? '发送中...' : '获取验证码' }}
               </button>
               <div class="mt-3 text-center">
-                <span class="text-xs text-slate-400">或</span>
                 <button
                   type="button"
-                  class="ml-2 text-xs text-green-600 hover:text-green-700 cursor-pointer"
+                  class="text-xs text-green-600 hover:text-green-700 cursor-pointer"
                   @click="wechatLogin"
                 >
                   微信扫码登录
@@ -42,7 +53,7 @@
             </form>
           </template>
 
-          <template v-else>
+          <template v-if="mode === 'sms' && smsStep === 'code'">
             <p class="text-sm text-slate-500 mb-4">
               验证码已发送至 <span class="font-medium text-slate-700">{{ phone }}</span>
             </p>
@@ -73,6 +84,72 @@
               </button>
             </form>
           </template>
+
+          <!-- Password login -->
+          <template v-if="mode === 'password'">
+            <form @submit.prevent="doPasswordLogin">
+              <label class="block text-sm text-slate-600 mb-1">手机号</label>
+              <input
+                v-model="phone"
+                class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200"
+                placeholder="输入手机号"
+                maxlength="11"
+              />
+              <label class="block text-sm text-slate-600 mb-1 mt-3">密码</label>
+              <input
+                v-model="password"
+                type="password"
+                class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200"
+                placeholder="输入密码"
+                maxlength="128"
+              />
+              <p v-if="errorMsg" class="text-sm text-red-500 mt-2">{{ errorMsg }}</p>
+              <button
+                type="submit"
+                :disabled="loading || phone.length !== 11 || !password"
+                class="w-full h-10 mt-4 rounded-md text-sm font-medium cursor-pointer transition-colors duration-150 bg-primary-700 text-white hover:bg-primary-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
+                {{ loading ? '登录中...' : '登录' }}
+              </button>
+            </form>
+          </template>
+
+          <!-- Password register -->
+          <template v-if="mode === 'register'">
+            <form @submit.prevent="doPasswordRegister">
+              <label class="block text-sm text-slate-600 mb-1">手机号</label>
+              <input
+                v-model="phone"
+                class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200"
+                placeholder="输入手机号"
+                maxlength="11"
+              />
+              <label class="block text-sm text-slate-600 mb-1 mt-3">密码</label>
+              <input
+                v-model="password"
+                type="password"
+                class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200"
+                placeholder="至少8位，含字母和数字"
+                maxlength="128"
+              />
+              <label class="block text-sm text-slate-600 mb-1 mt-3">确认密码</label>
+              <input
+                v-model="confirmPassword"
+                type="password"
+                class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-colors duration-200"
+                placeholder="再次输入密码"
+                maxlength="128"
+              />
+              <p v-if="errorMsg" class="text-sm text-red-500 mt-2">{{ errorMsg }}</p>
+              <button
+                type="submit"
+                :disabled="loading || phone.length !== 11 || !password || !confirmPassword"
+                class="w-full h-10 mt-4 rounded-md text-sm font-medium cursor-pointer transition-colors duration-150 bg-primary-700 text-white hover:bg-primary-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
+                {{ loading ? '注册中...' : '注册' }}
+              </button>
+            </form>
+          </template>
         </div>
       </div>
     </Transition>
@@ -83,18 +160,41 @@
 const authStore = useAuthStore()
 const visible = computed(() => authStore.isLoginModalOpen)
 
-const step = ref<'phone' | 'code'>('phone')
+const tabs = [
+  { key: 'sms', label: '短信登录' },
+  { key: 'password', label: '密码登录' },
+  { key: 'register', label: '注册' },
+]
+const mode = ref<'sms' | 'password' | 'register'>('sms')
+const smsStep = ref<'phone' | 'code'>('phone')
 const phone = ref('')
+const password = ref('')
+const confirmPassword = ref('')
 const code = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const countdown = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
+const titleText = computed(() => {
+  if (mode.value === 'register') return '注册账号'
+  if (mode.value === 'sms' && smsStep.value === 'code') return '输入验证码'
+  return '登录川大课栈'
+})
+
+function switchMode(key: string) {
+  mode.value = key as typeof mode.value
+  errorMsg.value = ''
+  smsStep.value = 'phone'
+}
+
 function close() {
   authStore.closeLogin()
-  step.value = 'phone'
+  mode.value = 'sms'
+  smsStep.value = 'phone'
   phone.value = ''
+  password.value = ''
+  confirmPassword.value = ''
   code.value = ''
   errorMsg.value = ''
   loading.value = false
@@ -110,7 +210,7 @@ async function sendCode() {
     if (resp.code !== 0) {
       errorMsg.value = resp.message
     } else {
-      step.value = 'code'
+      smsStep.value = 'code'
       countdown.value = 60
       timer = setInterval(() => {
         countdown.value--
@@ -136,6 +236,38 @@ async function verifyCode() {
     close()
   } catch (e: unknown) {
     errorMsg.value = (e as Error).message || '登录失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function doPasswordLogin() {
+  if (phone.value.length !== 11 || !password.value) return
+  errorMsg.value = ''
+  loading.value = true
+  try {
+    await authStore.loginWithPassword(phone.value, password.value)
+    close()
+  } catch (e: unknown) {
+    errorMsg.value = (e as Error).message || '登录失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function doPasswordRegister() {
+  if (phone.value.length !== 11 || !password.value || !confirmPassword.value) return
+  if (password.value !== confirmPassword.value) {
+    errorMsg.value = '两次输入的密码不一致'
+    return
+  }
+  errorMsg.value = ''
+  loading.value = true
+  try {
+    await authStore.registerWithPassword(phone.value, password.value, confirmPassword.value)
+    close()
+  } catch (e: unknown) {
+    errorMsg.value = (e as Error).message || '注册失败'
   } finally {
     loading.value = false
   }

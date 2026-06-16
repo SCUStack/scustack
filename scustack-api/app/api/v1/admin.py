@@ -88,6 +88,9 @@ async def review_material(
             await user_service.notify_course_followers(db, m.course_id, m.title, m.id)
         except Exception:
             pass
+        if m.contributor_id:
+            from app.tasks.achievement import check_achievements_after_approval
+            check_achievements_after_approval.delay(str(m.contributor_id), str(m.id))
 
     await db.commit()
     return {'code': 0, 'data': None, 'message': f'material {body.action}'}

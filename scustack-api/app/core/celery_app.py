@@ -24,11 +24,20 @@ app.conf.update(
     task_routes={
         'app.tasks.scan.*': {'queue': 'scan'},
         'app.tasks.thumbnail.*': {'queue': 'thumbnail'},
+        'app.tasks.counter_sync.*': {'queue': 'default'},
     },
     beat_schedule={
         'check-dead-links-daily': {
             'task': 'app.tasks.link_check.check_dead_links',
             'schedule': crontab(hour=3, minute=17),
+        },
+        'check-college-contributors-daily': {
+            'task': 'app.tasks.achievement.check_college_contributors_nightly',
+            'schedule': crontab(hour=3, minute=37),
+        },
+        'sync-download-counters': {
+            'task': 'app.tasks.counter_sync.sync_download_counters',
+            'schedule': crontab(minute='*/5'),
         },
     },
 )

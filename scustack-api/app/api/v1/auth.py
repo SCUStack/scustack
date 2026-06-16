@@ -37,6 +37,17 @@ REFRESH_COOKIE = 'refresh_token'
 SECURE = not settings.is_dev
 
 
+def _get_ip(request: Request) -> str:
+    forwarded = request.headers.get('X-Forwarded-For')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.client.host if request.client else 'unknown'
+
+
+def _get_ua(request: Request) -> str:
+    return request.headers.get('User-Agent', '')[:500]
+
+
 def _set_token_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     response.set_cookie(
         ACCESS_COOKIE, access_token,
@@ -76,7 +87,7 @@ async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession 
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many attempts'}, status_code=429, headers=headers)
 
     try:
-        tokens = await verify_sms_code(db, body.phone, body.code)
+        tokens = await verify_sms_code(db, body.phone, body.code, _get_ip(request), _get_ua(request))
     except SmsVerifyError as e:
         return JSONResponse({'code': 40000, 'data': None, 'message': str(e)})
     await db.commit()
@@ -102,7 +113,7 @@ async def password_register(
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many attempts'}, status_code=429, headers=headers)
 
     try:
-        tokens = await register_with_password(db, body.phone, body.password)
+        tokens = await register_with_password(db, body.phone, body.password, _get_ip(request), _get_ua(request))
     except PasswordError as e:
         await db.rollback()
         return JSONResponse({'code': 40000, 'data': None, 'message': str(e)}, status_code=400)
@@ -125,7 +136,7 @@ async def password_login(
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many attempts'}, status_code=429, headers=headers)
 
     try:
-        tokens = await login_with_password(db, body.phone, body.password)
+        tokens = await login_with_password(db, body.phone, body.password, _get_ip(request), _get_ua(request))
     except PasswordError as e:
         return JSONResponse({'code': 40100, 'data': None, 'message': str(e)}, status_code=401)
     await db.commit()
@@ -147,7 +158,7 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
         return JSONResponse({'code': 40100, 'data': None, 'message': 'no refresh token'}, status_code=401)
 
     try:
-        tokens = await refresh_tokens(db, token)
+        tokens = await refresh_tokens(db, token, _get_ip(request), _get_ua(request))
     except AuthError as e:
         await db.commit()
         response = JSONResponse({'code': 40100, 'data': None, 'message': str(e)}, status_code=401)
@@ -168,7 +179,7 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
 async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     token = request.cookies.get(REFRESH_COOKIE)
     if token:
-        await revoke_refresh_token(db, token)
+        await revoke_refresh_token(db, token, _get_ip(request), _get_ua(request))
         await db.commit()
     _clear_token_cookies(response)
     return {'code': 0, 'data': None, 'message': 'logged out'}

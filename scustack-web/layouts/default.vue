@@ -19,8 +19,11 @@
         <NuxtLink to="/" class="text-sm no-underline transition-colors duration-150" :class="isHome && !scrolled ? 'text-white/80 hover:text-white' : 'text-slate-700 hover:text-primary-600'">
           首页
         </NuxtLink>
-        <NuxtLink to="/search" class="text-sm no-underline transition-colors duration-150" :class="isHome && !scrolled ? 'text-white/80 hover:text-white' : 'text-slate-700 hover:text-primary-600'">
+        <NuxtLink to="/course" class="text-sm no-underline transition-colors duration-150" :class="isHome && !scrolled ? 'text-white/80 hover:text-white' : 'text-slate-700 hover:text-primary-600'">
           课程
+        </NuxtLink>
+        <NuxtLink to="/search" class="text-sm no-underline transition-colors duration-150" :class="isHome && !scrolled ? 'text-white/80 hover:text-white' : 'text-slate-700 hover:text-primary-600'">
+          资料
         </NuxtLink>
         <NuxtLink to="/colleges" class="text-sm no-underline transition-colors duration-150" :class="isHome && !scrolled ? 'text-white/80 hover:text-white' : 'text-slate-700 hover:text-primary-600'">
           学院
@@ -153,6 +156,12 @@
                 隐私设置
               </NuxtLink>
             </div>
+            <div v-if="isAdmin" class="border-t border-slate-100 py-1">
+              <NuxtLink to="/admin/review" class="flex items-center gap-3 px-4 py-2.5 text-sm text-primary-700 hover:bg-primary-50 no-underline">
+                <AppIcon name="ShieldCheck" :size="16" class="text-primary-500" />
+                管理后台
+              </NuxtLink>
+            </div>
             <div class="border-t border-slate-100 py-1">
               <button class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer" @click="auth.doLogout(); showUserMenu = false">
                 <AppIcon name="LogOut" :size="16" class="text-slate-400" />
@@ -186,6 +195,10 @@ const route = useRoute()
 const auth = useAuthStore()
 
 const isHome = computed(() => route.path === '/')
+const isAdmin = computed(() => {
+  const role = auth.user?.role
+  return role === 'maintainer' || role === 'admin'
+})
 const scrolled = ref(false)
 const showNotifications = ref(false)
 const showUserMenu = ref(false)
@@ -195,8 +208,7 @@ useKeyboardShortcuts()
 
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
-  auth.fetchUser()
-  auth.fetchUnreadCount()
+  void auth.fetchUser().then(() => auth.fetchUnreadCount()).catch(() => {})
   window.addEventListener('close-all-overlays', () => {
     showNotifications.value = false
     showUserMenu.value = false

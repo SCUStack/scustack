@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.core.security import (
     decrypt_pii,
     encrypt_pii,
     decode_token,
+    hash_pii,
     hash_token,
 )
 from app.core.sms import generate_code, hash_code, sms_client
@@ -28,6 +29,15 @@ class SmsVerifyError(Exception):
 
 class AuthError(Exception):
     pass
+
+
+async def _audit_auth(db: AsyncSession, action: str, user_id=None, phone_hash=None, ip_address=None, user_agent=None, detail=None):
+    """Fire-and-forget audit log write. Runs inline but fast."""
+    from app.services.audit_service import log_action
+    d = detail or {}
+    if phone_hash:
+        d['phone_hash'] = phone_hash
+    await log_action(db, user_id, action, resource='auth', detail=d, ip_address=ip_address, user_agent=user_agent)
 
 
 async def send_sms_code(phone: str, ip: str) -> None:
@@ -66,15 +76,17 @@ async def _issue_tokens(db: AsyncSession, user: User) -> dict[str, str]:
     }
 
 
-async def verify_sms_code(db: AsyncSession, phone: str, code: str) -> dict[str, str]:
-    # Check account lockout
+async def verify_sms_code(db: AsyncSession, phone: str, code: str, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
+    phone_hash = hash_pii(phone)
+
     lock_ttl = await cache_get(f'lock:verify:{phone}')
     if lock_ttl is not None:
+        await _audit_auth(db, 'sms_verify_locked', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent)
         raise SmsVerifyError(f'too many attempts, try again later')
 
-    # Per-phone rate limit: 5 attempts per 10 minutes
     phone_limiter = RateLimiter(max_requests=5, window_seconds=600)
     if not await phone_limiter.is_allowed(f'verify:phone:{phone}'):
+        await _audit_auth(db, 'sms_verify_rate_limited', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent)
         raise SmsVerifyError('verification attempts exceeded, try again later')
 
     stored = await cache_get(f'sms:code:{phone}')
@@ -83,6 +95,7 @@ async def verify_sms_code(db: AsyncSession, phone: str, code: str) -> dict[str, 
 
     if stored != hash_code(code, phone):
         await _record_failed_attempt(phone)
+        await _audit_auth(db, 'sms_verify_failed', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent, detail={'attempt_count': await _get_failed_count(phone)})
         raise SmsVerifyError('incorrect verification code')
 
     await cache_delete(f'sms:code:{phone}')
@@ -107,7 +120,21 @@ async def verify_sms_code(db: AsyncSession, phone: str, code: str) -> dict[str, 
     if not user.is_active:
         raise SmsVerifyError('account is disabled')
 
-    return await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user)
+    await _audit_auth(db, 'login_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'sms'})
+    return tokens
+
+
+async def _get_failed_count(phone: str) -> int:
+    key = f'failed:verify:{phone}'
+    count = await cache_get(key)
+    return int(count) if count else 0
+
+
+async def _get_failed_count(phone: str) -> int:
+    key = f'failed:verify:{phone}'
+    count = await cache_get(key)
+    return int(count) if count else 0
 
 
 async def _record_failed_attempt(phone: str) -> None:
@@ -127,17 +154,25 @@ async def _record_failed_attempt(phone: str) -> None:
 
 # ── Password authentication ──────────────────────────────────────────
 
-_pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    return bcrypt.checkpw(password.encode(), password_hash.encode())
 
 
 class PasswordError(Exception):
     pass
 
 
-async def register_with_password(db: AsyncSession, phone: str, password: str) -> dict[str, str]:
+async def register_with_password(db: AsyncSession, phone: str, password: str, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
+    phone_hash = hash_pii(phone)
     encrypted_phone = encrypt_pii(phone)
     result = await db.execute(select(User).where(User.phone == encrypted_phone))
     if result.scalar_one_or_none() is not None:
+        await _audit_auth(db, 'register_failed', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'phone_already_registered'})
         raise PasswordError('phone already registered')
 
     user = User(
@@ -146,37 +181,46 @@ async def register_with_password(db: AsyncSession, phone: str, password: str) ->
         role='student',
         trust_score=0,
         is_active=True,
-        password_hash=_pwd_context.hash(password),
+        password_hash=_hash_password(password),
     )
     db.add(user)
     await db.flush()
-    return await _issue_tokens(db, user)
+
+    tokens = await _issue_tokens(db, user)
+    await _audit_auth(db, 'register_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'password'})
+    return tokens
 
 
-async def login_with_password(db: AsyncSession, phone: str, password: str) -> dict[str, str]:
+async def login_with_password(db: AsyncSession, phone: str, password: str, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
+    phone_hash = hash_pii(phone)
     encrypted_phone = encrypt_pii(phone)
     result = await db.execute(select(User).where(User.phone == encrypted_phone))
     user = result.scalar_one_or_none()
 
     if user is None or user.password_hash is None:
+        await _audit_auth(db, 'login_failed', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'user_not_found_or_no_password'})
         raise PasswordError('invalid phone or password')
     if not user.is_active:
         raise PasswordError('account is disabled')
-    if not _pwd_context.verify(password, user.password_hash):
+    if not _verify_password(password, user.password_hash):
+        await _audit_auth(db, 'login_failed', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'wrong_password'})
         raise PasswordError('invalid phone or password')
 
-    return await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user)
+    await _audit_auth(db, 'login_success', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'method': 'password'})
+    return tokens
 
 
 async def set_password(db: AsyncSession, user: User, password: str) -> None:
     """Add or change password for an existing user."""
-    user.password_hash = _pwd_context.hash(password)
+    user.password_hash = _hash_password(password)
     await db.flush()
 
 
-async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, str]:
+async def refresh_tokens(db: AsyncSession, refresh_token_str: str, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
     """Rotate refresh token. Detects reuse → revokes all user tokens."""
     token_hash = hash_token(refresh_token_str)
+    token_prefix = refresh_token_str[:8] if len(refresh_token_str) >= 8 else refresh_token_str
 
     result = await db.execute(
         select(RefreshToken).where(RefreshToken.token_hash == token_hash)
@@ -187,7 +231,6 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
         raise AuthError('invalid refresh token')
 
     if stored.revoked:
-        # Reuse detected — revoke all refresh tokens for this user
         all_result = await db.execute(
             select(RefreshToken).where(
                 RefreshToken.user_id == stored.user_id,
@@ -197,6 +240,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
         for t in all_result.scalars().all():
             t.revoked = True
         await db.flush()
+        await _audit_auth(db, 'token_reuse_detected', user_id=stored.user_id, ip_address=ip_address, user_agent=user_agent, detail={'token_prefix': token_prefix})
         raise AuthError('token reuse detected, all sessions revoked')
 
     if stored.expires_at < datetime.now(timezone.utc):
@@ -204,7 +248,6 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
         await db.flush()
         raise AuthError('refresh token expired')
 
-    # Rotation: revoke old, issue new
     stored.revoked = True
 
     result = await db.execute(select(User).where(User.id == stored.user_id))
@@ -212,11 +255,14 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
     if user is None or not user.is_active:
         raise AuthError('user not found or disabled')
 
-    return await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user)
+    await _audit_auth(db, 'token_refresh', user_id=user.id, ip_address=ip_address, user_agent=user_agent, detail={'token_prefix': token_prefix})
+    return tokens
 
 
-async def revoke_refresh_token(db: AsyncSession, refresh_token_str: str) -> None:
+async def revoke_refresh_token(db: AsyncSession, refresh_token_str: str, ip_address: str | None = None, user_agent: str | None = None) -> None:
     token_hash = hash_token(refresh_token_str)
+    token_prefix = refresh_token_str[:8] if len(refresh_token_str) >= 8 else refresh_token_str
     result = await db.execute(
         select(RefreshToken).where(RefreshToken.token_hash == token_hash)
     )
@@ -224,6 +270,7 @@ async def revoke_refresh_token(db: AsyncSession, refresh_token_str: str) -> None
     if stored is not None:
         stored.revoked = True
         await db.flush()
+        await _audit_auth(db, 'token_revoked', user_id=stored.user_id, ip_address=ip_address, user_agent=user_agent, detail={'token_prefix': token_prefix, 'reason': 'logout'})
 
 
 async def get_user_sessions(db: AsyncSession, user_id: str) -> list[dict]:

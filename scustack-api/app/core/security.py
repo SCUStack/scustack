@@ -14,9 +14,14 @@ def _get_key() -> bytes:
     return hashlib.sha256(key.encode()).digest()
 
 
+def _derive_nonce(plaintext: str) -> bytes:
+    """Derive a deterministic 12-byte nonce from plaintext for searchable encryption."""
+    return hashlib.sha256(('pii_nonce:' + plaintext).encode()).digest()[:12]
+
+
 def encrypt_pii(plaintext: str) -> str:
     key = _get_key()
-    nonce = os.urandom(12)
+    nonce = _derive_nonce(plaintext)
     aesgcm = AESGCM(key)
     ciphertext = aesgcm.encrypt(nonce, plaintext.encode(), None)
     return (nonce + ciphertext).hex()
@@ -52,3 +57,8 @@ def decode_token(token: str) -> dict:
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def hash_pii(value: str) -> str:
+    """One-way hash for PII-safe audit logging. Not reversible."""
+    return hashlib.sha256((value + settings.ENCRYPTION_KEY).encode()).hexdigest()

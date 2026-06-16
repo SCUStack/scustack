@@ -100,15 +100,63 @@
                 <AppIcon name="Share2" :size="14" /> 分享
               </button>
 
+              <button @click="showCorrection = true"
+                      class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
+                <AppIcon name="Edit3" :size="14" /> 建议修正
+              </button>
+
               <button @click="showReport = true"
                       class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors duration-150">
                 <AppIcon name="AlertTriangle" :size="14" /> 举报
               </button>
             </div>
 
+            <!-- Contributor -->
+            <div v-if="material.contributor" class="border border-slate-200 rounded-lg p-4 space-y-2">
+              <div class="flex items-center gap-3">
+                <img
+                  v-if="material.contributor.avatar_url"
+                  :src="material.contributor.avatar_url"
+                  :alt="material.contributor.nickname"
+                  class="w-10 h-10 rounded-full object-cover bg-slate-100"
+                />
+                <div v-else class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                  <AppIcon name="User" :size="20" class="text-primary-600" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-slate-800 truncate">{{ material.contributor.nickname }}</p>
+                  <p class="text-xs text-slate-400">贡献者</p>
+                </div>
+                <span v-if="material.contributor.trust_score >= 80"
+                      class="ml-auto shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  高信誉
+                </span>
+              </div>
+              <!-- Contributor badges -->
+              <div v-if="contributorBadges.length > 0" class="flex items-center gap-1.5 flex-wrap">
+                <el-tooltip
+                  v-for="badge in contributorBadges.slice(0, 3)"
+                  :key="badge.badge_type"
+                  :content="badge.label + ' — ' + badge.description"
+                  placement="top"
+                  :show-after="300"
+                >
+                  <div
+                    class="w-6 h-6 rounded-full flex items-center justify-center border"
+                    :style="{ color: badge.color, borderColor: badge.color, backgroundColor: badge.color + '18' }"
+                  >
+                    <AppIcon :name="contributorBadgeIcons[badge.badge_type] || 'Award'" :size="12" />
+                  </div>
+                </el-tooltip>
+                <span
+                  v-if="contributorBadges.length > 3"
+                  class="text-[11px] text-slate-400 cursor-default"
+                >+{{ contributorBadges.length - 3 }}</span>
+              </div>
+            </div>
+
             <!-- Info -->
             <div class="border border-slate-200 rounded-lg p-4 text-xs text-slate-500 space-y-1.5">
-              <p><span class="text-slate-400">贡献者：</span>{{ contributorLabel }}</p>
               <p><span class="text-slate-400">创建时间：</span>{{ formatDate(material.created_at) }}</p>
               <p><span class="text-slate-400">更新时间：</span>{{ formatDate(material.updated_at) }}</p>
               <p><span class="text-slate-400">下载次数：</span>{{ material.download_count || 0 }}</p>
@@ -136,6 +184,37 @@
 
     <div v-else class="py-16">
       <SkeletonDetail />
+    </div>
+
+    <!-- Correction modal -->
+    <div v-if="showCorrection" role="dialog" aria-modal="true" aria-label="建议修正" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showCorrection = false">
+      <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+        <h3 class="text-base font-medium text-slate-900 mb-4">建议修正</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">修正字段</label>
+            <select v-model="correctionField" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm">
+              <option value="">请选择字段</option>
+              <option value="title">标题</option>
+              <option value="description">描述</option>
+              <option value="semester">学期</option>
+              <option value="teacher">教师</option>
+              <option value="category">分类</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">建议值</label>
+            <input v-model="correctionValue" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500" :placeholder="correctionField ? '输入建议的' + fieldLabel(correctionField) : '先选择字段'" maxlength="1000" />
+          </div>
+          <p v-if="correctionError" class="text-sm text-red-500">{{ correctionError }}</p>
+          <div class="flex justify-end gap-3 pt-1">
+            <button class="h-9 px-4 rounded-md text-sm text-slate-600 hover:bg-slate-100 cursor-pointer" @click="showCorrection = false">取消</button>
+            <button class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer disabled:opacity-50" :disabled="!correctionField || !correctionValue || submittingCorrection" @click="submitCorrection">
+              {{ submittingCorrection ? '提交中...' : '提交建议' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Report modal -->
@@ -216,6 +295,11 @@ const versionError = ref('')
 const versionDropZoneRef = ref()
 const showDiff = ref(false)
 const diffVersionId = ref('')
+const showCorrection = ref(false)
+const correctionField = ref('')
+const correctionValue = ref('')
+const correctionError = ref('')
+const submittingCorrection = ref(false)
 
 async function submitReport() {
   if (!reportReason.value) return
@@ -252,12 +336,6 @@ const downloadUrl = computed(() => `${apiBase}/api/v1/materials/${route.params.i
 const previewUrl = computed(() => {
   if (!material.value) return ''
   return `${apiBase}/api/v1/materials/${route.params.id}/download`
-})
-
-const contributorLabel = computed(() => {
-  const cid = material.value?.contributor_id
-  if (!cid || cid === '00000000-0000-0000-0000-000000000000') return '匿名用户'
-  return cid.slice(0, 8) + '...'
 })
 
 const canUploadNewVersion = computed(() => {
@@ -414,8 +492,79 @@ async function submitNewVersion() {
   }
 }
 
+const contributorBadgeIcons: Record<string, string> = {
+  first_upload: 'Upload',
+  prolific_10: 'Layers',
+  prolific_50: 'Layers',
+  prolific_100: 'Layers',
+  popular_100: 'TrendingUp',
+  popular_1000: 'TrendingUp',
+  popular_10000: 'TrendingUp',
+  selfless: 'HeartHandshake',
+  college_contributor: 'GraduationCap',
+  continuous_3: 'CalendarCheck',
+  wish_fulfiller: 'Sparkles',
+}
+
+const LEVELED_BADGE_FAMILIES: Record<string, string[]> = {
+  prolific: ['prolific_10', 'prolific_50', 'prolific_100'],
+  popular: ['popular_100', 'popular_1000', 'popular_10000'],
+}
+
+const contributorBadges = computed(() => {
+  const badges = material.value?.contributor?.badges || []
+  const badgeTypes = new Set(badges.map((b: { badge_type: string }) => b.badge_type))
+  const seen = new Set<string>()
+  return badges.filter((b: { badge_type: string }) => {
+    const familyKey = Object.keys(LEVELED_BADGE_FAMILIES).find((f) =>
+      LEVELED_BADGE_FAMILIES[f].includes(b.badge_type),
+    )
+    if (!familyKey) return true
+    if (seen.has(familyKey)) return false
+    seen.add(familyKey)
+    // Keep only the highest level the user has earned (last in family array)
+    const familyLevels = LEVELED_BADGE_FAMILIES[familyKey]
+    const highestEarned = familyLevels.findLast((t) => badgeTypes.has(t)) || b.badge_type
+    return b.badge_type === highestEarned
+  })
+})
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('zh-CN')
+}
+
+const fieldLabels: Record<string, string> = {
+  title: '标题', description: '描述', semester: '学期', teacher: '教师', category: '分类',
+}
+function fieldLabel(field: string): string { return fieldLabels[field] || field }
+
+async function submitCorrection() {
+  if (!correctionField.value || !correctionValue.value || !auth.isLoggedIn) return
+  submittingCorrection.value = true
+  correctionError.value = ''
+  const currentVal = { title: material.value?.title, description: material.value?.description, semester: material.value?.semester, teacher: material.value?.teacher, category: material.value?.category }[correctionField.value] || ''
+  try {
+    const resp = await $fetch<{ code: number; message: string }>(
+      `${apiBase}/api/v1/materials/${route.params.id}/corrections`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field_name: correctionField.value, current_value: currentVal, suggested_value: correctionValue.value }),
+      },
+    )
+    if (resp.code === 0) {
+      showCorrection.value = false
+      correctionField.value = ''
+      correctionValue.value = ''
+      toast.success('修正建议已提交')
+    } else {
+      correctionError.value = resp.message
+    }
+  } catch {
+    correctionError.value = '提交失败，请稍后重试'
+  }
+  submittingCorrection.value = false
 }
 
 function formatSize(bytes: number): string {

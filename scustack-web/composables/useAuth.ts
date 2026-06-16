@@ -153,6 +153,30 @@ export function useAuth() {
     )
   }
 
+  async function loginWithPassword(phone: string, password: string) {
+    return $fetch<{ code: number; data: { access_token: string; refresh_token: string; token_type: string } | null; message: string }>(
+      `${base}/api/v1/auth/login`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password }),
+      },
+    )
+  }
+
+  async function registerWithPassword(phone: string, password: string, confirmPassword: string) {
+    return $fetch<{ code: number; data: { access_token: string; refresh_token: string; token_type: string } | null; message: string }>(
+      `${base}/api/v1/auth/register`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password, confirm_password: confirmPassword }),
+      },
+    )
+  }
+
   async function getWechatUrl() {
     return $fetch<{ code: number; data: { url: string }; message: string }>(
       `${base}/api/v1/auth/wechat/url`,
@@ -160,11 +184,19 @@ export function useAuth() {
     )
   }
 
+  async function getBadges() {
+    return $fetch<{ code: number; data: { badges: { id: string; badge_type: string; label: string; description: string; color: string; awarded_at: string }[]; total: number }; message: string }>(
+      `${base}/api/v1/me/badges`,
+      { credentials: 'include' },
+    )
+  }
+
   return {
     sendCode, verifyCode, refresh, logout, getMe, updateProfile,
-    getContributions, toggleBookmark, getBookmarks,
+    getContributions, toggleBookmark, getBookmarks, getBadges,
     getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead,
     getPrivacy, updatePrivacy, deactivateAccount,
     getSessions, deleteSession, getWechatUrl,
+    loginWithPassword, registerWithPassword,
   }
 }

@@ -1,22 +1,25 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User
+from app.schemas.badge import BadgeResponse
 from app.schemas.notification import NotificationResponse
 from app.schemas.user import (
     ContributionItem, DeactivateRequest, PrivacySettings, UserProfileResponse, UserUpdate,
 )
-from app.services import user_service
+from app.services import badge_service, user_service
 
 router = APIRouter(prefix='/me', tags=['users'])
 
 
 @router.get('')
-async def get_profile(current_user: User = Depends(get_current_user)):
+async def get_profile(current_user: User | None = Depends(get_optional_user)):
+    if current_user is None:
+        return {'code': 0, 'data': None, 'message': 'not authenticated'}
     return {
         'code': 0,
         'data': UserProfileResponse.model_validate(current_user).model_dump(mode='json'),
@@ -119,15 +122,31 @@ async def update_privacy(
     return {'code': 0, 'data': None, 'message': 'privacy settings updated'}
 
 
+@router.get('/badges')
+async def get_badges(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    badges = await badge_service.get_user_badges(db, current_user.id)
+    return {
+        'code': 0,
+        'data': {'badges': badges, 'total': len(badges)},
+        'message': 'ok',
+    }
+
+
 @router.post('/deactivate')
 async def deactivate_account(
     body: DeactivateRequest,
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     if not body.confirm:
         return {'code': 40000, 'data': None, 'message': 'confirm must be true'}
-    ok = await user_service.deactivate_account(db, current_user.id)
+    ip = request.client.host if request and request.client else None
+    ua = request.headers.get('User-Agent', '')[:500] if request else None
+    ok = await user_service.deactivate_account(db, current_user.id, ip, ua)
     if not ok:
         return {'code': 50000, 'data': None, 'message': 'deactivation failed'}
     await db.commit()

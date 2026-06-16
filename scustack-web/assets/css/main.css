@@ -23,7 +23,7 @@
   --color-danger: #EF4444;
   --color-info: #3B82F6;
 
-  --font-sans: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', system-ui, -apple-system, sans-serif;
 
   --spacing-unit: 4px;
   --radius-sm: 4px;

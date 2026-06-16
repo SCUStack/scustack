@@ -28,15 +28,25 @@ async def list_materials(
     course_id: UUID | None = Query(None),
     category: str | None = Query(None),
     semester: str | None = Query(None),
+    source_type: str | None = Query(None),
+    format: str | None = Query(None),
+    trust_status: str | None = Query(None),
+    sort: str = Query('newest'),
     limit: int = Query(20, le=50),
     offset: int = Query(0),
     db: AsyncSession = Depends(get_db),
 ):
     items = await material_service.list_materials(
-        db, course_id=course_id, category=category, semester=semester, limit=limit, offset=offset,
+        db, course_id=course_id, category=category, semester=semester,
+        source_type=source_type, format=format, trust_status=trust_status,
+        sort=sort, limit=limit, offset=offset,
     )
     data = [MaterialResponse.model_validate(m).model_dump(mode='json') for m in items]
-    return {'code': 0, 'data': data, 'message': 'ok'}
+    total = await material_service.count_materials(
+        db, course_id=course_id, category=category, semester=semester,
+        source_type=source_type, format=format, trust_status=trust_status,
+    )
+    return {'code': 0, 'data': data, 'total': total, 'message': 'ok'}
 
 
 @router.get('/{material_id}')
@@ -126,8 +136,14 @@ async def download_material(
         return JSONResponse({'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404)
 
     url = oss.generate_download_url(version.storage_key)
-    m.download_count = (m.download_count or 0) + 1
-    await db.commit()
+
+    from app.core.redis import incr_download
+    await incr_download(str(m.id))
+
+    if m.contributor_id:
+        from app.tasks.achievement import check_achievements_after_download
+        check_achievements_after_download.delay(str(m.contributor_id), str(m.id))
+
     return RedirectResponse(url=url, status_code=302)
 
 

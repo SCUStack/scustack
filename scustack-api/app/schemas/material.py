@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class MaterialCreate(BaseModel):
@@ -17,6 +17,7 @@ class MaterialCreate(BaseModel):
     file_hash: str | None = None
     file_size: int | None = None
     format: str | None = None
+    parts: list[dict] | None = None
 
 
 class MaterialUpdate(BaseModel):
@@ -25,6 +26,17 @@ class MaterialUpdate(BaseModel):
     semester: str | None = None
     teacher: str | None = None
     description: str | None = None
+    parts: list[dict] | None = None
+
+
+class ContributorInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    nickname: str
+    avatar_url: str | None = None
+    trust_score: int = 0
+    badges: list[dict] = []
 
 
 class MaterialResponse(BaseModel):
@@ -50,10 +62,17 @@ class MaterialResponse(BaseModel):
     is_pinned: bool
     link_checked_at: datetime | None = None
     link_status: str | None = None
-    link_failure_count: int = 0
+    link_failure_count: int | None = 0
+    parts: list[dict] | None = None
     contributor_id: UUID | None
+    contributor: ContributorInfo | None = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('link_failure_count', mode='before')
+    @classmethod
+    def default_link_failure_count(cls, value: int | None) -> int:
+        return 0 if value is None else value
 
 
 class UploadTokenRequest(BaseModel):

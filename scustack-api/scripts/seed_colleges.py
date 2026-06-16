@@ -51,10 +51,17 @@ COLLEGES = [
 
 async def seed():
     async with async_session() as db:
+        from sqlalchemy import select
+        existing = (await db.execute(select(College.name))).scalars().all()
+        existing_set = set(existing)
+        added = 0
         for name, slug, order in COLLEGES:
+            if name in existing_set:
+                continue
             db.add(College(name=name, slug=slug, sort_order=order))
+            added += 1
         await db.commit()
-    print(f"Seeded {len(COLLEGES)} colleges")
+    print(f"Seeded {added} colleges (skipped {len(COLLEGES) - added} existing)")
 
 
 if __name__ == '__main__':

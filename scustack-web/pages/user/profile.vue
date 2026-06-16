@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-xl font-semibold text-slate-900 mb-6">个人中心</h1>
 
     <div v-if="auth.user" class="space-y-6">
@@ -53,6 +53,9 @@
           </NuxtLink>
         </div>
       </div>
+
+      <!-- Badge wall -->
+      <BadgeWall />
 
       <!-- Recent browsing -->
       <div class="bg-white border border-slate-200 rounded-lg p-6">

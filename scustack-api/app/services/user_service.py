@@ -212,7 +212,7 @@ async def notify_course_followers(
         )
 
 
-async def deactivate_account(db: AsyncSession, user_id: UUID) -> bool:
+async def deactivate_account(db: AsyncSession, user_id: UUID, ip_address: str | None = None, user_agent: str | None = None) -> bool:
     from sqlalchemy import update as sql_update
 
     user = await get_user(db, user_id)
@@ -223,11 +223,13 @@ async def deactivate_account(db: AsyncSession, user_id: UUID) -> bool:
     user.wechat_openid = None
     await db.flush()
 
-    # Revoke all active refresh tokens immediately
     await db.execute(
         sql_update(RefreshToken)
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked == False)
         .values(revoked=True)
     )
     await db.flush()
+
+    from app.services.audit_service import log_action
+    await log_action(db, user_id, 'account_deactivated', resource=f'user:{user_id}', ip_address=ip_address, user_agent=user_agent)
     return True

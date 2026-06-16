@@ -1,14 +1,13 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
-
 from difflib import unified_diff
 
 import httpx
 
 from app.core import oss
+from app.core.redis import get_download_delta
 from app.models.material import Material, MaterialVersion
 
 TEXT_EXTENSIONS = {
@@ -22,8 +21,11 @@ TEXT_EXTENSIONS = {
 
 async def list_materials(db: AsyncSession, course_id: UUID | None = None,
                          category: str | None = None, semester: str | None = None,
+                         source_type: str | None = None,
+                         format: str | None = None,
+                         trust_status: str | None = None,
                          review_status: str = 'approved', limit: int = 20,
-                         offset: int = 0) -> list[Material]:
+                         offset: int = 0, sort: str = 'newest') -> list[Material]:
     stmt = select(Material).where(Material.review_status == review_status)
     if course_id:
         stmt = stmt.where(Material.course_id == course_id)
@@ -31,16 +33,67 @@ async def list_materials(db: AsyncSession, course_id: UUID | None = None,
         stmt = stmt.where(Material.category == category)
     if semester:
         stmt = stmt.where(Material.semester == semester)
-    stmt = stmt.order_by(Material.is_pinned.desc(), Material.created_at.desc()).offset(offset).limit(limit)
+    if source_type:
+        stmt = stmt.where(Material.source_type == source_type)
+    if format:
+        stmt = stmt.where(Material.format == format)
+    if trust_status:
+        stmt = stmt.where(Material.trust_status == trust_status)
+    stmt = stmt.order_by(Material.is_pinned.desc(), *_material_sort(sort)).offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
+async def count_materials(db: AsyncSession, course_id: UUID | None = None,
+                          category: str | None = None, semester: str | None = None,
+                          source_type: str | None = None,
+                          format: str | None = None,
+                          trust_status: str | None = None,
+                          review_status: str = 'approved') -> int:
+    stmt = select(func.count(Material.id)).where(Material.review_status == review_status)
+    if course_id:
+        stmt = stmt.where(Material.course_id == course_id)
+    if category:
+        stmt = stmt.where(Material.category == category)
+    if semester:
+        stmt = stmt.where(Material.semester == semester)
+    if source_type:
+        stmt = stmt.where(Material.source_type == source_type)
+    if format:
+        stmt = stmt.where(Material.format == format)
+    if trust_status:
+        stmt = stmt.where(Material.trust_status == trust_status)
+    return await db.scalar(stmt) or 0
+
+
+def _material_sort(sort: str):
+    if sort == 'downloads':
+        return (Material.download_count.desc(), Material.created_at.desc())
+    if sort == 'rating':
+        return (Material.average_rating.desc(), Material.rating_count.desc(), Material.created_at.desc())
+    return (Material.created_at.desc(),)
+
+
 async def get_material(db: AsyncSession, material_id: UUID) -> Material | None:
     result = await db.execute(
-        select(Material).where(Material.id == material_id)
+        select(Material)
+        .where(Material.id == material_id)
     )
-    return result.scalar_one_or_none()
+    m = result.scalar_one_or_none()
+    if m is not None:
+        delta = await get_download_delta(str(m.id))
+        if delta:
+            m.download_count = (m.download_count or 0) + delta
+        if m.contributor_id:
+            from app.models.user import User
+            user_result = await db.execute(select(User).where(User.id == m.contributor_id))
+            user = user_result.scalar_one_or_none()
+            if user is not None:
+                from app.services.badge_service import get_user_badges
+                user_badges = await get_user_badges(db, user.id)
+                user.badges = user_badges
+            m.contributor = user
+    return m
 
 
 async def create_material(db: AsyncSession, user_id: UUID, **kwargs) -> Material:
