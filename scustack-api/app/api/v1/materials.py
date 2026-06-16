@@ -18,7 +18,7 @@ from app.schemas.material import (
     RatingRequest, VersionCreate, VersionResponse,
 )
 from app.schemas.report import ReportCreate
-from app.services import material_service, report_service, review_service, user_service
+from app.services import material_service, report_service, review_service, upload_service, user_service
 
 router = APIRouter(prefix='/materials', tags=['materials'])
 
@@ -63,7 +63,19 @@ async def create_material(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    m = await material_service.create_material(db, current_user.id, **body.model_dump(exclude_none=True))
+    if body.source_type == 'external' and body.external_url:
+        err = await upload_service.validate_external_url(db, body.external_url, str(current_user.id))
+        if err:
+            return {'code': 40000, 'data': None, 'message': err}
+        is_new = await upload_service.check_new_user_review(db, str(current_user.id))
+    else:
+        is_new = False
+
+    kwargs = body.model_dump(exclude_none=True)
+    if is_new:
+        kwargs['review_status'] = 'pending'
+
+    m = await material_service.create_material(db, current_user.id, **kwargs)
     await db.flush()
     try:
         await user_service.notify_course_followers(db, m.course_id, m.title, m.id)

@@ -40,10 +40,12 @@
           </div>
           <div v-else-if="material.source_type === 'external' && material.external_url" class="mb-8">
             <h2 class="text-base font-medium text-slate-800 mb-3">外部链接</h2>
-            <a :href="material.external_url" target="_blank" rel="noopener noreferrer nofollow"
-               class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 text-sm">
+            <button
+              @click="openExternalLink(material.external_url)"
+              class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 text-sm border-none bg-transparent cursor-pointer p-0"
+            >
               <AppIcon name="ExternalLink" :size="14" /> {{ material.external_url }}
-            </a>
+            </button>
           </div>
 
           <!-- Version history -->
@@ -73,10 +75,10 @@
                 <AppIcon name="Download" :size="16" /> 下载
                 <span v-if="material.file_size" class="text-xs opacity-80">({{ formatSize(material.file_size) }})</span>
               </a>
-              <a v-else-if="material.external_url" :href="material.external_url" target="_blank" rel="noopener noreferrer nofollow"
+              <button v-else-if="material.external_url" @click="openExternalLink(material.external_url)"
                  class="flex items-center justify-center gap-2 w-full h-10 rounded-md text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 no-underline cursor-pointer transition-colors duration-150">
                 <AppIcon name="ExternalLink" :size="16" /> 打开链接
-              </a>
+              </button>
 
               <button v-if="canUploadNewVersion" @click="showVersionUpload = true"
                       class="flex items-center justify-center gap-2 w-full h-9 rounded-md text-sm font-medium bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
@@ -248,6 +250,24 @@
       </div>
     </div>
 
+    <!-- External link confirmation -->
+    <div v-if="showExternalConfirm" role="dialog" aria-modal="true" aria-label="外部链接确认" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showExternalConfirm = false">
+      <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+        <div class="text-center mb-4">
+          <AppIcon name="ExternalLink" :size="36" class="text-amber-500 mx-auto mb-3" />
+          <h3 class="text-base font-medium text-slate-900 mb-1">即将离开川大课栈</h3>
+          <p class="text-sm text-slate-500">您将访问外部网站，请注意个人信息安全</p>
+          <p class="text-xs text-slate-400 mt-2 bg-slate-50 rounded px-2 py-1 font-mono break-all">{{ externalLinkDomain }}</p>
+        </div>
+        <div class="flex gap-3">
+          <button class="flex-1 h-9 rounded-md text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer" @click="showExternalConfirm = false">取消</button>
+          <a :href="externalLinkUrl" target="_blank" rel="noopener noreferrer nofollow"
+             class="flex-1 h-9 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline cursor-pointer inline-flex items-center justify-center"
+             @click="showExternalConfirm = false">继续访问</a>
+        </div>
+      </div>
+    </div>
+
     <!-- New version modal -->
     <div v-if="showVersionUpload" role="dialog" aria-modal="true" aria-label="上传新版本" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="closeVersionUpload">
       <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
@@ -300,6 +320,19 @@ const correctionField = ref('')
 const correctionValue = ref('')
 const correctionError = ref('')
 const submittingCorrection = ref(false)
+const showExternalConfirm = ref(false)
+const externalLinkUrl = ref('')
+const externalLinkDomain = ref('')
+
+function openExternalLink(url: string) {
+  externalLinkUrl.value = url
+  try {
+    externalLinkDomain.value = new URL(url).hostname
+  } catch {
+    externalLinkDomain.value = url
+  }
+  showExternalConfirm.value = true
+}
 
 async function submitReport() {
   if (!reportReason.value) return

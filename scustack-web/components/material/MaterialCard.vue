@@ -29,6 +29,13 @@
       </span>
       <div class="ml-auto flex max-w-[70%] shrink-0 items-center justify-end gap-1.5">
         <span
+          v-if="item.source_type === 'external'"
+          class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/80 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm"
+        >
+          <AppIcon name="ExternalLink" :size="11" />
+          外链
+        </span>
+        <span
           v-if="partsCount"
           class="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm"
         >

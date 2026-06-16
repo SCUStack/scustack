@@ -1,8 +1,12 @@
 """File upload validation pipeline and presigned URL generation."""
+from datetime import datetime, timezone, timedelta
+from urllib.parse import urlparse
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.material import Material
+from app.models.user import User
 
 # Per-user storage quota in bytes (2 GB)
 STORAGE_QUOTA_BYTES = 2 * 1024 * 1024 * 1024
@@ -106,3 +110,71 @@ async def check_storage_quota(db: AsyncSession, user_id: str) -> int:
             f'storage quota exceeded: {total} bytes used, {STORAGE_QUOTA_BYTES} bytes limit'
         )
     return total
+
+
+BLACKLISTED_DOMAINS = frozenset({
+    'bit.ly', 'tinyurl.com', 'ow.ly', 'is.gd', 'buff.ly',  # URL shorteners
+    'scustack-phishing.example.com',
+})
+
+BLOCKED_SCHEMES = frozenset({'javascript', 'data', 'file', 'vbscript'})
+
+NEW_USER_DAYS = 7
+DOMAIN_DAILY_LIMIT = 5
+
+
+class ExternalLinkError(UploadError):
+    pass
+
+
+def _extract_domain(url: str) -> str:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or '').lower()
+    if hostname.startswith('www.'):
+        hostname = hostname[4:]
+    return hostname
+
+
+async def validate_external_url(db: AsyncSession, url: str, user_id: str) -> str | None:
+    """Validate an external URL before material creation.
+
+    Returns an error message string if validation fails, or None if OK.
+    May set review_status='pending' as a side effect for new users.
+    """
+    parsed = urlparse(url)
+
+    if parsed.scheme.lower() in BLOCKED_SCHEMES:
+        return f'不支持 {parsed.scheme}:// 协议'
+
+    if parsed.scheme not in ('http', 'https'):
+        return '仅支持 http/https 链接'
+
+    domain = _extract_domain(url)
+    if not domain:
+        return '无法解析域名'
+
+    if domain in BLACKLISTED_DOMAINS:
+        return '该域名不在允许列表中'
+
+    # Domain daily rate limit
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    domain_count = await db.scalar(
+        select(func.count(Material.id)).where(
+            Material.external_url.contains(domain),
+            Material.created_at >= today_start,
+        )
+    )
+    if domain_count and domain_count >= DOMAIN_DAILY_LIMIT:
+        return f'该域名今日已达 {DOMAIN_DAILY_LIMIT} 次提交上限'
+
+    return None
+
+
+async def check_new_user_review(db: AsyncSession, user_id: str) -> bool:
+    """Return True if the material should be set to pending review (new user + external link)."""
+    result = await db.execute(select(User.created_at).where(User.id == user_id))
+    row = result.scalar_one_or_none()
+    if row is None:
+        return True
+    cutoff = datetime.now(timezone.utc) - timedelta(days=NEW_USER_DAYS)
+    return row.replace(tzinfo=timezone.utc) > cutoff
