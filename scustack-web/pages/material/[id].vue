@@ -102,7 +102,7 @@
                 <AppIcon name="Share2" :size="14" /> 分享
               </button>
 
-              <button @click="showCorrection = true"
+              <button @click="openCorrection"
                       class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
                 <AppIcon name="Edit3" :size="14" /> 建议修正
               </button>
@@ -335,11 +335,13 @@ function openExternalLink(url: string) {
 }
 
 function openReport() {
-  if (!auth.isLoggedIn) {
-    auth.openLogin()
-    return
-  }
+  if (!auth.isLoggedIn) { auth.openLogin(); return }
   showReport.value = true
+}
+
+function openCorrection() {
+  if (!auth.isLoggedIn) { auth.openLogin(); return }
+  showCorrection.value = true
 }
 
 async function submitReport() {
