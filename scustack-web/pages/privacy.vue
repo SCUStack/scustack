@@ -206,7 +206,7 @@
       <ul class="list-disc pl-5 space-y-1">
         <li><strong>电子邮箱</strong>：<a href="mailto:admin@scustack.com" class="text-primary-600 hover:text-primary-700">admin@scustack.com</a></li>
         <li><strong>GitHub Issues</strong>：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener" class="text-primary-600 hover:text-primary-700">yeyixiang2007/scustack/issues</a></li>
-        <li><strong>通信地址</strong>：四川省成都市</li>
+        <li><strong>通信地址</strong>：四川省成都市双流区川大路 四川大学江安校区</li>
       </ul>
       <p>我们将在收到您的请求后 <strong>15 个工作日内</strong>予以回复。如果您对我们的回复不满意，或认为我们的个人信息处理行为损害了您的合法权益，您可以向履行个人信息保护职责的部门进行投诉或举报，或向有管辖权的人民法院提起诉讼。</p>
     </div>

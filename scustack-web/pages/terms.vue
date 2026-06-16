@@ -242,7 +242,7 @@
         <li><strong>电子邮箱</strong>：<a href="mailto:admin@scustack.com" class="text-primary-600 hover:text-primary-700">admin@scustack.com</a></li>
         <li><strong>GitHub Issues</strong>：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener" class="text-primary-600 hover:text-primary-700">yeyixiang2007/scustack/issues</a></li>
         <li><strong>版权投诉</strong>：<NuxtLink to="/copyright" class="text-primary-600 hover:text-primary-700">/copyright</NuxtLink></li>
-        <li><strong>通信地址</strong>：四川省成都市一环路南一段 24 号四川大学</li>
+        <li><strong>通信地址</strong>：四川省成都市双流区川大路 四川大学江安校区</li>
       </ul>
     </div>
   </div>
