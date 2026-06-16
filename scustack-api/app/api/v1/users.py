@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -133,6 +134,80 @@ async def get_badges(
         'data': {'badges': badges, 'total': len(badges)},
         'message': 'ok',
     }
+
+
+@router.post('/recovery-codes')
+async def generate_recovery_codes(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate 8 one-time recovery codes. Returns plain codes once only."""
+    import secrets
+    from app.core.security import hash_token
+    codes = [secrets.token_hex(8) for _ in range(8)]
+    current_user.recovery_codes = [hash_token(c) for c in codes]
+    await db.commit()
+    return {
+        'code': 0,
+        'data': {'codes': codes},
+        'message': 'recovery codes generated — save them now, shown only once',
+    }
+
+
+class RecoveryVerifyRequest(BaseModel):
+    code: str = Field(min_length=8, max_length=32)
+    new_phone: str | None = Field(None, min_length=11, max_length=11)
+
+
+@router.post('/recovery-codes/verify')
+async def verify_recovery_code(
+    body: RecoveryVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Use a recovery code to verify identity. Optionally change phone."""
+    from app.core.security import hash_token, encrypt_pii
+    if not current_user.recovery_codes:
+        return {'code': 40000, 'data': None, 'message': 'no recovery codes generated'}
+
+    code_hash = hash_token(body.code)
+    if code_hash not in current_user.recovery_codes:
+        return {'code': 40000, 'data': None, 'message': 'invalid recovery code'}
+
+    current_user.recovery_codes = [h for h in current_user.recovery_codes if h != code_hash]
+
+    if body.new_phone:
+        from sqlalchemy import select
+        from app.models.user import User
+        enc = encrypt_pii(body.new_phone)
+        r = await db.execute(select(User).where(User.phone == enc))
+        if r.scalar_one_or_none():
+            return {'code': 40000, 'data': None, 'message': 'phone already registered'}
+        current_user.phone = enc
+
+    await db.commit()
+    remaining = len(current_user.recovery_codes) if current_user.recovery_codes else 0
+    return {
+        'code': 0,
+        'data': {'remaining_codes': remaining},
+        'message': f'recovery code verified, {remaining} codes remaining',
+    }
+
+
+class EmailBindRequest(BaseModel):
+    email: str = Field(max_length=254, pattern=r'^\S+@\S+\.\S+$')
+
+
+@router.patch('/email')
+async def bind_email(
+    body: EmailBindRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.core.security import encrypt_pii
+    current_user.email = encrypt_pii(body.email)
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'email bound'}
 
 
 @router.post('/deactivate')
