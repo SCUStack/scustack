@@ -89,15 +89,19 @@ async function loadData() {
 function openCreate() { form.title = ''; form.content = ''; form.severity = 'info'; form.action_text = ''; form.action_url = ''; showForm.value = true }
 
 async function save() {
+  if (!form.title.trim()) return
   saving.value = true
   try {
-    await $fetch(`${apiBase}/api/v1/admin/announcements`, {
+    const resp = await $fetch<{ code: number; message: string }>(`${apiBase}/api/v1/admin/announcements`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form }),
     })
-    showForm.value = false
-    await loadData()
-  } catch { /* noop */ }
+    if (resp.code === 0) { showForm.value = false; await loadData() }
+    else alert(resp.message || '创建失败')
+  } catch (e: any) {
+    if (e?.response?.status === 403) alert('权限不足，需要管理员或维护者角色')
+    else alert(e?.message || '请求失败')
+  }
   saving.value = false
 }
 
