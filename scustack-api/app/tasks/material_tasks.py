@@ -112,12 +112,15 @@ def _reject_material(material_id: str, reason: str):
 
 def _upload_thumbnail(material_id: str, data: bytes, content_type: str):
     """Upload thumbnail to OSS thumbs/ directory."""
-    import asyncio
+    import logging
+
     from app.core import oss
 
+    logger = logging.getLogger(__name__)
     key = f'thumbs/{material_id}.webp'
     try:
-        # Use presigned URL or direct upload
-        pass
-    except Exception:
-        pass
+        success = oss.upload_bytes(key, data, content_type)
+        if not success:
+            logger.warning('Thumbnail upload failed for material %s: OSS unavailable', material_id)
+    except Exception as e:
+        logger.error('Thumbnail upload failed for material %s: %s', material_id, e)

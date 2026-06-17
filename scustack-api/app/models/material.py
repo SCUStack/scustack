@@ -76,6 +76,11 @@ class Material(Base):
     # Non-mapped — populated at query time by get_material
     rating_distribution: ClassVar[dict | None] = None
 
+    @property
+    def thumbnail_url(self) -> str:
+        from app.core import oss
+        return oss.generate_thumbnail_url(str(self.id))
+
 
 class MaterialVersion(Base):
     __tablename__ = 'material_versions'

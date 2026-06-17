@@ -67,6 +67,7 @@ class MaterialResponse(BaseModel):
     parts: list[dict] | None = None
     contributor_id: UUID | None
     contributor: ContributorInfo | None = None
+    thumbnail_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

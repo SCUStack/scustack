@@ -122,6 +122,36 @@ def delete_object(storage_key: str) -> None:
     bucket.delete_object(storage_key)
 
 
+def upload_bytes(storage_key: str, data: bytes, content_type: str) -> bool:
+    """Upload bytes to OSS. Returns True on success, False on failure."""
+    if not _has_oss:
+        return False
+    try:
+        bucket = _get_bucket()
+        bucket.put_object(storage_key, data, headers={'Content-Type': content_type})
+        return True
+    except Exception:
+        return False
+
+
+def generate_thumbnail_url(material_id: str, expires: int = 3600) -> str:
+    """Generate a presigned URL for a material thumbnail (may not exist yet)."""
+    key = f'thumbs/{material_id}.webp'
+    return generate_download_url(key, expires)
+
+
+def thumbnail_exists(material_id: str) -> bool:
+    """Check whether a thumbnail has been uploaded for the given material."""
+    if not _has_oss:
+        return False
+    try:
+        bucket = _get_bucket()
+        bucket.get_object_meta(f'thumbs/{material_id}.webp')
+        return True
+    except Exception:
+        return False
+
+
 def delete_objects(storage_keys: list[str]) -> int:
     """Batch delete OSS objects. Returns count of deleted objects."""
     if not _has_oss or not storage_keys:

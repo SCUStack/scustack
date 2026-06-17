@@ -75,7 +75,7 @@ import tagsData from '~/data/covers'
 const props = defineProps<{ item: Record<string, any>; highlight?: string }>()
 
 const coverSrc = ref(
-  resolveCoverSync({
+  props.item.thumbnail_url || resolveCoverSync({
     id: props.item.id,
     title: props.item.title,
     category: props.item.category,
