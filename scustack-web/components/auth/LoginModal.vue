@@ -141,9 +141,22 @@
                 maxlength="128"
               />
               <p v-if="errorMsg" class="text-sm text-red-500 mt-2">{{ errorMsg }}</p>
+              <label class="flex items-start gap-2 mt-4 cursor-pointer">
+                <input
+                  v-model="agreedToTerms"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                />
+                <span class="text-xs text-slate-500 leading-relaxed">
+                  我已阅读并同意
+                  <NuxtLink to="/terms" target="_blank" class="text-primary-600 hover:text-primary-700">《用户协议》</NuxtLink>
+                  和
+                  <NuxtLink to="/privacy" target="_blank" class="text-primary-600 hover:text-primary-700">《隐私政策》</NuxtLink>
+                </span>
+              </label>
               <button
                 type="submit"
-                :disabled="loading || phone.length !== 11 || !password || !confirmPassword"
+                :disabled="loading || phone.length !== 11 || !password || !confirmPassword || !agreedToTerms"
                 class="w-full h-10 mt-4 rounded-md text-sm font-medium cursor-pointer transition-colors duration-150 bg-primary-700 text-white hover:bg-primary-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
               >
                 {{ loading ? '注册中...' : '注册' }}
@@ -170,6 +183,7 @@ const smsStep = ref<'phone' | 'code'>('phone')
 const phone = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+const agreedToTerms = ref(false)
 const code = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
@@ -186,6 +200,7 @@ function switchMode(key: string) {
   mode.value = key as typeof mode.value
   errorMsg.value = ''
   smsStep.value = 'phone'
+  agreedToTerms.value = false
 }
 
 function close() {
@@ -195,6 +210,7 @@ function close() {
   phone.value = ''
   password.value = ''
   confirmPassword.value = ''
+  agreedToTerms.value = false
   code.value = ''
   errorMsg.value = ''
   loading.value = false
@@ -259,6 +275,10 @@ async function doPasswordRegister() {
   if (phone.value.length !== 11 || !password.value || !confirmPassword.value) return
   if (password.value !== confirmPassword.value) {
     errorMsg.value = '两次输入的密码不一致'
+    return
+  }
+  if (!agreedToTerms.value) {
+    errorMsg.value = '请阅读并同意用户协议和隐私政策'
     return
   }
   errorMsg.value = ''
