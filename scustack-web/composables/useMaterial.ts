@@ -89,27 +89,46 @@ export function useMaterial(materialId: Ref<string>) {
     } catch { /* ignore */ }
   }
 
-  async function fetchMaterial() {
+  async function fetchMaterial(retryAttempt = 0) {
     const id = materialId.value
-    loading.value = true
+    if (retryAttempt === 0) loading.value = true
+    const MAX_RETRIES = 2
+
+    const fetchWithRetry = async <T>(url: string): Promise<{ code: number; data: T }> => {
+      try {
+        return await $fetch<{ code: number; data: T }>(url)
+      } catch (e: unknown) {
+        const err = e as { status?: number }
+        if (err.status === 429 && retryAttempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 800 * (retryAttempt + 1)))
+          return { code: 0, data: [] as unknown as T }
+        }
+        return { code: 0, data: [] as unknown as T }
+      }
+    }
+
     try {
       const resp = await $fetch<{ code: number; data: MaterialItem | null }>(`${apiBase}/api/v1/materials/${id}`)
       if (resp.code === 0) {
         material.value = resp.data
         saveRecentView()
+      } else if (resp.code === 42900 && retryAttempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
+        loading.value = false
+        return fetchMaterial(retryAttempt + 1)
       }
 
       const [versionResp, relatedResp, courseResp] = await Promise.all([
-        $fetch<{ code: number; data: MaterialVersion[] }>(`${apiBase}/api/v1/materials/${id}/versions`).catch(() => ({ code: 0, data: [] })),
-        $fetch<{ code: number; data: MaterialItem[] }>(`${apiBase}/api/v1/materials/${id}/related`).catch(() => ({ code: 0, data: [] })),
+        fetchWithRetry<MaterialVersion[]>(`${apiBase}/api/v1/materials/${id}/versions`),
+        fetchWithRetry<MaterialItem[]>(`${apiBase}/api/v1/materials/${id}/related`),
         resp.data?.course_id
-          ? $fetch<{ code: number; data: { name: string } }>(`${apiBase}/api/v1/courses/${resp.data.course_id}`).catch(() => ({ code: 0, data: null }))
-          : Promise.resolve({ code: 0, data: null }),
+          ? fetchWithRetry<{ name: string }>(`${apiBase}/api/v1/courses/${resp.data.course_id}`)
+          : Promise.resolve({ code: 0, data: null as unknown as { name: string } }),
       ])
-      if (versionResp.code === 0) versions.value = versionResp.data
-      if (relatedResp.code === 0) related.value = relatedResp.data
+      if (versionResp.code === 0 && Array.isArray(versionResp.data)) versions.value = versionResp.data
+      if (relatedResp.code === 0 && Array.isArray(relatedResp.data)) related.value = relatedResp.data
       if (courseResp.code === 0 && courseResp.data) courseName.value = courseResp.data.name
-    } catch { /* noop */ }
+    } catch { /* fallback: keep existing data if any */ }
     loading.value = false
   }
 

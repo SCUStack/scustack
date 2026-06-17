@@ -52,6 +52,10 @@
             </div>
           </FilterSheet>
 
+          <div v-if="rateLimited" class="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700 flex items-center gap-2">
+            <AppIcon name="AlertTriangle" :size="16" class="shrink-0" />
+            <span>请求过于频繁，请稍后再试</span>
+          </div>
           <div v-if="loading && results.length === 0" class="space-y-3"><SkeletonList :count="5" /></div>
           <div v-else-if="results.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <MaterialCard v-for="item in results" :key="item.id" :item="item" :highlight="queryText" />
@@ -80,7 +84,7 @@
 definePageMeta({ ssr: true })
 
 const {
-  queryText, currentSort, page, pageSize, results, total, searched, loading,
+  queryText, currentSort, page, pageSize, results, total, searched, loading, rateLimited,
   filters, activeFilterCount, activeFilterChips,
   syncFromUrl, setSort, setFilter, removeFilter, clearAllFilters, goToPage, doSearch,
 } = useSearch()

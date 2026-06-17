@@ -1,5 +1,21 @@
 import type { MaterialItem } from '~/types/api'
 
+const FILTER_LABELS: Record<string, Record<string, string>> = {
+  category: { '课堂笔记': '课堂笔记', '考试资料': '考试资料', '复习提纲': '复习提纲', '教材': '教材', '习题集': '习题集', '实验报告': '实验报告', '历年真题': '历年真题', '课件讲义': '课件讲义', '考研专区': '考研专区' },
+  semester: {},
+  trust_status: { maintainer_picked: '维护者精选', community_verified: '社区验证', unverified: '未验证', doubtful: '存疑' },
+  source_type: { hosted: '托管文件', external: '外部链接' },
+  format: {},
+}
+
+const FILTER_GROUP_LABELS: Record<string, string> = {
+  category: '分类', semester: '学期', source_type: '来源', format: '格式', trust_status: '信任状态', college_id: '学院',
+}
+
+function filterDisplay(key: string, value: string): string {
+  return FILTER_LABELS[key]?.[value] || value
+}
+
 /**
  * Search composable — debounced keyword search, URL query sync,
  * filter state, sort switching, pagination, and autocomplete.
@@ -18,11 +34,12 @@ export function useSearch() {
   const total = ref(0)
   const searched = ref(false)
   const loading = ref(false)
+  const rateLimited = ref(false)
   const suggestResults = ref<{ courses: string[]; materials: string[] }>({ courses: [], materials: [] })
   const suggestVisible = ref(false)
 
   const filters = reactive<Record<string, string[]>>({
-    category: [], semester: [], source_type: [], format: [], college_id: [],
+    category: [], semester: [], source_type: [], format: [], college_id: [], trust_status: [],
   })
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -36,12 +53,9 @@ export function useSearch() {
 
   const activeFilterChips = computed(() => {
     const chips: { key: string; value: string; label: string; display: string }[] = []
-    const labels: Record<string, string> = {
-      category: '分类', semester: '学期', source_type: '来源', format: '格式',
-    }
     for (const [key, values] of Object.entries(filters)) {
       for (const v of values) {
-        chips.push({ key, value: v, label: labels[key] || key, display: v })
+        chips.push({ key, value: v, label: FILTER_GROUP_LABELS[key] || key, display: filterDisplay(key, v) })
       }
     }
     return chips
@@ -72,11 +86,19 @@ export function useSearch() {
 
   // ── Search ────────────────────────────────────────────────────────────
 
-  async function doSearch() {
+  let retryCount = 0
+  const MAX_RETRIES = 2
+
+  async function doSearch(retryAttempt = 0) {
     if (abortController) abortController.abort()
     abortController = new AbortController()
 
-    loading.value = true
+    if (retryAttempt === 0) {
+      loading.value = true
+      rateLimited.value = false
+      retryCount = 0
+    }
+
     try {
       const params = new URLSearchParams()
       if (queryText.value) params.set('q', queryText.value)
@@ -95,11 +117,25 @@ export function useSearch() {
         results.value = resp.data.items
         total.value = resp.data.total
         searched.value = true
+        rateLimited.value = false
+      } else if (resp.code === 42900 && retryAttempt < MAX_RETRIES) {
+        // Rate limited — exponential backoff retry
+        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
+        return doSearch(retryAttempt + 1)
       }
     } catch (e: unknown) {
-      if (!(e instanceof DOMException) || e.name !== 'AbortError') {
-        results.value = []
-        total.value = 0
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return // Expected: request cancelled
+      }
+      const err = e as { status?: number; statusCode?: number }
+      if ((err.status === 429 || err.statusCode === 429) && retryAttempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
+        retryCount++
+        return doSearch(retryAttempt + 1)
+      }
+      // Only clear results on non-retryable errors
+      if (retryAttempt === 0) {
+        rateLimited.value = true
       }
     }
     loading.value = false
@@ -126,19 +162,19 @@ export function useSearch() {
   function setFilter(key: string, values: string[]) {
     filters[key] = values
     page.value = 1
-    doSearch()
+    debouncedSearch()
   }
 
   function removeFilter(key: string, value: string) {
     filters[key] = filters[key].filter(v => v !== value)
     page.value = 1
-    doSearch()
+    debouncedSearch()
   }
 
   function clearAllFilters() {
     for (const key of Object.keys(filters)) filters[key] = []
     page.value = 1
-    doSearch()
+    debouncedSearch()
   }
 
   function goToPage(p: number) {
@@ -179,7 +215,7 @@ export function useSearch() {
   }
 
   return {
-    queryText, currentSort, page, pageSize, results, total, searched, loading,
+    queryText, currentSort, page, pageSize, results, total, searched, loading, rateLimited,
     suggestResults, suggestVisible,
     filters, activeFilterCount, activeFilterChips,
     syncFromUrl, setQuery, debouncedSearch, setSort,

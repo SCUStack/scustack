@@ -27,7 +27,7 @@ async def search_endpoint(
     current_user: User | None = Depends(get_optional_user),
 ):
     ip = request.client.host if request and request.client else 'unknown'
-    max_req = 30 if current_user else 10
+    max_req = 60 if current_user else 30
     limiter = RateLimiter(max_requests=max_req, window_seconds=60)
     key = f'search:ip:{ip}'
     if not await limiter.is_allowed(key):
@@ -41,8 +41,8 @@ async def search_endpoint(
         await cache_set(f'search:ts:{ip}', now_ts, ttl=30)
         if last_ts:
             gap = float(now_ts) - float(last_ts)
-            if gap < 0.2:  # Less than 200ms between pages
-                rapid = RateLimiter(max_requests=3, window_seconds=10)
+            if gap < 0.15:
+                rapid = RateLimiter(max_requests=5, window_seconds=10)
                 if not await rapid.is_allowed(f'search:rapid:{ip}'):
                     return JSONResponse(
                         {'code': 42900, 'data': None, 'message': 'scrolling too fast, slow down'},
@@ -98,7 +98,7 @@ async def hot_search_endpoint():
 
 @router.get('/search/suggest')
 async def suggest_endpoint(q: str = Query('', min_length=1), request: Request = None):
-    limiter = RateLimiter(max_requests=30, window_seconds=60)
+    limiter = RateLimiter(max_requests=60, window_seconds=60)
     ip = request.client.host if request and request.client else 'unknown'
     key = f'suggest:ip:{ip}'
     if not await limiter.is_allowed(key):

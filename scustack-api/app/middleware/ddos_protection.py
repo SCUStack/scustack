@@ -6,11 +6,11 @@ from app.core.config import settings
 from app.core.redis import RateLimiter
 
 CONCURRENCY_LIMITS = {
-    '/api/v1/search': 3,
-    '/api/v1/download': 2,
+    '/api/v1/search': 15,
+    '/api/v1/download': 5,
 }
 
-DEFAULT_CONCURRENT_LIMIT = 10
+DEFAULT_CONCURRENT_LIMIT = 30
 
 
 class DDoSProtectionMiddleware(BaseHTTPMiddleware):
