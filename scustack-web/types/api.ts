@@ -67,13 +67,17 @@ export interface MaterialItem {
   description?: string
   trust_status: 'unverified' | 'community_verified' | 'maintainer_picked' | 'doubtful'
   average_rating: number
+  rating_avg?: number
   rating_count: number
   rating_distribution?: Record<number, number>
   download_count: number
+  contributor_id?: string
   contributor?: MaterialContributor
   created_at: string
   updated_at: string
   file_hash?: string
+  thumbnail_url?: string
+  pinned?: boolean
 }
 
 export interface MaterialVersion {

@@ -224,6 +224,8 @@
 </template>
 
 <script setup lang="ts">
+import type { NotificationItem } from '~/types/api'
+
 const route = useRoute()
 const auth = useAuthStore()
 
@@ -244,7 +246,7 @@ const homeTabs = [
 ]
 const activeHomeTab = useState<string>('home-active-tab', () => 'recommend')
 function setHomeTab(key: string) { activeHomeTab.value = key }
-const notificationList = ref<any[]>([])
+const notificationList = ref<NotificationItem[]>([])
 
 useKeyboardShortcuts()
 
@@ -280,7 +282,7 @@ async function toggleNotifications() {
   }
 }
 
-async function handleNotificationClick(n: any) {
+async function handleNotificationClick(n: NotificationItem) {
   const { markNotificationRead } = useAuth()
   if (!n.is_read) {
     await markNotificationRead(n.id)

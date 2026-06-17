@@ -52,7 +52,9 @@
 import { resolveCoverSync } from '~/composables/useCoverImage'
 import tagsData from '~/data/covers'
 
-const props = defineProps<{ item: Record<string, any> }>()
+import type { MaterialItem } from '~/types/api'
+
+const props = defineProps<{ item: MaterialItem }>()
 
 const coverSrc = ref(
   props.item.thumbnail_url || resolveCoverSync({

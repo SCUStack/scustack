@@ -105,7 +105,9 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ materialId: string; initialItem?: Record<string, any> | null }>()
+import type { MaterialItem } from '~/types/api'
+
+const props = defineProps<{ materialId: string; initialItem?: MaterialItem | null }>()
 defineEmits<{ close: [] }>()
 
 const {

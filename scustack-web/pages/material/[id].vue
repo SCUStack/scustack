@@ -155,6 +155,8 @@
 </template>
 
 <script setup lang="ts">
+import type { CollectionItem } from '~/types/api'
+
 const route = useRoute()
 const auth = useAuthStore()
 const toast = useToast()
@@ -182,7 +184,7 @@ const correctionValue = ref('')
 const correctionError = ref('')
 const submittingCorrection = ref(false)
 const showCollectionModal = ref(false)
-const userCollections = ref<any[]>([])
+const userCollections = ref<CollectionItem[]>([])
 const newCollectionTitle = ref('')
 const showExternalConfirm = ref(false)
 const externalLinkUrl = ref('')
@@ -260,7 +262,7 @@ async function submitReport() {
     reportReason.value = ''
     reportDesc.value = ''
     toast.success('举报已提交')
-  } catch (e: any) { toast.error(e.message || '提交失败') }
+  } catch (e: unknown) { toast.error(e instanceof Error ? e.message : '提交失败') }
   submittingReport.value = false
 }
 
@@ -281,8 +283,8 @@ async function submitCorrection() {
     correctionField.value = ''
     correctionValue.value = ''
     toast.success('修正建议已提交')
-  } catch (e: any) {
-    correctionError.value = e.message || '提交失败，请稍后重试'
+  } catch (e: unknown) {
+    correctionError.value = e instanceof Error ? e.message : '提交失败，请稍后重试'
   }
   submittingCorrection.value = false
 }
@@ -311,8 +313,8 @@ async function submitNewVersion() {
     versionDropZoneRef.value?.setUploading?.(true, 100)
     toast.success('新版本已上传')
     closeVersionUpload()
-  } catch (e: any) {
-    versionError.value = e.message || '上传失败，请稍后重试'
+  } catch (e: unknown) {
+    versionError.value = e instanceof Error ? e.message : '上传失败，请稍后重试'
   } finally {
     submittingVersion.value = false
   }
