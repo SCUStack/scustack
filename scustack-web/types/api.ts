@@ -51,6 +51,7 @@ export interface MaterialContributor {
   nickname: string
   avatar_url?: string
   trust_score: number
+  badges?: UserBadge[]
 }
 
 export interface MaterialItem {
@@ -78,6 +79,8 @@ export interface MaterialItem {
   file_hash?: string
   thumbnail_url?: string
   pinned?: boolean
+  parts?: Array<{ id: string; title: string }>
+  teacher?: string
 }
 
 export interface MaterialVersion {
@@ -118,6 +121,7 @@ export interface NotificationList {
 export interface CollectionItem {
   id: string
   name: string
+  title?: string
   description?: string
   material_count: number
   is_public: boolean
