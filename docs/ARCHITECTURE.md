@@ -42,7 +42,7 @@
 | **缓存** | Redis 7 | 会话管理、热点数据缓存、速率限制计数器 |
 | **文件存储** | 阿里云 OSS + CDN | 零运维、按量付费、内置图片处理与内容审核 |
 | **文档预览** | OnlyOffice (自托管) + PDF.js | 完整 Office 保真度，开源方案 |
-| **消息队列** | Redis Streams / RabbitMQ | 异步任务（病毒扫描、缩略图生成、搜索索引更新） |
+| **消息队列** | Celery (Redis broker) | 异步任务（病毒扫描、缩略图生成、搜索索引更新、内容提取） |
 
 ### 1.3 系统架构图
 
@@ -655,13 +655,15 @@ erDiagram
 
 | 表 | 索引类型 | 字段 | 用途 |
 |---|---|---|---|
-| materials | GIN (zhparser) | title, description | 数据库层全文搜索 |
+| materials | GIN (zhparser) | title, description | 数据库层辅助搜索（仅用于管理后台本地筛选） |
 | materials | B-tree (复合) | (course_id, category) | 课程内分类筛选 |
 | materials | B-tree (复合) | (course_id, average_rating DESC) | 课程内按评分排序 |
 | materials | B-tree | review_status | 审核队列查询 |
 | material_versions | B-tree | file_hash | 内容去重检测 |
-| courses | GIN (zhparser) | name | 课程名称搜索 |
+| courses | GIN (zhparser) | name | 课程名称本地过滤（下拉搜索框联想） |
 | courses | B-tree | (college_id) | 学院下课程列表 |
+
+> **PG vs ES 搜索边界**：PostgreSQL GIN 索引仅用于课程名称的本地过滤（如上传页面的学院-课程二级联动下拉搜索框联想）。全平台搜索（首页搜索框、全局搜索、搜索结果页）统一走 Elasticsearch + IK 分词器。PG 的 zhparser 分词能力不足以支撑高质量的中英混合+专业术语搜索——详见第 5 节搜索引擎设计。
 | ratings | B-tree | (material_id) | 评分聚合 |
 | bookmarks | B-tree | (user_id, course_id) | 用户关注查询 |
 
@@ -867,9 +869,11 @@ docker exec onlyoffice supervisorctl restart all
 
 ```mermaid
 flowchart TD
-    A["用户请求 GET /api/materials/:id/download"] --> B{"每日下载配额检查<br/>每人 50 次/天"}
-    B -->|超限| B1["返回 429 Too Many Requests"]
-    B -->|通过| C["服务端验证：认证 + 权限 + 资料状态"]
+    A["用户请求 GET /api/materials/:id/download"] --> B1{"第一层：滑动窗口限流<br/>Redis 100 req/hour (防突发)"}
+    B1 -->|超限| B1a["返回 429 Too Many Requests<br/>Retry-After: 窗口重置时间"]
+    B1 -->|通过| B2{"第二层：每日配额检查<br/>日计数器 50 次/天 (防累积)"}
+    B2 -->|超限| B2a["返回 429 Too Many Requests<br/>Retry-After: 次日 00:00"]
+    B2 -->|通过| C["服务端验证：认证 + 权限 + 资料状态"]
     C --> D["生成 Presigned GET URL<br/>OSS 私有 Bucket, 60min 有效"]
     D --> E["返回 302 重定向至 Presigned URL"]
     E --> F["浏览器直接从 OSS CDN 下载"]
@@ -878,7 +882,14 @@ flowchart TD
 
 防刷与流量保护：
 
-- 每人每日下载限额：默认 50 次/天（学生）、100 次/天（贡献者）、无限制（维护者+）。防止恶意爬虫刷走 OSS 流量导致欠费
+下载接口实施**双层限流**，任一层触发均返回 429：
+
+| 层级 | 机制 | 阈值 | 用途 |
+|---|---|---|---|
+| **第一层（防突发）** | Redis 滑动窗口计数器 | 100 req/hour（学生）、150 req/hour（贡献者）、无限制（维护者+） | 防止单用户短时间内高频下载刷走 OSS 流量 |
+| **第二层（防累积）** | Redis 日计数器（每日 00:00 重置） | 50 次/天（学生）、100 次/天（贡献者）、无限制（维护者+） | 防止恶意爬虫跨小时持续下载 |
+
+- 两层共享同一 Redis key 前缀 `rate_limit:download:{user_id}`，独立计数、独立 TTL
 - 单文件大小上限：PDF/Office < 50MB，视频 < 200MB，压缩包 < 100MB。拒绝超大文件上传
 - CDN 缓存最大化：OSS Presigned URL 配合 CDN 加速，回源率控制在 10% 以下，大幅降低 OSS 外网流量费（这是云账单中最容易被忽视的隐藏开销）
 - 异常监控：监控单用户下载量突增（如 1 小时内 > 200 次），自动触发临时封禁 + 告警通知
@@ -1078,8 +1089,10 @@ async def pin_material(
 | `POST /api/auth/sms/send` | 3 req / 10min | 每手机号 + 每 IP |
 | `POST /api/auth/login` | 5 req/min | 每 IP |
 | `POST /api/materials` (上传) | 10 req/hour | 每用户 |
-| `GET /api/materials/:id/download` | 100 req/hour | 每用户 |
+| `GET /api/materials/:id/download` | 100 req/hour + 50 次/天（双层） | 每用户 |
 | `POST /api/reports` (举报) | 20 req/day | 每用户 |
+
+> **下载双层限流**：下载接口应用两层独立限流——① Redis 滑动窗口 100 req/hour（防突发高频刷量）② 每日配额计数器 50 次/天（防累积爬虫）。任一层触发均返回 HTTP 429 + `Retry-After` 头。两层使用独立 Redis key 和独立 TTL。详见 §6.5 下载流程。
 
 实现：Redis 滑动窗口 + 返回 HTTP 429 + `Retry-After` 头。
 
@@ -1227,6 +1240,7 @@ POST   /api/v1/materials/:id/versions             # 上传新版本
 GET    /api/v1/materials/:id/versions/:vid/diff   # 版本差异 (文本)
 GET    /api/v1/materials/:id/download             # 下载 (302 → Presigned URL)
 POST   /api/v1/materials/:id/ratings              # 评分
+GET    /api/v1/materials/:id/related              # 相关推荐（同课程热门资料）
 POST   /api/v1/materials/:id/reports              # 举报
 
 GET    /api/v1/search                             # 搜索
