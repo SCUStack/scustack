@@ -4,6 +4,10 @@
 
 **公益 · 无广告 · 开源**
 
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/yeyixiang2007/scustack/actions)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
 ## 技术栈
 
 | 层级 | 技术 |
@@ -93,8 +97,7 @@ scustack/
 ├── docs/                      # 项目文档
 │   ├── PRD.md                 # 产品需求文档
 │   ├── ARCHITECTURE.md        # 技术架构书
-│   ├── UI-UX-DESIGN.md        # UI/UX 设计书
-│   └── ISSUES.md              # Issue 分解
+│   └── UI-UX-DESIGN.md        # UI/UX 设计书
 └── docker-compose.yml         # 本地开发基础设施
 ```
 
@@ -103,7 +106,6 @@ scustack/
 - [产品需求文档 (PRD)](docs/PRD.md) — 用户故事、产品决策、MVP 范围
 - [技术架构书](docs/ARCHITECTURE.md) — 技术选型、数据库设计、API 规范、部署运维
 - [UI/UX 设计书](docs/UI-UX-DESIGN.md) — 设计系统、页面设计、组件库、交互模式
-- [Issue 分解](docs/ISSUES.md) — 120 个纵向切片任务
 
 ## 核心功能
 
@@ -121,12 +123,7 @@ scustack/
 
 川流课栈是开源公益项目，欢迎四川大学学生和开发者参与贡献。
 
-### 参与方式
-
-1. 查看 [ISSUES.md](docs/ISSUES.md) 选择可独立完成的 AFK 任务
-2. Fork 仓库，基于 `main` 分支创建 feature 分支
-3. 开发完成后提交 PR，关联对应的 issue
-4. 代码需通过 Lint、Type Check 和测试
+详细的开发环境搭建、测试运行和 PR 流程请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ### 代码规范
 
@@ -136,7 +133,7 @@ scustack/
 
 ## 许可
 
-待定
+[MIT License](LICENSE)
 
 ---
 
