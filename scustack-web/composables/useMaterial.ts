@@ -1,3 +1,5 @@
+import type { MaterialItem, MaterialVersion, CollectionItem } from '~/types/api'
+
 /**
  * Composable for material detail page — encapsulates data fetching, rating,
  * bookmark, collection, report, correction, and version upload logic.
@@ -8,9 +10,9 @@ export function useMaterial(materialId: Ref<string>) {
   const toast = useToast()
 
   // ── State ─────────────────────────────────────────────────────────────
-  const material = ref<any>(null)
-  const versions = ref<any[]>([])
-  const related = ref<any[]>([])
+  const material = ref<MaterialItem | null>(null)
+  const versions = ref<MaterialVersion[]>([])
+  const related = ref<MaterialItem[]>([])
   const courseName = ref('')
   const loading = ref(true)
   const isBookmarked = ref(false)
@@ -70,12 +72,14 @@ export function useMaterial(materialId: Ref<string>) {
 
   // ── Data fetching ────────────────────────────────────────────────────
 
+  interface RecentItem { id: string; type: string; title: string; url: string; time: string }
+
   function saveRecentView() {
     if (!material.value) return
     try {
       const raw = localStorage.getItem('scustack_recent')
-      const list: any[] = raw ? JSON.parse(raw) : []
-      const filtered = list.filter((i: any) => i.id !== material.value.id)
+      const list: RecentItem[] = raw ? JSON.parse(raw) : []
+      const filtered = list.filter((i) => i.id !== material.value!.id)
       filtered.unshift({
         id: material.value.id, type: 'material',
         title: material.value.title, url: `/material/${material.value.id}`,
@@ -89,15 +93,15 @@ export function useMaterial(materialId: Ref<string>) {
     const id = materialId.value
     loading.value = true
     try {
-      const resp = await $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/materials/${id}`)
+      const resp = await $fetch<{ code: number; data: MaterialItem | null }>(`${apiBase}/api/v1/materials/${id}`)
       if (resp.code === 0) {
         material.value = resp.data
         saveRecentView()
       }
 
       const [versionResp, relatedResp, courseResp] = await Promise.all([
-        $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/materials/${id}/versions`).catch(() => ({ code: 0, data: [] })),
-        $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/materials/${id}/related`).catch(() => ({ code: 0, data: [] })),
+        $fetch<{ code: number; data: MaterialVersion[] }>(`${apiBase}/api/v1/materials/${id}/versions`).catch(() => ({ code: 0, data: [] })),
+        $fetch<{ code: number; data: MaterialItem[] }>(`${apiBase}/api/v1/materials/${id}/related`).catch(() => ({ code: 0, data: [] })),
         resp.data?.course_id
           ? $fetch<{ code: number; data: { name: string } }>(`${apiBase}/api/v1/courses/${resp.data.course_id}`).catch(() => ({ code: 0, data: null }))
           : Promise.resolve({ code: 0, data: null }),
@@ -145,8 +149,8 @@ export function useMaterial(materialId: Ref<string>) {
     if (resp.code !== 0) throw new Error(resp.message)
   }
 
-  async function fetchCollections(): Promise<any[]> {
-    const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/collections`, { credentials: 'include' })
+  async function fetchCollections(): Promise<CollectionItem[]> {
+    const resp = await $fetch<{ code: number; data: CollectionItem[] }>(`${apiBase}/api/v1/collections`, { credentials: 'include' })
     return resp.code === 0 ? resp.data : []
   }
 
@@ -192,7 +196,7 @@ export function useMaterial(materialId: Ref<string>) {
 
     await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: file })
 
-    const resp = await $fetch<{ code: number; data: any; message: string }>(
+    const resp = await $fetch<{ code: number; data: MaterialVersion | null; message: string }>(
       `${apiBase}/api/v1/materials/${materialId.value}/versions`,
       {
         method: 'POST', credentials: 'include',
@@ -208,8 +212,8 @@ export function useMaterial(materialId: Ref<string>) {
 
     // Refresh material and versions
     const [materialResp, versionResp] = await Promise.all([
-      $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/materials/${materialId.value}`),
-      $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/materials/${materialId.value}/versions`),
+      $fetch<{ code: number; data: MaterialItem | null }>(`${apiBase}/api/v1/materials/${materialId.value}`),
+      $fetch<{ code: number; data: MaterialVersion[] }>(`${apiBase}/api/v1/materials/${materialId.value}/versions`),
     ])
     if (materialResp.code === 0) material.value = materialResp.data
     if (versionResp.code === 0) versions.value = versionResp.data

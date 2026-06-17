@@ -72,7 +72,9 @@ import { computed, ref } from 'vue'
 import { resolveCoverSync } from '~/composables/useCoverImage'
 import tagsData from '~/data/covers'
 
-const props = defineProps<{ item: Record<string, any>; highlight?: string }>()
+import type { MaterialItem } from '~/types/api'
+
+const props = defineProps<{ item: MaterialItem; highlight?: string }>()
 
 const coverSrc = ref(
   props.item.thumbnail_url || resolveCoverSync({

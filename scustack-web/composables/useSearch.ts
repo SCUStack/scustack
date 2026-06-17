@@ -1,3 +1,5 @@
+import type { MaterialItem } from '~/types/api'
+
 /**
  * Search composable — debounced keyword search, URL query sync,
  * filter state, sort switching, pagination, and autocomplete.
@@ -12,7 +14,7 @@ export function useSearch() {
   const currentSort = ref('relevance')
   const page = ref(1)
   const pageSize = 20
-  const results = ref<any[]>([])
+  const results = ref<MaterialItem[]>([])
   const total = ref(0)
   const searched = ref(false)
   const loading = ref(false)
@@ -85,7 +87,7 @@ export function useSearch() {
         for (const v of values) params.append(key, v)
       }
 
-      const resp = await $fetch<{ code: number; data: { items: any[]; total: number } }>(
+      const resp = await $fetch<{ code: number; data: { items: MaterialItem[]; total: number } }>(
         `${apiBase}/api/v1/search?${params.toString()}`,
         { signal: abortController.signal },
       )
@@ -94,8 +96,8 @@ export function useSearch() {
         total.value = resp.data.total
         searched.value = true
       }
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
+    } catch (e: unknown) {
+      if (!(e instanceof DOMException) || e.name !== 'AbortError') {
         results.value = []
         total.value = 0
       }
@@ -166,8 +168,8 @@ export function useSearch() {
         suggestResults.value = resp.data
         suggestVisible.value = Boolean(resp.data.courses.length || resp.data.materials.length)
       }
-    } catch (e: any) {
-      if (e.name !== 'AbortError') suggestVisible.value = false
+    } catch (e: unknown) {
+      if (!(e instanceof DOMException) || e.name !== 'AbortError') suggestVisible.value = false
     }
   }
 

@@ -1,3 +1,5 @@
+import type { Course } from '~/types/api'
+
 /**
  * Course store — selected college, course list cache, filter state.
  * Centralizes course-related state shared across upload, search, and course pages.
@@ -6,8 +8,8 @@ export const useCourseStore = defineStore('course', () => {
   const { apiBase } = useRuntimeConfig().public
 
   const selectedCollegeId = ref<string>('')
-  const courses = ref<any[]>([])
-  const courseCache = ref<Map<string, any[]>>(new Map())
+  const courses = ref<Course[]>([])
+  const courseCache = ref<Map<string, Course[]>>(new Map())
   const filters = reactive({
     collegeId: '',
     category: '',
@@ -30,7 +32,7 @@ export const useCourseStore = defineStore('course', () => {
     }
 
     try {
-      const resp = await $fetch<{ code: number; data: any[] }>(
+      const resp = await $fetch<{ code: number; data: Course[] }>(
         `${apiBase}/api/v1/courses?college_id=${collegeId}`,
       )
       if (resp.code === 0) {
@@ -49,8 +51,8 @@ export const useCourseStore = defineStore('course', () => {
     fetchCourses(collegeId)
   }
 
-  function setFilter(key: string, value: string) {
-    ;(filters as any)[key] = value
+  function setFilter(key: keyof typeof filters, value: string) {
+    filters[key] = value
   }
 
   function clearFilters() {

@@ -1,3 +1,5 @@
+import type { UserProfile, MaterialItem, NotificationList, PaginatedItems, Course } from '~/types/api'
+
 export function useAuth() {
   const config = useRuntimeConfig()
   const base = config.public.apiBase as string
@@ -48,7 +50,7 @@ export function useAuth() {
   }
 
   async function updateProfile(body: { nickname?: string; avatar_url?: string; public_display_name?: string }) {
-    return $fetch<{ code: number; data: any; message: string }>(
+    return $fetch<{ code: number; data: UserProfile | null; message: string }>(
       `${base}/api/v1/me`,
       {
         method: 'PATCH',
@@ -60,7 +62,7 @@ export function useAuth() {
   }
 
   async function getContributions(limit = 20, offset = 0) {
-    return $fetch<{ code: number; data: { items: any[]; total: number }; message: string }>(
+    return $fetch<{ code: number; data: PaginatedItems<MaterialItem>; message: string }>(
       `${base}/api/v1/me/contributions?limit=${limit}&offset=${offset}`,
       { credentials: 'include' },
     )
@@ -79,14 +81,14 @@ export function useAuth() {
   }
 
   async function getBookmarks(type: 'course' | 'material' = 'course') {
-    return $fetch<{ code: number; data: any[]; message: string }>(
+    return $fetch<{ code: number; data: (Course | MaterialItem)[]; message: string }>(
       `${base}/api/v1/bookmarks?type=${type}`,
       { credentials: 'include' },
     )
   }
 
   async function getNotifications(limit = 20, offset = 0) {
-    return $fetch<{ code: number; data: { items: any[]; unread_count: number }; message: string }>(
+    return $fetch<{ code: number; data: NotificationList; message: string }>(
       `${base}/api/v1/me/notifications?limit=${limit}&offset=${offset}`,
       { credentials: 'include' },
     )

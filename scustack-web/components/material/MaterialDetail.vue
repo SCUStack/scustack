@@ -170,17 +170,19 @@
 </template>
 
 <script setup lang="ts">
+import type { MaterialItem, MaterialVersion, UserBadge } from '~/types/api'
+
 const props = defineProps<{
-  material: any
-  versions: any[]
-  related: any[]
+  material: MaterialItem
+  versions: MaterialVersion[]
+  related: MaterialItem[]
   courseName: string
   downloadUrl: string
   previewUrl: string
   isBookmarked: boolean
   canUploadNewVersion: boolean
   isTextFormat: boolean
-  contributorBadges: any[]
+  contributorBadges: UserBadge[]
   contributorBadgeIcons: Record<string, string>
 }>()
 

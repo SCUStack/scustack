@@ -93,7 +93,7 @@ export const useUploadStore = defineStore('upload', () => {
       await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: fileEntry.file })
       fileEntry.progress = 80
 
-      const resp = await $fetch<{ code: number; data: any; message: string }>(
+      const resp = await $fetch<{ code: number; data: { id: string }; message: string }>(
         `${apiBase}/api/v1/materials`,
         {
           method: 'POST', credentials: 'include',
@@ -115,9 +115,9 @@ export const useUploadStore = defineStore('upload', () => {
 
       fileEntry.status = 'success'
       fileEntry.progress = 100
-    } catch (e: any) {
+    } catch (e: unknown) {
       fileEntry.status = 'error'
-      fileEntry.errorMsg = e.message || '上传失败'
+      fileEntry.errorMsg = e instanceof Error ? e.message : '上传失败'
     }
   }
 
