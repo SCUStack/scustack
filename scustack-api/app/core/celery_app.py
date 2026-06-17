@@ -22,11 +22,10 @@ app.conf.update(
         'thumbnail': {'exchange': 'thumbnail', 'routing_key': 'thumbnail'},
     },
     task_routes={
-        'app.tasks.scan.*': {'queue': 'scan'},
-        'app.tasks.thumbnail.*': {'queue': 'thumbnail'},
         'app.tasks.counter_sync.*': {'queue': 'default'},
         'app.tasks.cleanup.*': {'queue': 'default'},
     },
+    # scan and thumbnail queues are routed via explicit queue= parameter in material_tasks.py
     beat_schedule={
         'check-dead-links-daily': {
             'task': 'app.tasks.link_check.check_dead_links',
