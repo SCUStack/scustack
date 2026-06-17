@@ -168,10 +168,10 @@ scustack-web/
 │       └── ContributionHistory.vue
 ├── composables/               # 组合式函数
 │   ├── useAuth.ts
-│   ├── useSearch.ts
-│   ├── useUpload.ts
-│   ├── useMaterial.ts
-│   └── useCalendar.ts         # 校历驱动逻辑
+│   ├── useCoverImage.ts        # 封面图匹配
+│   ├── useMaterial.ts          # 资料详情逻辑
+│   ├── useSearch.ts            # 搜索逻辑（debounce、URL 同步、筛选、排序、补全）
+│   └── useToast.ts             # Toast 通知
 ├── layouts/
 │   ├── default.vue
 │   ├── course.vue             # 课程页布局
@@ -271,25 +271,48 @@ scustack-api/
 │   │   ├── v1/
 │   │   │   ├── __init__.py
 │   │   │   ├── router.py      # v1 路由聚合
+│   │   │   ├── about.py       # 关于页面
+│   │   │   ├── admin.py       # 管理接口 (analytics, blocklist, announcements, calendar, etc.)
 │   │   │   ├── auth.py        # 认证接口
+│   │   │   ├── bookmarks.py   # 收藏接口
+│   │   │   ├── collections.py # 合集接口
 │   │   │   ├── colleges.py    # 学院接口
+│   │   │   ├── comments.py    # 评论接口
+│   │   │   ├── copyright.py   # 版权投诉接口
+│   │   │   ├── corrections.py # 纠错建议接口
 │   │   │   ├── courses.py     # 课程接口
+│   │   │   ├── feedback.py    # 用户反馈接口
+│   │   │   ├── health.py      # 健康检查接口
+│   │   │   ├── homepage.py    # 首页聚合接口
 │   │   │   ├── materials.py   # 资料接口
 │   │   │   ├── search.py      # 搜索接口
 │   │   │   ├── upload.py      # 上传接口
-│   │   │   ├── reviews.py     # 审核接口
-│   │   │   ├── reports.py     # 举报接口
-│   │   │   ├── users.py       # 用户接口
-│   │   │   └── admin.py       # 管理接口
-│   ├── models/                # SQLAlchemy ORM 模型
+│   │   │   ├── users.py       # 用户接口 (me/*)
+│   │   │   └── wishes.py      # 心愿接口
+│   ├── models/                # SQLAlchemy ORM 模型 (22 files)
 │   │   ├── __init__.py
-│   │   ├── user.py
+│   │   ├── account_deletion.py
+│   │   ├── announcement.py
+│   │   ├── audit_log.py
+│   │   ├── bookmark.py
+│   │   ├── calendar.py
+│   │   ├── collection.py
 │   │   ├── college.py
+│   │   ├── comment.py
+│   │   ├── content_blocklist.py
+│   │   ├── copyright_complaint.py
+│   │   ├── correction.py
 │   │   ├── course.py
+│   │   ├── feedback.py
 │   │   ├── material.py
-│   │   ├── version.py
-│   │   ├── review.py
-│   │   └── report.py
+│   │   ├── notification.py
+│   │   ├── rate_limit_log.py
+│   │   ├── report.py
+│   │   ├── review_log.py
+│   │   ├── user.py
+│   │   ├── user_badge.py
+│   │   ├── user_consent.py
+│   │   └── wish.py
 │   ├── schemas/               # Pydantic 请求/响应模式
 │   │   ├── __init__.py
 │   │   ├── auth.py
@@ -297,15 +320,30 @@ scustack-api/
 │   │   ├── material.py
 │   │   ├── search.py
 │   │   └── user.py
-│   ├── services/              # 业务逻辑层
+│   ├── services/              # 业务逻辑层 (22 files)
 │   │   ├── __init__.py
+│   │   ├── about_service.py
+│   │   ├── announcement_service.py
+│   │   ├── audit_service.py
 │   │   ├── auth_service.py
+│   │   ├── badge_service.py
+│   │   ├── blocklist_service.py
+│   │   ├── calendar_service.py
+│   │   ├── collection_service.py
+│   │   ├── college_service.py
+│   │   ├── comment_service.py
+│   │   ├── consent_service.py
+│   │   ├── copyright_service.py
 │   │   ├── course_service.py
+│   │   ├── deletion_service.py
+│   │   ├── homepage_service.py
 │   │   ├── material_service.py
+│   │   ├── report_service.py
+│   │   ├── review_service.py
 │   │   ├── search_service.py
 │   │   ├── upload_service.py
-│   │   ├── review_service.py
-│   │   └── notification_service.py
+│   │   ├── user_service.py
+│   │   └── wish_service.py
 │   ├── core/                  # 核心基础设施
 │   │   ├── __init__.py
 │   │   ├── security.py        # JWT、密码哈希、CSRF
@@ -589,7 +627,36 @@ CREATE TABLE academic_calendar (
 );
 ```
 
-### 4.3 ER 关系图
+### 4.3 完整模型清单
+
+实际代码中实现了 22 个模型文件（含 27 个 SQLAlchemy 模型类）：
+
+| 文件 | 模型类 | 说明 |
+|---|---|---|
+| `user.py` | `User` | 用户基本信息与认证 |
+| `college.py` | `College` | 学院信息 |
+| `course.py` | `Course` | 课程信息与别名 |
+| `material.py` | `Material`, `MaterialVersion` | 资料与版本管理 |
+| `audit_log.py` | `AuditLog` | 审计日志 |
+| `review_log.py` | `ReviewLog` | 审核记录 |
+| `report.py` | `Report` | 举报记录 |
+| `bookmark.py` | `Bookmark`, `CourseFollow` | 资料收藏与课程关注 |
+| `notification.py` | `Notification` | 用户通知 |
+| `calendar.py` | `CalendarEvent` | 校历事件 |
+| `user_badge.py` | `UserBadge` | 用户徽章/成就 |
+| `correction.py` | `CorrectionSuggestion` | 资料纠错建议 |
+| `wish.py` | `Wish`, `WishVote`, `WishFulfillment` | 心愿与投票 |
+| `copyright_complaint.py` | `CopyrightComplaint` | 版权投诉 |
+| `comment.py` | `Comment` | 资料评论 |
+| `collection.py` | `Collection`, `CollectionItem` | 资料合集 |
+| `content_blocklist.py` | `ContentBlocklist` | 内容黑名单 |
+| `announcement.py` | `Announcement` | 平台公告 |
+| `rate_limit_log.py` | `RateLimitLog` | 速率限制日志 |
+| `user_consent.py` | `UserConsent` | 用户同意记录 |
+| `account_deletion.py` | `AccountDeletion` | 账号注销申请 |
+| `feedback.py` | `Feedback` | 用户反馈 |
+
+### 4.4 ER 关系图
 
 ```mermaid
 erDiagram
@@ -1218,11 +1285,13 @@ graph TD
 ### 11.1 URL 设计
 
 ```
+# ── 学院 ─────────────────────────────────────────────────
 GET    /api/v1/colleges                          # 学院列表
 POST   /api/v1/colleges                          # 创建学院 (admin)
 GET    /api/v1/colleges/:id                       # 学院详情
 GET    /api/v1/colleges/:id/courses               # 学院下课程列表
 
+# ── 课程 ─────────────────────────────────────────────────
 GET    /api/v1/courses                            # 课程列表（支持筛选）
 POST   /api/v1/courses                            # 创建课程 (maintainer+)
 GET    /api/v1/courses/:id                        # 课程详情
@@ -1230,6 +1299,7 @@ PATCH  /api/v1/courses/:id                        # 更新课程 (maintainer+)
 POST   /api/v1/courses/:id/merge                  # 合并课程别名 (maintainer+)
 GET    /api/v1/courses/:id/materials              # 课程下资料列表
 
+# ── 资料 ─────────────────────────────────────────────────
 GET    /api/v1/materials                          # 资料列表
 POST   /api/v1/materials                          # 创建资料
 GET    /api/v1/materials/:id                      # 资料详情
@@ -1242,13 +1312,62 @@ GET    /api/v1/materials/:id/download             # 下载 (302 → Presigned UR
 POST   /api/v1/materials/:id/ratings              # 评分
 GET    /api/v1/materials/:id/related              # 相关推荐（同课程热门资料）
 POST   /api/v1/materials/:id/reports              # 举报
+POST   /api/v1/materials/:id/corrections          # 纠错建议
 
+# ── 评论 ─────────────────────────────────────────────────
+GET    /api/v1/materials/:id/comments             # 资料评论列表
+POST   /api/v1/materials/:id/comments             # 发表评论
+DELETE /api/v1/materials/:id/comments/:cid        # 删除评论 (own/admin)
+
+# ── 收藏 ─────────────────────────────────────────────────
+GET    /api/v1/bookmarks                          # 我的收藏列表
+POST   /api/v1/bookmarks                          # 添加收藏
+DELETE /api/v1/bookmarks/:id                      # 取消收藏
+
+# ── 合集 ─────────────────────────────────────────────────
+GET    /api/v1/collections                        # 我的合集列表
+POST   /api/v1/collections                        # 创建合集
+GET    /api/v1/collections/:id                    # 合集详情
+PATCH  /api/v1/collections/:id                    # 更新合集
+DELETE /api/v1/collections/:id                    # 删除合集
+POST   /api/v1/collections/:id/items              # 添加资料到合集
+DELETE /api/v1/collections/:id/items/:item_id     # 从合集中移除资料
+
+# ── 心愿 ─────────────────────────────────────────────────
+GET    /api/v1/wishes                             # 心愿列表
+POST   /api/v1/wishes                             # 创建心愿
+GET    /api/v1/wishes/:id                         # 心愿详情
+POST   /api/v1/wishes/:id/vote                    # 投票
+POST   /api/v1/wishes/:id/fulfill                 # 满足心愿（上传资料关联）
+
+# ── 版权投诉 ─────────────────────────────────────────────
+POST   /api/v1/copyright/complaint                # 提交版权投诉
+GET    /api/v1/copyright/complaint/:id            # 投诉状态查询
+
+# ── 首页 ─────────────────────────────────────────────────
+GET    /api/v1/homepage                           # 首页聚合数据（Stats + 热门资料 + 公告）
+
+# ── 关于 ─────────────────────────────────────────────────
+GET    /api/v1/about                              # 关于页面数据
+
+# ── 反馈 ─────────────────────────────────────────────────
+POST   /api/v1/feedback                           # 提交用户反馈
+
+# ── 健康检查 ─────────────────────────────────────────────
+GET    /api/v1/health                             # 健康检查（含 DB/Redis/ES/OSS/ClamAV）
+GET    /api/v1/health/live                        # 存活探针
+GET    /api/v1/health/ready                       # 就绪探针
+
+# ── 搜索 ─────────────────────────────────────────────────
 GET    /api/v1/search                             # 搜索
 GET    /api/v1/search/suggest                     # 搜索建议/自动补全
+GET    /api/v1/search/hot                         # 热门搜索词
 
+# ── 上传 ─────────────────────────────────────────────────
 POST   /api/v1/upload/token                       # 获取上传凭证
 POST   /api/v1/upload/check-duplicate             # 检查内容重复
 
+# ── 认证 ─────────────────────────────────────────────────
 POST   /api/v1/auth/sms/send                      # 发送短信验证码
 POST   /api/v1/auth/sms/verify                    # 验证码登录
 POST   /api/v1/auth/wechat/url                    # 获取微信授权链接
@@ -1256,12 +1375,50 @@ POST   /api/v1/auth/wechat/callback               # 微信登录回调
 POST   /api/v1/auth/refresh                       # 刷新 Token
 POST   /api/v1/auth/logout                        # 登出
 
+# ── 个人中心 (/me) ───────────────────────────────────────
+GET    /api/v1/me/profile                         # 个人资料
+PATCH  /api/v1/me/profile                         # 更新个人资料
+GET    /api/v1/me/contributions                   # 我的贡献
+GET    /api/v1/me/notifications                   # 我的通知
+GET    /api/v1/me/privacy                         # 隐私设置
+PATCH  /api/v1/me/privacy                         # 更新隐私设置
+GET    /api/v1/me/badges                          # 我的徽章
+GET    /api/v1/me/recovery-codes                  # 恢复码
+POST   /api/v1/me/delete-account                  # 申请注销账号
+
+# ── 管理后台 ─────────────────────────────────────────────
 GET    /api/v1/admin/review-queue                 # 审核队列 (maintainer+)
 POST   /api/v1/admin/review/:material_id          # 审核操作 (maintainer+)
+POST   /api/v1/admin/review/batch                 # 批量审核 (maintainer+)
 GET    /api/v1/admin/reports                      # 举报队列 (maintainer+)
 POST   /api/v1/admin/reports/:id/handle           # 处理举报 (maintainer+)
 GET    /api/v1/admin/audit-logs                   # 审计日志 (admin)
-DELETE /api/v1/admin/users/:id                    # 封禁用户 (admin)
+GET    /api/v1/admin/users                        # 用户列表 (admin)
+GET    /api/v1/admin/users/:id                    # 用户详情 (admin)
+PATCH  /api/v1/admin/users/:id                    # 更新用户 (admin)
+GET    /api/v1/admin/materials                    # 资料管理列表 (maintainer+)
+PATCH  /api/v1/admin/materials/:id/trust          # 设置信任状态 (maintainer+)
+POST   /api/v1/admin/materials/:id/check-link     # 手动链接检查 (maintainer+)
+GET    /api/v1/admin/analytics                    # 分析概览 (maintainer+)
+GET    /api/v1/admin/analytics/trends             # 趋势分析 (maintainer+)
+GET    /api/v1/admin/analytics/upload-stats       # 上传统计 (maintainer+)
+GET    /api/v1/admin/analytics/search-stats       # 搜索统计 (maintainer+)
+GET    /api/v1/admin/dead-links                   # 失效链接列表 (maintainer+)
+GET    /api/v1/admin/duplicates                   # 重复资料检测 (maintainer+)
+GET    /api/v1/admin/storage/stats                # 存储统计 (maintainer+)
+GET    /api/v1/admin/security/logs                # 安全日志 (maintainer+)
+GET    /api/v1/admin/blocklist                    # 黑名单列表 (maintainer+)
+POST   /api/v1/admin/blocklist                    # 添加黑名单 (maintainer+)
+PATCH  /api/v1/admin/blocklist/:id                # 更新黑名单 (maintainer+)
+DELETE /api/v1/admin/blocklist/:id                # 删除黑名单 (maintainer+)
+GET    /api/v1/admin/announcements                # 公告列表 (maintainer+)
+POST   /api/v1/admin/announcements                # 创建公告 (maintainer+)
+PATCH  /api/v1/admin/announcements/:id            # 更新公告 (maintainer+)
+DELETE /api/v1/admin/announcements/:id            # 删除公告 (maintainer+)
+GET    /api/v1/admin/calendar                     # 校历列表 (maintainer+)
+POST   /api/v1/admin/calendar                     # 创建校历事件 (maintainer+)
+PATCH  /api/v1/admin/calendar/:id                 # 更新校历事件 (maintainer+)
+DELETE /api/v1/admin/calendar/:id                 # 删除校历事件 (maintainer+)
 ```
 
 ### 11.2 响应格式
@@ -1638,4 +1795,6 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 
 ---
 
-> **文档版本**: v1.0 | **作者**: 技术架构团队 | **最后更新**: 2026-06-14
+> **文档版本**: v1.1 | **作者**: 技术架构团队 | **最后更新**: 2026-06-17
+>
+> **v1.1 更新**: 同步实际代码现状 — §11.1 覆盖全部 96 个 API 端点（新增 /me/*, /wishes, /comments, /bookmarks, /collections, /corrections, /copyright, /homepage, /about, /feedback, /health, admin 扩展端点）；§3 更新为 22 个服务文件 + 18 个路由文件；§4.3 新增完整模型清单（22 文件 / 27 模型类）。
