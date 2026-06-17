@@ -52,19 +52,24 @@ async def search(
             'page_size': page_size,
         }
     except Exception:
-        return await _fallback_search(
-            q=q,
-            college_id=college_id,
-            course_id=course_id,
-            category=category,
-            semester=semester,
-            source_type=source_type,
-            format=format,
-            trust_status=trust_status,
-            sort=sort,
-            page=page,
-            page_size=page_size,
-        )
+        from app.core.config import settings
+
+        if settings.is_dev:
+            return await _fallback_search(
+                q=q,
+                college_id=college_id,
+                course_id=course_id,
+                category=category,
+                semester=semester,
+                source_type=source_type,
+                format=format,
+                trust_status=trust_status,
+                sort=sort,
+                page=page,
+                page_size=page_size,
+            )
+
+        raise
 
 
 async def suggest(q: str) -> dict:

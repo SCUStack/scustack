@@ -49,12 +49,18 @@ async def search_endpoint(
                         status_code=429,
                     )
 
-    result = await search(
-        q=q, college_id=college_id, course_id=course_id,
-        category=category, semester=semester, source_type=source_type,
-        format=format, trust_status=trust_status,
-        sort=sort, page=page, page_size=page_size,
-    )
+    try:
+        result = await search(
+            q=q, college_id=college_id, course_id=course_id,
+            category=category, semester=semester, source_type=source_type,
+            format=format, trust_status=trust_status,
+            sort=sort, page=page, page_size=page_size,
+        )
+    except Exception as e:
+        return JSONResponse(
+            {'code': 50300, 'data': None, 'message': f'Search service unavailable: {e}'},
+            status_code=503,
+        )
 
     # Log zero-result searches for analytics
     if q and result.get('total', 0) == 0:
