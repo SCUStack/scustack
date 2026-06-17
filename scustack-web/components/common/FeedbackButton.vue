@@ -1,7 +1,7 @@
 <template>
   <div>
     <button
-      class="fixed bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-primary-700 text-white shadow-lg hover:bg-primary-800 hover:shadow-xl cursor-pointer border-none flex items-center justify-center transition-all duration-200"
+      class="fixed bottom-16 lg:bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-primary-700 text-white shadow-lg hover:bg-primary-800 hover:shadow-xl cursor-pointer border-none flex items-center justify-center transition-all duration-200"
       aria-label="反馈"
       title="帮助我们变得更好"
       @click="showModal = true"

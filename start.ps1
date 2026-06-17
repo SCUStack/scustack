@@ -89,7 +89,7 @@ $ports = @{
     26379 = "Redis"
     9200  = "Elasticsearch"
     8088  = "OnlyOffice"
-    8000  = "FastAPI"
+    8403  = "FastAPI"
     3000  = "Nuxt"
 }
 $conflict = $false
@@ -205,12 +205,13 @@ if ((Test-Path $webModules) -or (Test-Path $rootModules)) {
 # ═══════════════════════════════════════════
 # 8. Start backend
 # ═══════════════════════════════════════════
-Log "清理端口 8000 上的残留进程..."
-$portOk = Clear-Port 8000
+Log "清理端口 8403 上的残留进程..."
+$portOk = Clear-Port 8403
 if (-not $portOk) {
-    Warn "端口 8000 无法释放（WSL relay 僵尸进程），将尝试端口 8001"
+    Err "端口 8403 无法释放，请手动检查占用进程"
+    exit 1
 }
-$API_PORT = if ($portOk) { 8000 } else { 8001 }
+$API_PORT = 8403
 
 Log "清理 Python 缓存..."
 Get-ChildItem -Path $apiDir -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -249,11 +250,6 @@ if ($backendOk) {
 Log "清理端口 3000 上的残留进程..."
 Clear-Port 3000 | Out-Null
 
-# Pass API port to frontend if we fell back to 8001
-if ($API_PORT -ne 8000) {
-    $env:NUXT_PUBLIC_API_BASE = "http://localhost:${API_PORT}"
-    Warn "前端将连接后端端口 ${API_PORT}"
-}
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════"

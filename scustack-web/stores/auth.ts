@@ -18,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserInfo | null>(null)
   const isLoggedIn = computed(() => user.value !== null)
   const isLoginModalOpen = ref(false)
+  const authChecked = ref(false)
   const unreadNotificationCount = ref(0)
 
   function openLogin() {
@@ -58,6 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (isUnauthorizedError(error)) {
         user.value = null
         unreadNotificationCount.value = 0
+        authChecked.value = true
         return
       }
       throw error
@@ -74,6 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       user.value = null
     }
+    authChecked.value = true
   }
 
   async function doRefresh() {
@@ -114,6 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     isLoggedIn,
+    authChecked,
     isLoginModalOpen,
     unreadNotificationCount,
     openLogin,

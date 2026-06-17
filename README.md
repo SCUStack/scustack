@@ -56,14 +56,14 @@ alembic upgrade head
 
 # 启动开发服务器
 # 终端 1: 后端
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8403
 
 # 终端 2: 前端
 cd ../scustack-web
 pnpm dev
 ```
 
-前端运行于 `http://localhost:3000`，后端 API 运行于 `http://localhost:8000`，Swagger 文档位于 `http://localhost:8000/docs`。
+前端运行于 `http://localhost:3000`，后端 API 运行于 `http://localhost:8403`，Swagger 文档位于 `http://localhost:8403/docs`。
 
 ### 导入种子数据
 

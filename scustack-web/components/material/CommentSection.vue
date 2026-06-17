@@ -1,5 +1,5 @@
 <template>
-  <div class="border-t border-slate-200 pt-8 mt-8">
+  <div class="border-t border-slate-200 pt-8 mt-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <h2 class="text-lg font-semibold text-slate-800 mb-4">评论 ({{ total }})</h2>
 
     <!-- Input -->

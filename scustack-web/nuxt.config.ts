@@ -5,6 +5,11 @@ export default defineNuxtConfig({
 
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
 
+  app: {
+    pageTransition: { name: 'page' },
+    layoutTransition: { name: 'layout' },
+  },
+
   // Disable directory prefix so components/auth/LoginModal.vue → <LoginModal>
   components: {
     dirs: [{ path: '~/components', pathPrefix: false }],
@@ -30,7 +35,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8403',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
       appEnv: process.env.NUXT_PUBLIC_APP_ENV || 'dev',
     },

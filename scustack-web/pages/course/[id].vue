@@ -1,6 +1,8 @@
 <template>
   <div>
-    <Breadcrumb :items="breadcrumbs" />
+    <!-- Desktop: keep existing layout -->
+    <div class="hidden lg:block">
+      <Breadcrumb :items="breadcrumbs" />
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div v-if="course" class="mb-6">
         <h1 class="text-2xl font-semibold text-slate-900 mb-1">{{ course.name }}</h1>
@@ -32,26 +34,28 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-3 mb-6">
-        <div class="relative flex-1 max-w-md">
+      <div class="flex flex-wrap items-center gap-2 mb-6">
+        <div class="relative flex-1 min-w-[200px] max-w-md">
           <AppIcon name="Search" :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input v-model="inCourseQuery" placeholder="在课程内搜索..." class="w-full h-10 pl-9 pr-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                  @keydown.enter="searchInCourse" />
         </div>
-        <select v-model="inCourseCategory" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm">
-          <option value="">全部分类</option>
-          <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-        </select>
-        <select v-model="inCourseSemester" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm">
-          <option value="">全部学期</option>
-          <option v-for="s in semesters" :key="s" :value="s">{{ s }}</option>
-        </select>
-        <select v-model="inCourseSort" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm">
-          <option value="relevance">相关度</option>
-          <option value="newest">最新</option>
-          <option value="downloads">最多下载</option>
-          <option value="rating">最高评分</option>
-        </select>
+        <div class="flex gap-2">
+          <select v-model="inCourseCategory" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
+            <option value="">全部分类</option>
+            <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <select v-model="inCourseSemester" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
+            <option value="">全部学期</option>
+            <option v-for="s in semesters" :key="s" :value="s">{{ s }}</option>
+          </select>
+          <select v-model="inCourseSort" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
+            <option value="relevance">相关度</option>
+            <option value="newest">最新</option>
+            <option value="downloads">最多下载</option>
+            <option value="rating">最高评分</option>
+          </select>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -93,6 +97,12 @@
       <EmptyState v-if="!loading && materials.length === 0" icon="FolderOpen" title="该课程暂无资料" description="成为第一位贡献者" action-label="上传资料" action-to="/upload" />
 
       <WishList v-if="course" :course-id="course.id" />
+    </div>
+    </div>
+
+    <!-- Mobile: course view -->
+    <div class="lg:hidden">
+      <MobileCourseView />
     </div>
   </div>
 </template>

@@ -20,7 +20,7 @@ def generate_upload_token(file_name: str, content_type: str, size: int) -> dict:
     if not _has_oss:
         ext = file_name.rsplit('.', 1)[-1] if '.' in file_name else ''
         key = f'materials/{uuid.uuid4().hex}.{ext}'
-        return {'storage_key': key, 'presigned_url': f'http://localhost:8000/oss/{key}', 'expires_in': 3600}
+        return {'storage_key': key, 'presigned_url': f'http://localhost:8403/oss/{key}', 'expires_in': 3600}
 
     bucket = _get_bucket()
     ext = file_name.rsplit('.', 1)[-1] if '.' in file_name else ''
@@ -39,7 +39,7 @@ def generate_upload_token(file_name: str, content_type: str, size: int) -> dict:
 
 def generate_download_url(storage_key: str, expires: int = 600) -> str:
     if not _has_oss:
-        return f'http://localhost:8000/oss/{storage_key}?expires={expires}'
+        return f'http://localhost:8403/oss/{storage_key}?expires={expires}'
     bucket = _get_bucket()
     return bucket.sign_url('GET', storage_key, expires, slash_safe=True)
 

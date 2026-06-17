@@ -1,5 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50">
+    <!-- Desktop: keep existing layout -->
+    <div class="hidden lg:block">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
@@ -44,9 +46,11 @@
             </span>
           </div>
 
-          <div v-if="showMobileFilters" class="lg:hidden mb-4 space-y-4 p-4 border border-slate-200 rounded-lg bg-white">
-            <FilterGroup v-for="g in filterGroups" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []" @update="(v: string[]) => setFilter(g.key, v)" />
-          </div>
+          <FilterSheet v-model="showMobileFilters" title="筛选" :show-clear="activeFilterCount > 0" @clear="clearAllFilters">
+            <div class="space-y-5">
+              <FilterGroup v-for="g in filterGroups" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []" @update="(v: string[]) => setFilter(g.key, v)" />
+            </div>
+          </FilterSheet>
 
           <div v-if="loading && results.length === 0" class="space-y-3"><SkeletonList :count="5" /></div>
           <div v-else-if="results.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -62,6 +66,12 @@
           <div v-if="loading && results.length > 0" class="py-8"><SkeletonList :count="2" /></div>
         </div>
       </div>
+    </div>
+    </div>
+
+    <!-- Mobile: search view -->
+    <div class="lg:hidden">
+      <MobileSearchView />
     </div>
   </div>
 </template>

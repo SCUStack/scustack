@@ -147,10 +147,10 @@ python -m alembic upgrade head
 
 ```bash
 # 在 scustack-api/ 目录下
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8403
 ```
 
-验证：浏览器打开 [http://localhost:8000/docs](http://localhost:8000/docs)，应看到 Swagger API 文档页。
+验证：浏览器打开 [http://localhost:8403/docs](http://localhost:8403/docs)，应看到 Swagger API 文档页。
 
 ---
 
@@ -184,7 +184,7 @@ pnpm dev:web
 
 ### 5.3 API 代理
 
-前端 Nuxt 开发服务器的 API 代理指向 `http://localhost:8000`（在 `nuxt.config.ts` 的 `public.apiBase` 中配置）。如果后端在别的地址，修改对应配置即可。
+前端 Nuxt 开发服务器的 API 代理指向 `http://localhost:8403`（在 `nuxt.config.ts` 的 `public.apiBase` 中配置）。如果后端在别的地址，修改对应配置即可。
 
 ---
 

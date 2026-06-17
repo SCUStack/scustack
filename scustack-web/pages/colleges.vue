@@ -1,7 +1,9 @@
 <template>
   <div>
-    <Breadcrumb :items="[{ label: '首页', to: '/' }, { label: '学院列表' }]" />
-    <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-8">
+    <!-- Desktop -->
+    <div class="hidden lg:block">
+      <Breadcrumb :items="[{ label: '首页', to: '/' }, { label: '学院列表' }]" />
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 class="text-2xl font-semibold text-slate-900 mb-6">学院列表</h1>
 
       <div v-if="pending" class="flex justify-center py-12">
@@ -23,6 +25,12 @@
           <h3 class="text-base font-medium text-slate-800">{{ c.name }}</h3>
         </NuxtLink>
       </div>
+    </div>
+    </div>
+
+    <!-- Mobile -->
+    <div class="lg:hidden">
+      <MobileCollegesView />
     </div>
   </div>
 </template>

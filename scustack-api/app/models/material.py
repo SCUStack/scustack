@@ -80,9 +80,12 @@ class Material(Base):
     rating_distribution: ClassVar[dict | None] = None
 
     @property
-    def thumbnail_url(self) -> str:
-        from app.core import oss
-        return oss.generate_thumbnail_url(str(self.id))
+    def thumbnail_url(self) -> str | None:
+        try:
+            from app.core import oss
+            return oss.generate_thumbnail_url(str(self.id))
+        except Exception:
+            return None
 
 
 class MaterialVersion(Base):

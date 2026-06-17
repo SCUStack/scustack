@@ -2,9 +2,10 @@
   <div class="min-h-screen bg-slate-50">
     <header class="border-b border-slate-200 bg-white">
       <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 h-14 flex items-center justify-between">
-        <NuxtLink to="/" class="flex items-center gap-2 text-primary-800 font-semibold text-lg no-underline">
+        <NuxtLink to="/" class="flex items-center gap-2 text-primary-800 font-semibold text-lg no-underline shrink-0">
           <AppIcon name="GraduationCap" :size="24" />
-          <span>川流课栈 · 管理后台</span>
+          <span class="hidden sm:inline">川流课栈 · 管理后台</span>
+          <span class="sm:hidden text-sm">管理后台</span>
         </NuxtLink>
         <div class="flex items-center gap-3">
           <span class="text-sm text-slate-500">{{ auth.user?.nickname }}</span>
@@ -15,7 +16,7 @@
 
     <div class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
       <div class="lg:flex lg:gap-6">
-        <nav class="lg:w-48 shrink-0 mb-4 lg:mb-0">
+        <nav class="lg:w-48 shrink-0 mb-4 lg:mb-0 sticky top-14 lg:top-0 z-30 bg-slate-50">
           <div class="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
             <NuxtLink
               v-for="item in navItems"

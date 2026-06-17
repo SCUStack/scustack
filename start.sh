@@ -66,7 +66,7 @@ check_port() {
 }
 
 CONFLICT=0
-for pair in "25432:PostgreSQL" "26379:Redis" "9200:Elasticsearch" "8088:OnlyOffice" "8000:FastAPI" "3000:Nuxt"; do
+for pair in "25432:PostgreSQL" "26379:Redis" "9200:Elasticsearch" "8088:OnlyOffice" "8403:FastAPI" "3000:Nuxt"; do
     port="${pair%%:*}"
     name="${pair##*:}"
     if ! check_port "$port" "$name"; then
@@ -155,14 +155,14 @@ python -m alembic upgrade head
 ok "数据库迁移完成"
 
 # ── 7. Start backend ────────────────────────────────────────────────────────
-log "启动后端 (uvicorn :8000)..."
-uvicorn app.main:app --reload --port 8000 &
+log "启动后端 (uvicorn :8403)..."
+uvicorn app.main:app --reload --port 8403 &
 BACKEND_PID=$!
 sleep 2
 
 if kill -0 "$BACKEND_PID" 2>/dev/null; then
-    ok "后端已启动 → http://localhost:8000"
-    ok "API 文档 → http://localhost:8000/docs"
+    ok "后端已启动 → http://localhost:8403"
+    ok "API 文档 → http://localhost:8403/docs"
 else
     err "后端启动失败，检查上方错误信息"
     exit 1
@@ -187,8 +187,8 @@ echo "════════════════════════�
 echo -e "  ${GREEN}全部启动完成！${NC}"
 echo ""
 echo "  前端:  http://localhost:3000"
-echo "  后端:  http://localhost:8000"
-echo "  API:   http://localhost:8000/docs"
+echo "  后端:  http://localhost:8403"
+echo "  API:   http://localhost:8403/docs"
 echo ""
 echo "  按 Ctrl+C 停止所有服务"
 echo "═══════════════════════════════════════════"

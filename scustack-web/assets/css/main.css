@@ -33,6 +33,7 @@
 
 html {
   font-family: var(--font-sans);
+  scroll-padding-top: 56px;
 }
 
 body {
@@ -41,6 +42,19 @@ body {
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── Global focus-visible ring ── */
+*:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+img, video, iframe {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Element Plus + Tailwind coexistence */
@@ -55,6 +69,56 @@ body {
 
 .el-input__inner {
   font-family: var(--font-sans);
+}
+
+/* ── Page / Layout transitions ── */
+.page-enter-active,
+.page-leave-active,
+.layout-enter-active,
+.layout-leave-active {
+  transition: opacity 0.2s ease;
+}
+.page-enter-from,
+.page-leave-to,
+.layout-enter-from,
+.layout-leave-to {
+  opacity: 0;
+}
+
+/* ── Staggered card entrance ── */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-card-enter {
+  animation: card-enter 0.35s ease-out both;
+}
+
+/* ── Fade in ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+/* ── Slide up ── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out both;
+}
+
+/* ── Shared utilities ── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.scroll-fade {
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

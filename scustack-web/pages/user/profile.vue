@@ -1,8 +1,12 @@
 <template>
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-xl font-semibold text-slate-900 mb-6">个人中心</h1>
+  <div>
+    <!-- Desktop -->
+    <div class="hidden lg:block">
+      <Breadcrumb :items="[{ label: '首页', to: '/' }, { label: '个人中心' }]" />
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h1 class="text-2xl font-semibold text-slate-900 mb-6">个人中心</h1>
 
-    <div v-if="auth.user" class="space-y-6">
+      <div v-if="auth.user" class="space-y-6">
       <!-- Profile card -->
       <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex items-start gap-4 mb-6">
@@ -77,6 +81,21 @@
       </div>
     </div>
 
+    <!-- Logged-out state -->
+    <div v-else class="text-center py-16 px-4">
+      <div class="w-20 h-20 rounded-full bg-primary-50 flex items-center justify-center mx-auto mb-6">
+        <AppIcon name="User" :size="40" class="text-primary-300" />
+      </div>
+      <h2 class="text-lg font-semibold text-slate-800 mb-2">登录以查看个人中心</h2>
+      <p class="text-sm text-slate-500 mb-6">登录后可查看贡献、收藏和浏览记录</p>
+      <button
+        class="inline-flex items-center gap-2 h-10 px-6 rounded-lg text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer transition-colors"
+        @click="auth.openLogin()"
+      >
+        <AppIcon name="LogIn" :size="16" /> 登录 / 注册
+      </button>
+    </div>
+
     <!-- Edit modal -->
     <div v-if="showEdit" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showEdit = false">
       <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
@@ -108,13 +127,61 @@
         </div>
       </div>
     </div>
+    </div>
+    </div>
+
+    <!-- Mobile -->
+    <div class="lg:hidden px-4 pt-4 pb-4">
+      <h1 class="text-lg font-semibold text-slate-900 mb-4">个人中心</h1>
+
+      <div v-if="auth.user" class="space-y-4">
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+              <AppIcon name="User" :size="24" class="text-primary-600" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <h2 class="text-base font-medium text-slate-900">{{ auth.user.nickname }}</h2>
+              <p class="text-xs text-slate-500 mt-0.5">{{ roleLabel }} · 信任分 {{ auth.user.trustScore }}</p>
+            </div>
+            <button class="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer" @click="showEdit = true">编辑</button>
+          </div>
+          <div class="grid grid-cols-1 gap-2">
+            <NuxtLink to="/user/contributions" class="flex items-center gap-3 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 no-underline transition-colors duration-150 active:scale-[0.98]">
+              <AppIcon name="Upload" :size="18" class="text-primary-500" />
+              <span class="text-sm font-medium text-slate-700">我的贡献</span>
+            </NuxtLink>
+            <NuxtLink to="/user/bookmarks" class="flex items-center gap-3 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 no-underline transition-colors duration-150 active:scale-[0.98]">
+              <AppIcon name="Bookmark" :size="18" class="text-primary-500" />
+              <span class="text-sm font-medium text-slate-700">收藏与关注</span>
+            </NuxtLink>
+            <NuxtLink to="/user/privacy" class="flex items-center gap-3 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 no-underline transition-colors duration-150 active:scale-[0.98]">
+              <AppIcon name="Shield" :size="18" class="text-primary-500" />
+              <span class="text-sm font-medium text-slate-700">隐私设置</span>
+            </NuxtLink>
+          </div>
+        </div>
+        <BadgeWall />
+      </div>
+
+      <div v-else class="text-center py-16 px-4">
+        <div class="w-20 h-20 rounded-full bg-primary-50 flex items-center justify-center mx-auto mb-6">
+          <AppIcon name="User" :size="40" class="text-primary-300" />
+        </div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-2">登录以查看个人中心</h2>
+        <p class="text-sm text-slate-500 mb-6">登录后可查看贡献、收藏和浏览记录</p>
+        <button class="inline-flex items-center gap-2 h-10 px-6 rounded-lg text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer transition-colors" @click="auth.openLogin()">
+          <AppIcon name="LogIn" :size="16" /> 登录 / 注册
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 const auth = useAuthStore()
 
-definePageMeta({ middleware: ['auth'] })
+// No auth middleware — this page handles both logged-in and logged-out states
 
 const showEdit = ref(false)
 const saving = ref(false)
@@ -140,8 +207,12 @@ const roleLabel = computed(() => {
   return labels[auth.user?.role || ''] || auth.user?.role || ''
 })
 
+watch(() => auth.authChecked, (checked) => {
+  if (checked && !auth.isLoggedIn) auth.openLogin()
+})
+
 onMounted(() => {
-  editForm.value.nickname = auth.user?.nickname || ''
+  if (auth.isLoggedIn) editForm.value.nickname = auth.user?.nickname || ''
   try {
     const raw = localStorage.getItem('scustack_recent')
     if (raw) recentItems.value = JSON.parse(raw)

@@ -1,5 +1,8 @@
 <template>
   <div>
+    <!-- Desktop: keep existing layout -->
+    <div class="hidden lg:block">
+      <div>
     <!-- Banner carousel -->
     <section class="relative w-full overflow-hidden bg-slate-900" style="height: 20vh; min-height: 180px; max-height: 300px;">
       <div
@@ -36,10 +39,10 @@
             查看更多 →
           </NuxtLink>
         </div>
-        <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 auto-rows-fr" style="grid-template-rows: repeat(2, auto);">
+        <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
           <NuxtLink
             v-for="c in hotCourses.slice(0, 16)" :key="c.id" :to="`/course/${c.id}`"
-            class="px-2.5 py-2 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 transition-all duration-200 no-underline cursor-pointer bg-white text-center"
+            class="px-2.5 py-2 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-200 no-underline cursor-pointer bg-white text-center"
           >
             <p class="text-xs font-medium text-slate-700 line-clamp-1">{{ c.name }}</p>
           </NuxtLink>
@@ -58,11 +61,11 @@
           查看更多 →
         </NuxtLink>
       </div>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div
           v-for="(item, idx) in calendarItems.slice(0, 8)" :key="item.id"
           :class="[
-            idx === 0 ? 'lg:col-span-3 lg:row-span-2 col-span-2' : '',
+            idx === 0 ? 'sm:col-span-2 lg:col-span-3 lg:row-span-2 col-span-1' : '',
             idx === 1 || idx === 2 ? 'col-span-1' : '',
             idx === 3 ? 'col-span-1' : '',
             idx === 4 ? 'lg:col-span-2 col-span-1' : '',
@@ -120,6 +123,13 @@
     </section>
       </div>
     </ClientOnly>
+      </div>
+    </div>
+
+    <!-- Mobile: waterfall feed -->
+    <div class="lg:hidden">
+      <MobileHomeView />
+    </div>
   </div>
 </template>
 
@@ -153,12 +163,13 @@ const banners = [
 ]
 const activeBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
+const prefersReducedMotion = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
 
 function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.length }
 function prevBanner() { activeBanner.value = (activeBanner.value - 1 + banners.length) % banners.length }
 
 onMounted(async () => {
-  bannerTimer = setInterval(nextBanner, 5000)
+  if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
 
   try {
     const [homeResp, collegeResp] = await Promise.all([

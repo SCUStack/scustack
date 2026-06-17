@@ -57,51 +57,51 @@
       <!-- Right: sidebar -->
       <div class="lg:w-72 shrink-0 mt-6 lg:mt-0">
         <div class="lg:sticky lg:top-20 space-y-4">
-          <div class="border border-slate-200 rounded-lg p-4 space-y-2">
+          <div class="border border-slate-200 rounded-lg p-4 grid grid-cols-2 gap-2">
             <a v-if="material.source_type === 'hosted'" :href="downloadUrl"
-              class="flex items-center justify-center gap-2 w-full h-10 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline cursor-pointer transition-colors duration-150">
+              class="col-span-2 flex items-center justify-center gap-1.5 h-10 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline cursor-pointer transition-colors duration-150">
               <AppIcon name="Download" :size="16" /> 下载
               <span v-if="material.file_size" class="text-xs opacity-80">({{ formatSize(material.file_size) }})</span>
             </a>
             <button v-else-if="material.external_url" @click="$emit('openExternalLink', material.external_url)"
-              class="flex items-center justify-center gap-2 w-full h-10 rounded-md text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 no-underline cursor-pointer transition-colors duration-150">
+              class="col-span-2 flex items-center justify-center gap-1.5 h-10 rounded-md text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 no-underline cursor-pointer transition-colors duration-150">
               <AppIcon name="ExternalLink" :size="16" /> 打开链接
             </button>
 
             <button v-if="canUploadNewVersion" @click="$emit('showVersionUpload')"
-              class="flex items-center justify-center gap-2 w-full h-9 rounded-md text-sm font-medium bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
+              class="col-span-2 flex items-center justify-center gap-1.5 h-9 rounded-md text-sm font-medium bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
               <AppIcon name="Upload" :size="14" /> 上传新版本
             </button>
 
-            <div class="pt-1">
+            <div class="col-span-2 pt-1">
               <RatingWidget :material-id="material.id" :initial-rating="material.average_rating" :rating-count="material.rating_count" :distribution="material.rating_distribution" />
             </div>
 
             <button @click="$emit('toggleBookmark')"
               :class="[
-                'flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs cursor-pointer transition-colors duration-150',
+                'flex items-center justify-center gap-1.5 h-9 rounded-md text-xs cursor-pointer transition-colors duration-150',
                 isBookmarked ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
               ]">
               <AppIcon :name="isBookmarked ? 'BookmarkCheck' : 'Bookmark'" :size="14" /> {{ isBookmarked ? '已收藏' : '收藏' }}
             </button>
 
             <button @click="$emit('toggleCollection')"
-              class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
+              class="flex items-center justify-center gap-1.5 h-9 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
               <AppIcon name="FolderPlus" :size="14" /> 收藏到合辑
             </button>
 
             <button @click="copyShareLink"
-              class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors duration-150">
+              class="flex items-center justify-center gap-1.5 h-9 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors duration-150">
               <AppIcon name="Share2" :size="14" /> 分享
             </button>
 
             <button @click="$emit('openCorrection')"
-              class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
+              class="flex items-center justify-center gap-1.5 h-9 rounded-md text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 cursor-pointer transition-colors duration-150">
               <AppIcon name="Edit3" :size="14" /> 建议修正
             </button>
 
             <button @click="$emit('openReport')"
-              class="flex items-center justify-center gap-2 w-full h-8 rounded-md text-xs text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors duration-150">
+              class="col-span-2 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors duration-150">
               <AppIcon name="AlertTriangle" :size="14" /> 举报
             </button>
           </div>

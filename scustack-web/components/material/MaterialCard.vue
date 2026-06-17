@@ -1,7 +1,7 @@
 <template>
   <NuxtLink
     :to="`/material/${item.id}`"
-    class="group relative block h-[168px] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 no-underline shadow-sm transition-all duration-300 hover:border-primary-200 hover:shadow-lg"
+    class="group relative block h-[168px] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 no-underline shadow-sm transition-all duration-300 hover:border-primary-200 hover:shadow-lg hover:-translate-y-0.5"
   >
     <img
       v-if="coverSrc"

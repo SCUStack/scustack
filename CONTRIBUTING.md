@@ -35,17 +35,17 @@ python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8403
 ```
 
-Swagger UI is available at <http://localhost:8000/docs>.
+Swagger UI is available at <http://localhost:8403/docs>.
 
 ### 4. Frontend setup
 
 ```bash
 cd scustack-web
 pnpm install
-cp .env.example .env       # set API_BASE=http://localhost:8000
+cp .env.example .env       # set API_BASE=http://localhost:8403
 pnpm dev                   # starts at http://localhost:3000
 ```
 
