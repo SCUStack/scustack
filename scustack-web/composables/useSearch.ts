@@ -29,7 +29,7 @@ export function useSearch() {
   const queryText = ref('')
   const currentSort = ref('relevance')
   const page = ref(1)
-  const pageSize = 20
+  const pageSize = 21
   const results = ref<MaterialItem[]>([])
   const total = ref(0)
   const searched = ref(false)
