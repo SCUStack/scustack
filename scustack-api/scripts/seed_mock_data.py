@@ -717,7 +717,7 @@ async def seed():
             coll_names = ['期末复习必备', '考研资料合集', '高分笔记精选', '历年真题汇总', '专业课宝典']
             for cname in random.sample(coll_names, min(2, len(coll_names))):
                 coll = Collection(
-                    user_id=user.id, name=cname,
+                    user_id=user.id, title=cname,
                     description=f'{user.nickname} 整理的{cname}',
                     is_public=random.random() > 0.3,
                 )
