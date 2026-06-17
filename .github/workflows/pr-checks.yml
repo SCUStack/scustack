@@ -1,0 +1,153 @@
+name: PR Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-lint:
+    name: Backend Lint (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install ruff
+      - run: ruff check scustack-api/
+
+  backend-typecheck:
+    name: Backend Typecheck (Pyright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e "scustack-api/[dev]"
+      - run: cd scustack-api && pyright
+
+  backend-test:
+    name: Backend Tests (pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: scustack
+          POSTGRES_PASSWORD: scustack
+          POSTGRES_DB: scustack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      SCUSTACK_DB_HOST: localhost
+      SCUSTACK_DB_PORT: 5432
+      SCUSTACK_DB_USER: scustack
+      SCUSTACK_DB_PASSWORD: scustack
+      SCUSTACK_DB_NAME: scustack
+      SCUSTACK_REDIS_URL: redis://localhost:6379/0
+      SCUSTACK_ES_HOST: http://localhost:9200
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e "scustack-api/[dev]"
+      - run: cd scustack-api && alembic upgrade head
+      - run: cd scustack-api && pytest --cov --cov-report=xml --ignore=tests/test_search.py -q
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: scustack-api/coverage.xml
+
+  frontend-lint:
+    name: Frontend Lint (ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scustack-web/package-lock.json
+      - run: cd scustack-web && npm ci
+      - run: cd scustack-web && npx eslint . --ext .vue,.ts
+
+  frontend-typecheck:
+    name: Frontend Typecheck (vue-tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scustack-web/package-lock.json
+      - run: cd scustack-web && npm ci
+      - run: cd scustack-web && npx vue-tsc --noEmit
+
+  frontend-test:
+    name: Frontend Tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scustack-web/package-lock.json
+      - run: cd scustack-web && npm ci
+      - run: cd scustack-web && npx vitest run --coverage
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    if: github.event_name == 'pull_request'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: scustack
+          POSTGRES_PASSWORD: scustack
+          POSTGRES_DB: scustack
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scustack-web/package-lock.json
+      - run: cd scustack-web && npm ci
+      - run: cd scustack-web && npx playwright install chromium --with-deps
+      - run: cd scustack-web && npx playwright test
