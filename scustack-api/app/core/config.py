@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     APP_NAME: str = 'scustack-api'
     APP_ENV: Literal['dev', 'staging', 'prod'] = 'dev'
     DEBUG: bool = True
+    SENTRY_DSN: str = ''
 
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
         'JWT_SECRET_KEY', 'ENCRYPTION_KEY', 'DB_PASSWORD',

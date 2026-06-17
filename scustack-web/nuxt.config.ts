@@ -31,6 +31,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000',
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
+      appEnv: process.env.NUXT_PUBLIC_APP_ENV || 'dev',
     },
   },
 

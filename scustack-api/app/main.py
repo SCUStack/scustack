@@ -34,6 +34,8 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.core.sentry import init_sentry
+    init_sentry()
     yield
 
 
@@ -98,6 +100,9 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    from app.core.sentry import capture_exception
+    capture_exception(exc)
+
     if settings.DEBUG:
         import traceback
         traceback.print_exc()
