@@ -453,6 +453,7 @@ async def admin_materials(
             'category': m.category, 'semester': m.semester, 'format': m.format,
             'source_type': m.source_type, 'review_status': m.review_status,
             'trust_status': m.trust_status, 'download_count': m.download_count or 0,
+            'virus_scan_status': m.virus_scan_status,
             'created_at': m.created_at.isoformat(),
         })
     return {'code': 0, 'data': {'items': items, 'total': total}, 'message': 'ok'}

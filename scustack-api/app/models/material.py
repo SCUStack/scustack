@@ -56,6 +56,9 @@ class Material(Base):
     link_failure_count: Mapped[int] = mapped_column(
         Integer, nullable=False, insert_default=0, server_default='0'
     )
+    virus_scan_status: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
     parts: Mapped[list | None] = mapped_column(
         JSONB, nullable=True
     )
