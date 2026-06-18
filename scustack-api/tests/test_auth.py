@@ -60,6 +60,7 @@ class TestSmsVerify:
             assert body['data'] is None
             assert 'access_token' in resp.cookies
             assert 'refresh_token' in resp.cookies
+            assert 'csrf_token' in resp.cookies
 
     async def test_verify_wrong_code(self, client):
         from app.services.auth_service import SmsVerifyError
@@ -83,7 +84,8 @@ class TestRefresh:
         new_tokens = {'access_token': 'at2', 'refresh_token': 'rt2', 'token_type': 'bearer'}
         with _mock_rate_limiter(), patch('app.api.v1.auth.refresh_tokens', new_callable=AsyncMock, return_value=new_tokens):
             client.cookies.set('refresh_token', 'rt-old')
-            resp = await client.post('/api/v1/auth/refresh')
+            client.cookies.set('csrf_token', 'csrf-test')
+            resp = await client.post('/api/v1/auth/refresh', headers={'X-CSRF-Token': 'csrf-test'})
             assert resp.status_code == 200
             assert resp.json()['data'] is None
 
@@ -100,7 +102,8 @@ class TestRefresh:
 
         with _mock_rate_limiter(), patch('app.api.v1.auth.refresh_tokens', side_effect=_raise):
             client.cookies.set('refresh_token', 'rt-reused')
-            resp = await client.post('/api/v1/auth/refresh')
+            client.cookies.set('csrf_token', 'csrf-test')
+            resp = await client.post('/api/v1/auth/refresh', headers={'X-CSRF-Token': 'csrf-test'})
             assert resp.status_code == 401
             assert 'token reuse' in resp.json()['message']
 
@@ -109,12 +112,21 @@ class TestLogout:
     async def test_logout_clears_cookies(self, client):
         with patch('app.api.v1.auth.revoke_refresh_token', new_callable=AsyncMock):
             client.cookies.set('refresh_token', 'rt-to-revoke')
-            resp = await client.post('/api/v1/auth/logout')
+            client.cookies.set('csrf_token', 'csrf-test')
+            resp = await client.post('/api/v1/auth/logout', headers={'X-CSRF-Token': 'csrf-test'})
             assert resp.json()['code'] == 0
 
     async def test_logout_no_cookie(self, client):
         resp = await client.post('/api/v1/auth/logout')
         assert resp.json()['code'] == 0
+
+
+class TestCsrfToken:
+    async def test_csrf_endpoint_sets_cookie(self, client):
+        resp = await client.get('/api/v1/auth/csrf')
+        assert resp.status_code == 200
+        assert resp.json()['code'] == 0
+        assert 'csrf_token' in resp.cookies
 
 
 class TestJwtTokens:

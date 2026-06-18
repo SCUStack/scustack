@@ -34,6 +34,7 @@ router = APIRouter(prefix='/auth', tags=['auth'])
 
 ACCESS_COOKIE = 'access_token'
 REFRESH_COOKIE = 'refresh_token'
+CSRF_COOKIE = 'csrf_token'
 SECURE = not settings.is_dev
 
 
@@ -66,6 +67,22 @@ def _set_token_cookies(response: Response, access_token: str, refresh_token: str
 def _clear_token_cookies(response: Response) -> None:
     response.delete_cookie(ACCESS_COOKIE, path='/')
     response.delete_cookie(REFRESH_COOKIE, path='/api/v1/auth')
+    response.delete_cookie(CSRF_COOKIE, path='/')
+
+
+def _set_csrf_cookie(response: Response) -> str:
+    import secrets
+
+    token = secrets.token_urlsafe(32)
+    response.set_cookie(
+        CSRF_COOKIE,
+        token,
+        httponly=False,
+        secure=SECURE,
+        samesite='lax',
+        path='/',
+    )
+    return token
 
 
 @router.post('/sms/send')
@@ -100,6 +117,7 @@ async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession 
         'message': 'ok',
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    _set_csrf_cookie(response)
     return response
 
 
@@ -123,6 +141,7 @@ async def password_register(
     await db.commit()
     resp = JSONResponse({'code': 0, 'data': None, 'message': 'ok'})
     _set_token_cookies(resp, tokens['access_token'], tokens['refresh_token'])
+    _set_csrf_cookie(resp)
     return resp
 
 
@@ -145,6 +164,7 @@ async def password_login(
     await db.commit()
     resp = JSONResponse({'code': 0, 'data': None, 'message': 'ok'})
     _set_token_cookies(resp, tokens['access_token'], tokens['refresh_token'])
+    _set_csrf_cookie(resp)
     return resp
 
 
@@ -175,6 +195,14 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
         'message': 'ok',
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    _set_csrf_cookie(response)
+    return response
+
+
+@router.get('/csrf')
+async def csrf_token():
+    response = JSONResponse({'code': 0, 'data': None, 'message': 'ok'})
+    _set_csrf_cookie(response)
     return response
 
 
@@ -318,6 +346,7 @@ async def wechat_callback(
         'message': 'ok',
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    _set_csrf_cookie(response)
     return response
 
 
