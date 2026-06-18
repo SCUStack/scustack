@@ -1376,15 +1376,20 @@ POST   /api/v1/auth/refresh                       # 刷新 Token
 POST   /api/v1/auth/logout                        # 登出
 
 # ── 个人中心 (/me) ───────────────────────────────────────
-GET    /api/v1/me/profile                         # 个人资料
-PATCH  /api/v1/me/profile                         # 更新个人资料
+GET    /api/v1/me                                 # 个人资料
+PATCH  /api/v1/me                                 # 更新个人资料
 GET    /api/v1/me/contributions                   # 我的贡献
 GET    /api/v1/me/notifications                   # 我的通知
 GET    /api/v1/me/privacy                         # 隐私设置
 PATCH  /api/v1/me/privacy                         # 更新隐私设置
 GET    /api/v1/me/badges                          # 我的徽章
-GET    /api/v1/me/recovery-codes                  # 恢复码
+POST   /api/v1/me/recovery-codes                  # 生成恢复码
+POST   /api/v1/me/recovery-codes/verify           # 验证恢复码
+PATCH  /api/v1/me/email                           # 绑定邮箱
+POST   /api/v1/me/deactivate                      # 注销账号
 POST   /api/v1/me/delete-account                  # 申请注销账号
+POST   /api/v1/me/cancel-deletion                 # 取消注销
+GET    /api/v1/me/deletion-status                 # 注销状态
 
 # ── 管理后台 ─────────────────────────────────────────────
 GET    /api/v1/admin/review-queue                 # 审核队列 (maintainer+)
@@ -1744,53 +1749,50 @@ dev = [
 
 ```bash
 # 应用
-APP_ENV=production
-APP_SECRET_KEY=<random-64-char>
-APP_DEBUG=false
+SCUSTACK_APP_ENV=prod
+SCUSTACK_DEBUG=false
 
 # 数据库
-DATABASE_URL=postgresql+asyncpg://user:pass@rds.internal:5432/scustack
-DATABASE_POOL_SIZE=20
-DATABASE_POOL_OVERFLOW=10
+SCUSTACK_DB_HOST=<rds-host>
+SCUSTACK_DB_PORT=5432
+SCUSTACK_DB_USER=<db-user>
+SCUSTACK_DB_PASSWORD=<db-password>
+SCUSTACK_DB_NAME=scustack
+SCUSTACK_DB_POOL_SIZE=20
 
 # Redis
-REDIS_URL=redis://redis.internal:6379/0
+SCUSTACK_REDIS_URL=redis://redis.internal:6379/0
 
 # Elasticsearch
-ES_HOST=http://es.internal:9200
+SCUSTACK_ES_HOST=http://es.internal:9200
 
 # 阿里云
-OSS_ENDPOINT=https://oss-cn-chengdu.aliyuncs.com
-OSS_BUCKET=scustack-files
-OSS_ACCESS_KEY_ID=<key>
-OSS_ACCESS_KEY_SECRET=<secret>
-OSS_CDN_DOMAIN=https://files.scustack.cn
+SCUSTACK_OSS_ENDPOINT=https://oss-cn-chengdu.aliyuncs.com
+SCUSTACK_OSS_BUCKET=scustack-files
+SCUSTACK_OSS_ACCESS_KEY_ID=<key>
+SCUSTACK_OSS_ACCESS_KEY_SECRET=<secret>
 
 # 短信服务 (阿里云 SMS)
-SMS_ACCESS_KEY_ID=<key>
-SMS_ACCESS_KEY_SECRET=<secret>
-SMS_SIGN_NAME=川流课栈
-SMS_TEMPLATE_CODE=SMS_123456789
+SCUSTACK_SMS_ACCESS_KEY_ID=<key>
+SCUSTACK_SMS_ACCESS_KEY_SECRET=<secret>
+SCUSTACK_SMS_SIGN_NAME=川流课栈
+SCUSTACK_SMS_TEMPLATE_CODE=SMS_123456789
 
 # 微信开放平台
-WECHAT_APP_ID=<app-id>
-WECHAT_APP_SECRET=<secret>
-
-# OnlyOffice
-ONLYOFFICE_URL=http://onlyoffice.internal
+SCUSTACK_WECHAT_APP_ID=<app-id>
+SCUSTACK_WECHAT_APP_SECRET=<secret>
 
 # JWT
-JWT_SECRET_KEY=<random-64-char>
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=7
+SCUSTACK_JWT_SECRET_KEY=<random-64-char>
+SCUSTACK_JWT_ALGORITHM=HS256
+SCUSTACK_ACCESS_TOKEN_EXPIRE_MINUTES=15
+SCUSTACK_REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Celery
-CELERY_BROKER_URL=redis://redis.internal:6379/1
-CELERY_RESULT_BACKEND=redis://redis.internal:6379/2
+# 加密
+SCUSTACK_ENCRYPTION_KEY=<random-64-char>
 
 # Sentry
-SENTRY_DSN=https://xxx@sentry.io/xxx
+SCUSTACK_SENTRY_DSN=https://xxx@sentry.io/xxx
 ```
 
 ---

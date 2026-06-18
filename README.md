@@ -70,7 +70,7 @@ pnpm dev
 ```bash
 cd scustack-api
 python scripts/seed_colleges.py    # 导入学院数据
-python scripts/seed_courses.py     # 导入课程数据
+python -m scripts.seed_mock_data   # 导入课程与示例数据（staging / 本地）
 ```
 
 ## 项目结构
