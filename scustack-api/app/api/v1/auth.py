@@ -12,7 +12,6 @@ from app.models.user import User
 from app.schemas.auth import (
     PasswordLoginRequest, PasswordRegisterRequest, SmsSendRequest, SmsVerifyRequest,
 )
-from app.schemas.user import TokenResponse
 from app.services.auth_service import (
     AuthError,
     PasswordError,
@@ -97,7 +96,7 @@ async def sms_verify(body: SmsVerifyRequest, request: Request, db: AsyncSession 
     await db.commit()
     response = JSONResponse({
         'code': 0,
-        'data': TokenResponse(**tokens).model_dump(),
+        'data': None,
         'message': 'ok',
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
@@ -122,7 +121,7 @@ async def password_register(
         await db.rollback()
         return JSONResponse({'code': 40000, 'data': None, 'message': str(e)}, status_code=400)
     await db.commit()
-    resp = JSONResponse({'code': 0, 'data': TokenResponse(**tokens).model_dump(), 'message': 'ok'})
+    resp = JSONResponse({'code': 0, 'data': None, 'message': 'ok'})
     _set_token_cookies(resp, tokens['access_token'], tokens['refresh_token'])
     return resp
 
@@ -144,7 +143,7 @@ async def password_login(
     except PasswordError as e:
         return JSONResponse({'code': 40100, 'data': None, 'message': str(e)}, status_code=401)
     await db.commit()
-    resp = JSONResponse({'code': 0, 'data': TokenResponse(**tokens).model_dump(), 'message': 'ok'})
+    resp = JSONResponse({'code': 0, 'data': None, 'message': 'ok'})
     _set_token_cookies(resp, tokens['access_token'], tokens['refresh_token'])
     return resp
 
@@ -172,7 +171,7 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     await db.commit()
     response = JSONResponse({
         'code': 0,
-        'data': TokenResponse(**tokens).model_dump(),
+        'data': None,
         'message': 'ok',
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])
@@ -315,7 +314,7 @@ async def wechat_callback(
     await db.commit()
     response = JSONResponse({
         'code': 0,
-        'data': TokenResponse(**tokens).model_dump(),
+        'data': None,
         'message': 'ok',
     })
     _set_token_cookies(response, tokens['access_token'], tokens['refresh_token'])

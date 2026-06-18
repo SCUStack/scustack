@@ -14,7 +14,7 @@ export function useAuth() {
   }
 
   async function verifyCode(phone: string, code: string) {
-    return $fetch<{ code: number; data: { access_token: string; refresh_token: string; token_type: string } | null; message: string }>(
+    return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/sms/verify`,
       {
         method: 'POST',
@@ -26,7 +26,7 @@ export function useAuth() {
   }
 
   async function refresh() {
-    return $fetch<{ code: number; data: { access_token: string; refresh_token: string; token_type: string } | null; message: string }>(
+    return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/refresh`,
       {
         method: 'POST',
@@ -156,7 +156,7 @@ export function useAuth() {
   }
 
   async function loginWithPassword(phone: string, password: string) {
-    return $fetch<{ code: number; data: { access_token: string; refresh_token: string; token_type: string } | null; message: string }>(
+    return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/login`,
       {
         method: 'POST',
@@ -168,7 +168,7 @@ export function useAuth() {
   }
 
   async function registerWithPassword(phone: string, password: string, confirmPassword: string) {
-    return $fetch<{ code: number; data: { access_token: string; refresh_token: string; token_type: string } | null; message: string }>(
+    return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/register`,
       {
         method: 'POST',

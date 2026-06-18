@@ -57,7 +57,7 @@ class TestSmsVerify:
             assert resp.status_code == 200
             body = resp.json()
             assert body['code'] == 0
-            assert body['data']['access_token'] == 'at'
+            assert body['data'] is None
             assert 'access_token' in resp.cookies
             assert 'refresh_token' in resp.cookies
 
@@ -85,7 +85,7 @@ class TestRefresh:
             client.cookies.set('refresh_token', 'rt-old')
             resp = await client.post('/api/v1/auth/refresh')
             assert resp.status_code == 200
-            assert resp.json()['data']['access_token'] == 'at2'
+            assert resp.json()['data'] is None
 
     async def test_refresh_no_cookie(self, client):
         with _mock_rate_limiter():
@@ -201,4 +201,3 @@ class TestPermissions:
         from app.core.permissions import Permission, ROLE_PERMISSIONS
         for perm in Permission:
             assert perm in ROLE_PERMISSIONS['admin']
-
