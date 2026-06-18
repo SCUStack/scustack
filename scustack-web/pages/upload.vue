@@ -175,6 +175,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+
 definePageMeta({ middleware: ['auth'], ssr: false })
 
 const categories = ['课堂笔记', '考试资料', '复习提纲', '教材', '习题集', '实验报告', '历年真题', '课件讲义']
