@@ -19,29 +19,29 @@ COLLEGE_ID = '00000000-0000-0000-0000-000000000001'
 
 class TestCourseListAPI:
     async def test_list_empty(self, client):
-        with patch('app.api.v1.courses.db', autospec=True):
-            with patch('app.api.v1.courses.course_service.list_courses', new_callable=AsyncMock, return_value=[]):
-                resp = await client.get('/api/v1/courses')
-                assert resp.json()['code'] == 0
-                assert resp.json()['data'] == []
+        with patch('app.api.v1.courses.course_service.list_courses', new_callable=AsyncMock, return_value=[]):
+            resp = await client.get(f'/api/v1/courses?college_id={COLLEGE_ID}')
+            assert resp.json()['code'] == 0
+            assert resp.json()['data'] == []
 
     async def test_list_with_college_filter(self, client):
         m = MagicMock()
         m.id = COURSE_ID; m.name = '数据结构'; m.slug = 'ds'
         m.college_id = COLLEGE_ID; m.aliases = []; m.description = ''
         m.credit = 3; m.category = 'core'; m.is_active = True
-        with patch('app.api.v1.courses.db', autospec=True):
-            with patch('app.api.v1.courses.course_service.list_courses', new_callable=AsyncMock, return_value=[m]):
-                resp = await client.get(f'/api/v1/courses?college_id={COLLEGE_ID}')
-                data = resp.json()['data']
-                assert len(data) == 1
-                assert data[0]['name'] == '数据结构'
+        m.created_at = __import__('datetime').datetime.now()
+        m.updated_at = __import__('datetime').datetime.now()
+        m.college = None
+        with patch('app.api.v1.courses.course_service.list_courses', new_callable=AsyncMock, return_value=[m]):
+            resp = await client.get(f'/api/v1/courses?college_id={COLLEGE_ID}')
+            data = resp.json()['data']
+            assert len(data) == 1
+            assert data[0]['name'] == '数据结构'
 
     async def test_get_course_not_found(self, client):
-        with patch('app.api.v1.courses.db', autospec=True):
-            with patch('app.api.v1.courses.course_service.get_course', new_callable=AsyncMock, return_value=None):
-                resp = await client.get(f'/api/v1/courses/{COURSE_ID}')
-                assert resp.json()['code'] == 40400
+        with patch('app.api.v1.courses.course_service.get_course', new_callable=AsyncMock, return_value=None):
+            resp = await client.get(f'/api/v1/courses/{COURSE_ID}')
+            assert resp.json()['code'] == 40400
 
 
 class TestCourseService:
@@ -62,7 +62,7 @@ class TestCourseService:
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
-        result = await list_courses(mock_db, college_id=COLLEGE_ID, is_active=True)
+        result = await list_courses(mock_db, college_id=COLLEGE_ID)
         assert result == []
 
     @pytest.mark.asyncio
@@ -71,7 +71,7 @@ class TestCourseService:
         mock_db = MagicMock()
         mock_db.add = MagicMock()
         mock_db.flush = AsyncMock()
-        c = await create_course(mock_db, COLLEGE_ID, '数据结构', 'ds')
+        c = await create_course(mock_db, college_id=COLLEGE_ID, name='数据结构', slug='ds')
         assert c.name == '数据结构'
         assert c.slug == 'ds'
         mock_db.add.assert_called_once()
@@ -79,27 +79,23 @@ class TestCourseService:
     @pytest.mark.asyncio
     async def test_find_by_alias(self):
         from app.services.course_service import find_by_alias
-        from app.models.course import Course
         mock_db = MagicMock()
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
         result = await find_by_alias(mock_db, 'DS')
-        assert result is None
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_merge_courses(self):
         from app.services.course_service import merge_courses
-        from app.models.course import Course
         mock_db = MagicMock()
-        target = MagicMock(spec=Course)
+        mock_db.flush = AsyncMock()
+        target = MagicMock()
         target.aliases = []
-        source = MagicMock(spec=Course)
+        source = MagicMock()
         source.aliases = ['DS']
         source.name = '旧数据结构'
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.side_effect = [target, source]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        result = await merge_courses(mock_db, 'tid', 'sid')
-        assert result == target
+        with patch('app.services.course_service.get_course', new_callable=AsyncMock, side_effect=[source, target]):
+            result = await merge_courses(mock_db, 'tid', 'sid')
+        assert result is True

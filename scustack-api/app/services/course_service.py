@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import String, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -49,7 +49,7 @@ async def find_by_alias(db: AsyncSession, query: str) -> list[Course]:
             Course.is_active == True,
             or_(
                 Course.name.ilike(f'%{query}%'),
-                Course.aliases.cast(str).ilike(f'%{query}%'),
+                Course.aliases.cast(String).ilike(f'%{query}%'),
             ),
         )
         .limit(20)

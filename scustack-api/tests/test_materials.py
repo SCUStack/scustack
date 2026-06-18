@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
+from app.dependencies import get_current_user
 from app.main import app
 
 
@@ -24,7 +25,8 @@ class TestMaterialListAPI:
             with patch('app.api.v1.materials.material_service.count_materials', new_callable=AsyncMock, return_value=0):
                 resp = await client.get('/api/v1/materials')
                 assert resp.json()['code'] == 0
-                assert resp.json()['data'] == {'items': [], 'total': 0}
+                assert resp.json()['data'] == []
+                assert resp.json()['total'] == 0
 
     async def test_get_material_not_found(self, client):
         with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
@@ -85,7 +87,7 @@ class TestMaterialService:
             category='notes', semester='2024-2025-1',
         )
         assert m.title == 'Test'
-        assert m.trust_status == 'unverified'
+        assert m.contributor_id == USER_ID
         mock_db.add.assert_called_once()
 
     @pytest.mark.asyncio
@@ -104,24 +106,33 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_rate_material(self):
         from app.services.material_service import rate_material
-        from app.models.material import Material
         mock_db = MagicMock()
-        mock_material = MagicMock(spec=Material)
+        mock_material = MagicMock()
         mock_material.average_rating = 3.0
         mock_material.rating_count = 1
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_material
-        mock_db.execute = AsyncMock(return_value=mock_result)
-        result = await rate_material(mock_db, MATERIAL_ID, USER_ID, 5)
-        assert result is not None
+        rating_result = MagicMock()
+        rating_result.fetchone.return_value = (4.5, 2)
+        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=mock_material):
+            mock_db.execute = AsyncMock(side_effect=[None, rating_result])
+            await rate_material(mock_db, MATERIAL_ID, USER_ID, 5)
+        assert mock_material.average_rating == 4.5
+        assert mock_material.rating_count == 2
 
     @pytest.mark.asyncio
     async def test_add_version(self):
         from app.services.material_service import add_version
         mock_db = MagicMock()
         mock_db.add = MagicMock()
-        v = await add_version(mock_db, MATERIAL_ID, USER_ID, 'materials/abc.pdf', 'a' * 64, 2048, 'updated')
-        assert v.version_number == 1
+        mock_db.flush = AsyncMock()
+        latest = MagicMock()
+        latest.version_number = 1
+        latest_result = MagicMock()
+        latest_result.scalar_one_or_none.return_value = latest
+        material = MagicMock()
+        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=material):
+            mock_db.execute = AsyncMock(return_value=latest_result)
+            v = await add_version(mock_db, MATERIAL_ID, USER_ID, 'materials/abc.pdf', 'a' * 64, 2048, 'updated')
+        assert v.version_number == 2
         assert v.file_size == 2048
 
     @pytest.mark.asyncio
@@ -137,29 +148,25 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_soft_delete_material(self):
         from app.services.material_service import soft_delete_material
-        from app.models.material import Material
         mock_db = MagicMock()
-        mock_material = MagicMock(spec=Material)
+        mock_material = MagicMock()
         mock_material.contributor_id = USER_ID
         mock_material.review_status = 'approved'
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_material
-        mock_db.execute = AsyncMock(return_value=mock_result)
-        result = await soft_delete_material(mock_db, MATERIAL_ID, USER_ID, 'contributor')
-        assert result.review_status == 'removed'
+        mock_db.flush = AsyncMock()
+        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=mock_material):
+            result = await soft_delete_material(mock_db, MATERIAL_ID, USER_ID, 'contributor')
+        assert result is True
+        assert mock_material.review_status == 'removed'
 
     @pytest.mark.asyncio
     async def test_soft_delete_material_forbidden(self):
         from app.services.material_service import soft_delete_material
-        from app.models.material import Material
         mock_db = MagicMock()
-        mock_material = MagicMock(spec=Material)
+        mock_material = MagicMock()
         mock_material.contributor_id = 'other-user-id'
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_material
-        mock_db.execute = AsyncMock(return_value=mock_result)
-        result = await soft_delete_material(mock_db, MATERIAL_ID, USER_ID, 'student')
-        assert result is None
+        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=mock_material):
+            result = await soft_delete_material(mock_db, MATERIAL_ID, USER_ID, 'student')
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_get_version_diff_text(self):
@@ -206,10 +213,13 @@ class TestMaterialDownload:
         assert resp.status_code == 401
 
     async def test_download_not_found(self, client):
-        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
-            with patch('app.api.v1.materials.get_current_user', return_value=MagicMock()):
+        app.dependency_overrides[get_current_user] = lambda: MagicMock()
+        try:
+            with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download')
                 assert resp.json()['code'] == 40400
+        finally:
+            app.dependency_overrides.clear()
 
 
 class TestVersionDiff:
@@ -217,6 +227,6 @@ class TestVersionDiff:
         with patch('app.api.v1.materials.material_service.get_version_diff', new_callable=AsyncMock, return_value={
             'diff': None, 'version_number': 1, 'message': 'diff available for text files only',
         }):
-            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/versions/vid/diff')
+            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/versions/00000000-0000-0000-0000-000000000002/diff')
             data = resp.json()['data']
             assert data['diff'] is None

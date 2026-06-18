@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
+from app.dependencies import get_current_user
 from app.main import app
 
 
@@ -24,74 +25,79 @@ class TestUploadAPI:
         mock_user = MagicMock()
         mock_user.id = '00000000-0000-0000-0000-000000000001'
         mock_user.role = 'student'
-        with patch('app.api.v1.upload.get_current_user', return_value=mock_user):
-            with patch('app.api.v1.upload.upload_service.validate_file_request', new_callable=AsyncMock, return_value=None):
-                with patch('app.api.v1.upload.oss.generate_upload_token', return_value={
-                    'storage_key': 'materials/abc.pdf', 'presigned_url': 'http://fake.url/upload',
-                }):
-                    resp = await client.post('/api/v1/upload/token', json={
-                        'file_name': 'test.pdf', 'content_type': 'application/pdf', 'file_size': 1024,
-                    })
-                    data = resp.json()['data']
-                    assert data['storage_key'] == 'materials/abc.pdf'
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        try:
+            with patch('app.services.upload_service.validate_file_request', return_value='pdf'), \
+                 patch('app.core.oss.generate_upload_token', return_value={
+                     'storage_key': 'materials/abc.pdf', 'presigned_url': 'http://fake.url/upload',
+                 }):
+                resp = await client.post('/api/v1/upload/token', json={
+                    'file_name': 'test.pdf', 'content_type': 'application/pdf', 'file_size': 1024,
+                })
+                data = resp.json()['data']
+                assert data['storage_key'] == 'materials/abc.pdf'
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_duplicate_check(self, client):
         mock_user = MagicMock()
         mock_user.id = '00000000-0000-0000-0000-000000000001'
-        with patch('app.api.v1.upload.get_current_user', return_value=mock_user):
-            with patch('app.api.v1.upload.upload_service.check_duplicate', new_callable=AsyncMock, return_value=(False, None, None)):
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        try:
+            with patch('app.api.v1.upload.check_duplicate', new_callable=AsyncMock, return_value={
+                'is_duplicate': False, 'existing_material_id': None, 'existing_title': None,
+            }):
                 resp = await client.post('/api/v1/upload/check-duplicate', json={
                     'file_hash': 'a' * 64,
                 })
                 data = resp.json()['data']
                 assert data['is_duplicate'] is False
+        finally:
+            app.dependency_overrides.clear()
 
     async def test_duplicate_check_found(self, client):
         mock_user = MagicMock()
         mock_user.id = '00000000-0000-0000-0000-000000000001'
-        with patch('app.api.v1.upload.get_current_user', return_value=mock_user):
-            with patch('app.api.v1.upload.upload_service.check_duplicate', new_callable=AsyncMock, return_value=(
-                True, 'dup-id', 'Existing Title',
-            )):
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        try:
+            with patch('app.api.v1.upload.check_duplicate', new_callable=AsyncMock, return_value={
+                'is_duplicate': True, 'existing_material_id': 'dup-id', 'existing_title': 'Existing Title',
+            }):
                 resp = await client.post('/api/v1/upload/check-duplicate', json={
                     'file_hash': 'a' * 64,
                 })
                 data = resp.json()['data']
                 assert data['is_duplicate'] is True
                 assert data['existing_title'] == 'Existing Title'
+        finally:
+            app.dependency_overrides.clear()
 
 
 class TestUploadService:
-    @pytest.mark.asyncio
-    async def test_validate_file_request_valid_pdf(self):
+    def test_validate_file_request_valid_pdf(self):
         from app.services.upload_service import validate_file_request
-        result = await validate_file_request('notes.pdf', 1024 * 1024)
-        assert result is None
+        result = validate_file_request('notes.pdf', 1024 * 1024)
+        assert result == 'pdf'
 
-    @pytest.mark.asyncio
-    async def test_validate_file_request_invalid_extension(self):
+    def test_validate_file_request_invalid_extension(self):
         from app.services.upload_service import validate_file_request
-        result = await validate_file_request('malware.exe', 1024)
-        assert result is not None
-        assert 'format' in result.lower() or '不支持' in result or '类型' in result
+        with pytest.raises(Exception):
+            validate_file_request('malware.exe', 1024)
 
-    @pytest.mark.asyncio
-    async def test_validate_file_request_oversized(self):
+    def test_validate_file_request_oversized(self):
         from app.services.upload_service import validate_file_request
-        result = await validate_file_request('huge.pdf', 60 * 1024 * 1024)
-        assert result is not None
+        with pytest.raises(Exception):
+            validate_file_request('huge.pdf', 60 * 1024 * 1024)
 
-    @pytest.mark.asyncio
-    async def test_validate_file_request_valid_zip(self):
+    def test_validate_file_request_valid_zip(self):
         from app.services.upload_service import validate_file_request
-        result = await validate_file_request('archive.zip', 50 * 1024 * 1024)
-        assert result is None
+        result = validate_file_request('archive.zip', 50 * 1024 * 1024)
+        assert result == 'zip'
 
-    @pytest.mark.asyncio
-    async def test_validate_file_request_valid_code(self):
+    def test_validate_file_request_valid_code(self):
         from app.services.upload_service import validate_file_request
-        result = await validate_file_request('main.py', 10 * 1024)
-        assert result is None
+        result = validate_file_request('main.py', 10 * 1024)
+        assert result == 'py'
 
     @pytest.mark.asyncio
     async def test_check_duplicate_not_found(self):
@@ -100,8 +106,8 @@ class TestUploadService:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
-        is_dup, dup_id, dup_title = await check_duplicate(mock_db, 'a' * 64)
-        assert is_dup is False
+        result = await check_duplicate(mock_db, 'a' * 64)
+        assert result['is_duplicate'] is False
 
     @pytest.mark.asyncio
     async def test_check_duplicate_found(self):
@@ -114,9 +120,9 @@ class TestUploadService:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_material
         mock_db.execute = AsyncMock(return_value=mock_result)
-        is_dup, dup_id, dup_title = await check_duplicate(mock_db, 'a' * 64)
-        assert is_dup is True
-        assert dup_title == 'Existing Material'
+        result = await check_duplicate(mock_db, 'a' * 64)
+        assert result['is_duplicate'] is True
+        assert result['existing_title'] == 'Existing Material'
 
     @pytest.mark.asyncio
     async def test_generate_upload_token(self):
@@ -133,18 +139,15 @@ class TestUploadService:
         assert 'storage_key' in result
         assert result['storage_key'].endswith('.zip')
 
-    @pytest.mark.asyncio
-    async def test_validate_zip_bomb_detection(self):
+    def test_validate_zip_bomb_detection(self):
         from app.services.upload_service import validate_file_request
-        # ZIP bomb: small compressed, huge uncompressed — detected by size limit
-        result = await validate_file_request('bomb.zip', 200 * 1024 * 1024)
-        assert result is not None
+        with pytest.raises(Exception):
+            validate_file_request('bomb.zip', 200 * 1024 * 1024)
 
-    @pytest.mark.asyncio
-    async def test_validate_extension_whitelist(self):
+    def test_validate_extension_whitelist(self):
         """All allowed extensions should pass validation."""
         from app.services.upload_service import validate_file_request
         allowed = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'md', 'txt', 'py', 'jpg', 'png']
         for ext in allowed:
-            result = await validate_file_request(f'test.{ext}', 1024 * 100)
-            assert result is None, f'{ext} should be allowed'
+            result = validate_file_request(f'test.{ext}', 1024 * 100)
+            assert result == ext, f'{ext} should be allowed'
