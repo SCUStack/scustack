@@ -72,6 +72,9 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useAuthStore } from '../../stores/auth'
+
 const props = defineProps<{ materialId: string }>()
 
 const auth = useAuthStore()
