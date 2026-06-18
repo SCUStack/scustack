@@ -113,7 +113,11 @@
     </header>
 
     <!-- ═══════ MOBILE NAVBAR (home only) ═══════ -->
-    <header v-if="isHome" class="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center gap-1 px-3 bg-white/95 backdrop-blur border-b border-slate-200">
+    <header
+      v-if="isHome"
+      class="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center gap-1 px-3 bg-white/95 backdrop-blur border-b border-slate-200"
+      style="padding-top: var(--safe-area-top); padding-left: calc(0.75rem + var(--safe-area-left)); padding-right: calc(0.75rem + var(--safe-area-right)); height: calc(var(--mobile-header-height) + var(--safe-area-top))"
+    >
       <button class="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer border-none" @click="navigateTo('/user/profile')">
         <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" class="w-full h-full object-cover" alt="" />
         <AppIcon v-else name="User" :size="18" class="text-primary-600" />
@@ -180,7 +184,10 @@
     <FeedbackButton />
 
     <!-- Mobile bottom nav -->
-    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-[60] h-14 bg-white/95 backdrop-blur border-t border-slate-200" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+    <nav
+      class="lg:hidden fixed bottom-0 left-0 right-0 z-[60] h-14 bg-white/95 backdrop-blur border-t border-slate-200"
+      style="padding-bottom: var(--safe-area-bottom); padding-left: var(--safe-area-left); padding-right: var(--safe-area-right); height: var(--mobile-bottom-nav-height)"
+    >
       <div class="h-full max-w-lg mx-auto flex items-center justify-around px-2">
         <NuxtLink to="/" class="flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full no-underline transition-all duration-200 py-1"
           :class="route.path === '/' ? 'text-primary-600' : 'text-slate-400 hover:text-slate-600'">
@@ -212,10 +219,10 @@
     </nav>
 
     <!-- Spacer: mobile home-only, desktop non-home only -->
-    <div v-if="isHome" class="h-14 lg:hidden" />
+    <div v-if="isHome" class="lg:hidden" style="height: calc(var(--mobile-header-height) + var(--safe-area-top))" />
     <div class="hidden lg:block" :class="isHome ? '' : 'h-14'" />
 
-    <main id="main-content" class="pb-14 lg:pb-0">
+    <main id="main-content" class="lg:pb-0" style="padding-bottom: var(--mobile-bottom-nav-height)">
       <slot />
     </main>
 

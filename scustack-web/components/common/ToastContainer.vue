@@ -4,7 +4,8 @@
       name="toast"
       tag="div"
       class="fixed z-[100] flex flex-col gap-2 pointer-events-none"
-      :class="isMobile ? 'top-4 left-4 right-4 items-center' : 'top-4 right-4 items-end'"
+      :class="isMobile ? 'left-4 right-4 items-center' : 'top-4 right-4 items-end'"
+      :style="isMobile ? { top: 'calc(1rem + var(--safe-area-top))' } : undefined"
       role="alert"
       aria-live="polite"
     >

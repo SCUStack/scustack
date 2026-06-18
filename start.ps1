@@ -40,6 +40,39 @@ function Clear-Port {
     return -not $still
 }
 
+function Test-PortAvailable {
+    param([int]$Port)
+    $listener = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+        Where-Object { $_.State -eq 'Listen' }
+    return -not $listener
+}
+
+function Get-FallbackPort {
+    param(
+        [int]$PreferredPort,
+        [int]$MaxAttempts = 20
+    )
+
+    for ($offset = 1; $offset -le $MaxAttempts; $offset++) {
+        $candidate = $PreferredPort + $offset
+        if (Test-PortAvailable $candidate) {
+            return $candidate
+        }
+    }
+
+    throw "未找到可用 fallback 端口（起点: $PreferredPort）"
+}
+
+function Test-BackendHealth {
+    param([int]$Port)
+    try {
+        $result = curl.exe -s -o NUL -w "%{http_code}" "http://localhost:${Port}/api/v1/health" 2>$null
+        return $result -eq "200"
+    } catch {
+        return $false
+    }
+}
+
 # ═══════════════════════════════════════════
 # 0. Prerequisites
 # ═══════════════════════════════════════════
@@ -206,12 +239,20 @@ if ((Test-Path $webModules) -or (Test-Path $rootModules)) {
 # 8. Start backend
 # ═══════════════════════════════════════════
 Log "清理端口 8403 上的残留进程..."
-$portOk = Clear-Port 8403
-if (-not $portOk) {
-    Err "端口 8403 无法释放，请手动检查占用进程"
-    exit 1
-}
 $API_PORT = 8403
+$reuseBackend = $false
+
+if (Test-BackendHealth 8403) {
+    Ok "检测到现有后端正在 8403 运行，将直接复用"
+    $reuseBackend = $true
+} else {
+    $portOk = Clear-Port 8403
+    if (-not $portOk) {
+        Warn "端口 8403 无法释放，正在选择 fallback 端口..."
+        $API_PORT = Get-FallbackPort -PreferredPort 8403
+        Warn "后端将改用端口 $API_PORT"
+    }
+}
 
 Log "清理 Python 缓存..."
 Get-ChildItem -Path $apiDir -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -219,29 +260,37 @@ Ok "Python 缓存已清理"
 
 # Use current shell's python path so venv is inherited
 $pythonPath = (Get-Command python).Source
-Log "Python: $pythonPath"
-Log "启动后端 (uvicorn :${API_PORT})..."
-$apiProc = Start-Process -FilePath $pythonPath -ArgumentList "-m", "uvicorn", "app.main:app", "--reload", "--port", "$API_PORT" -PassThru -WindowStyle Hidden -WorkingDirectory $apiDir
-Start-Sleep -Seconds 3
+$env:SCUSTACK_PUBLIC_API_BASE = "http://localhost:${API_PORT}"
+$env:NUXT_PUBLIC_API_BASE = $env:SCUSTACK_PUBLIC_API_BASE
+Log "后端 PUBLIC_API_BASE: $($env:SCUSTACK_PUBLIC_API_BASE)"
+if (-not $reuseBackend) {
+    Log "Python: $pythonPath"
+    Log "启动后端 (uvicorn :${API_PORT})..."
+    $apiProc = Start-Process -FilePath $pythonPath -ArgumentList "-m", "uvicorn", "app.main:app", "--reload", "--port", "$API_PORT" -PassThru -WindowStyle Hidden -WorkingDirectory $apiDir
+    Start-Sleep -Seconds 3
 
-# Verify backend responds (use curl.exe, more reliable than Invoke-WebRequest in PS 5.1)
-$backendOk = $false
-for ($i = 0; $i -lt 10; $i++) {
-    $result = curl.exe -s -o NUL -w "%{http_code}" http://localhost:${API_PORT}/api/v1/health 2>$null
-    if ($result -eq "200") {
-        $backendOk = $true
-        break
+    # Verify backend responds (use curl.exe, more reliable than Invoke-WebRequest in PS 5.1)
+    $backendOk = $false
+    for ($i = 0; $i -lt 10; $i++) {
+        $result = curl.exe -s -o NUL -w "%{http_code}" http://localhost:${API_PORT}/api/v1/health 2>$null
+        if ($result -eq "200") {
+            $backendOk = $true
+            break
+        }
+        Start-Sleep -Seconds 1
     }
-    Start-Sleep -Seconds 1
-}
 
-if ($backendOk) {
-    Ok "后端已启动 -> http://localhost:${API_PORT}"
-    Ok "API 文档    -> http://localhost:${API_PORT}/docs"
+    if ($backendOk) {
+        Ok "后端已启动 -> http://localhost:${API_PORT}"
+        Ok "API 文档    -> http://localhost:${API_PORT}/docs"
+    } else {
+        Err "后端启动超时，请手动检查: cd scustack-api && uvicorn app.main:app --reload --port ${API_PORT}"
+        Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 } else {
-    Err "后端启动超时，请手动检查: cd scustack-api && uvicorn app.main:app --reload --port ${API_PORT}"
-    Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue
-    exit 1
+    Ok "后端已就绪 -> http://localhost:${API_PORT}"
+    Ok "API 文档    -> http://localhost:${API_PORT}/docs"
 }
 
 # ═══════════════════════════════════════════
@@ -265,14 +314,20 @@ Write-Host ""
 
 # Cleanup on exit
 function Stop-Backend {
+    if (-not $apiProc) { return }
     Write-Host ""
     Log "正在停止后端 (PID $($apiProc.Id))..."
     Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue
     Ok "后端已停止"
 }
-$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action { Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue }
+$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+    if ($apiProc) {
+        Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue
+    }
+}
 
 try {
+    Log "前端 API_BASE: $($env:NUXT_PUBLIC_API_BASE)"
     pnpm dev:web
 } finally {
     Stop-Backend

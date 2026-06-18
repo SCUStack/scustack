@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     APP_ENV: Literal['dev', 'staging', 'prod'] = 'dev'
     DEBUG: bool = True
     SENTRY_DSN: str = ''
+    PUBLIC_API_BASE: str = 'http://localhost:8403'
 
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
         'JWT_SECRET_KEY', 'ENCRYPTION_KEY', 'DB_PASSWORD',

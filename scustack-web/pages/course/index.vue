@@ -123,7 +123,7 @@ const courses = ref<any[]>([])
 const courseTotal = ref(0)
 const coursePage = ref(1)
 const courseLoading = ref(true)
-const PAGE_SIZE = 21
+const PAGE_SIZE = 20
 
 const courseTotalPages = computed(() => Math.ceil(courseTotal.value / PAGE_SIZE) || 1)
 

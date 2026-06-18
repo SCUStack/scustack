@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import patch
 
+from app.models.material import Material
 from app.models.user import User, RefreshToken
 
 
@@ -47,3 +49,18 @@ class TestUserModel:
         assert token.token_hash == 'abc123'
         assert token.revoked is False
         assert token.expires_at.year == 2026
+
+
+class TestMaterialModel:
+    def test_thumbnail_url_returns_none_when_thumbnail_missing(self):
+        material = Material(
+            course_id=uuid.uuid4(),
+            title='Test',
+            category='notes',
+            semester='2025-2026-1',
+            source_type='hosted',
+        )
+        material.id = uuid.uuid4()
+
+        with patch('app.core.oss.thumbnail_exists', return_value=False):
+            assert material.thumbnail_url is None

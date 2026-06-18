@@ -9,7 +9,7 @@ useHead({
   titleTemplate: '%s | 川流课栈',
   meta: [
     { charset: 'utf-8' },
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+    { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
     { name: 'description', content: '四川大学课程资料共享平台' },
   ],
   link: [

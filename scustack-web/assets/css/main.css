@@ -29,6 +29,13 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --mobile-header-height: 56px;
+  --mobile-bottom-nav-height: calc(56px + var(--safe-area-bottom));
 }
 
 html {
@@ -43,6 +50,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+#__nuxt {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ── Global focus-visible ring ── */
