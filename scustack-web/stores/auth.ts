@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+import { useAuth } from '../composables/useAuth'
 
 interface UserInfo {
   id: string
@@ -7,6 +9,7 @@ interface UserInfo {
   avatarUrl: string | null
   trustScore: number
   publicDisplayName: string | null
+  createdAt: string
 }
 
 function isUnauthorizedError(error: unknown): boolean {
@@ -72,6 +75,7 @@ export const useAuthStore = defineStore('auth', () => {
         avatarUrl: resp.data.avatar_url,
         trustScore: resp.data.trust_score,
         publicDisplayName: resp.data.public_display_name,
+        createdAt: resp.data.created_at,
       }
     } else {
       user.value = null

@@ -19,7 +19,7 @@
               {{ roleLabel }} · 信任分 {{ auth.user.trustScore }}
             </p>
             <p class="text-xs text-slate-400 mt-0.5">
-              注册于 {{ formatDate(auth.user.id) }}
+              注册于 {{ formatDate(auth.user.createdAt) }}
             </p>
           </div>
           <button
@@ -179,9 +179,11 @@
 </template>
 
 <script setup lang="ts">
-const auth = useAuthStore()
+import { computed, onMounted, ref } from 'vue'
+import { useAuthStore } from '../../stores/auth'
+import { useAuth } from '../../composables/useAuth'
 
-// No auth middleware — this page handles both logged-in and logged-out states
+const auth = useAuthStore()
 
 const showEdit = ref(false)
 const saving = ref(false)
@@ -207,10 +209,6 @@ const roleLabel = computed(() => {
   return labels[auth.user?.role || ''] || auth.user?.role || ''
 })
 
-watch(() => auth.authChecked, (checked) => {
-  if (checked && !auth.isLoggedIn) auth.openLogin()
-})
-
 onMounted(() => {
   if (auth.isLoggedIn) editForm.value.nickname = auth.user?.nickname || ''
   try {
@@ -231,7 +229,11 @@ async function handleSave() {
   saving.value = false
 }
 
-function formatDate(_id: string) {
-  return '2026年' // Simplified — real date would come from API
+function formatDate(createdAt: string) {
+  return new Date(createdAt).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 </script>

@@ -25,7 +25,7 @@ describe('useAuthStore', () => {
     authMocks.verifyCode.mockResolvedValue({ code: 0, data: null, message: 'ok' })
     authMocks.getMe.mockResolvedValue({ code: 0, data: {
       id: 'uid', nickname: 'Test', role: 'student', avatar_url: null,
-      trust_score: 0, public_display_name: null,
+      trust_score: 0, public_display_name: null, created_at: '2026-06-01T00:00:00+08:00',
     }})
     authMocks.refresh.mockResolvedValue({ code: 0 })
     authMocks.logout.mockResolvedValue({ code: 0 })
