@@ -273,7 +273,7 @@ class TestDeactivation:
         with patch('app.api.v1.users.user_service.deactivate_account', new_callable=AsyncMock, return_value=True):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
-                resp = await client.post('/api/v1/me/deactivate')
+                resp = await client.post('/api/v1/me/deactivate', json={'confirm': True})
                 assert resp.status_code == 200
                 assert resp.json()['code'] == 0
 

@@ -166,7 +166,7 @@ async def verify_recovery_code(
     current_user: User = Depends(get_current_user),
 ):
     """Use a recovery code to verify identity. Optionally change phone."""
-    from app.core.security import hash_token, encrypt_pii
+    from app.core.security import blind_index_pii, encrypt_pii, hash_token
     if not current_user.recovery_codes:
         return {'code': 40000, 'data': None, 'message': 'no recovery codes generated'}
 
@@ -179,11 +179,12 @@ async def verify_recovery_code(
     if body.new_phone:
         from sqlalchemy import select
         from app.models.user import User
-        enc = encrypt_pii(body.new_phone)
-        r = await db.execute(select(User).where(User.phone == enc))
+        phone_lookup = blind_index_pii(body.new_phone)
+        r = await db.execute(select(User).where(User.phone_lookup == phone_lookup))
         if r.scalar_one_or_none():
             return {'code': 40000, 'data': None, 'message': 'phone already registered'}
-        current_user.phone = enc
+        current_user.phone = encrypt_pii(body.new_phone)
+        current_user.phone_lookup = phone_lookup
 
     await db.commit()
     remaining = len(current_user.recovery_codes) if current_user.recovery_codes else 0
@@ -204,8 +205,9 @@ async def bind_email(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from app.core.security import encrypt_pii
+    from app.core.security import blind_index_pii, encrypt_pii
     current_user.email = encrypt_pii(body.email)
+    current_user.email_lookup = blind_index_pii(body.email)
     await db.commit()
     return {'code': 0, 'data': None, 'message': 'email bound'}
 

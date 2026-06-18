@@ -214,13 +214,19 @@ async def notify_course_followers(
 
 async def deactivate_account(db: AsyncSession, user_id: UUID, ip_address: str | None = None, user_agent: str | None = None) -> bool:
     from sqlalchemy import update as sql_update
+    from app.core.security import blind_index_pii, encrypt_pii
 
     user = await get_user(db, user_id)
     if user is None:
         return False
     user.is_active = False
-    user.phone = f'deactivated:{user.id}'
+    deactivated_phone = f'deactivated:{user.id}'
+    user.phone = encrypt_pii(deactivated_phone)
+    user.phone_lookup = blind_index_pii(deactivated_phone)
     user.wechat_openid = None
+    user.wechat_openid_lookup = None
+    user.email = None
+    user.email_lookup = None
     await db.flush()
 
     await db.execute(

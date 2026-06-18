@@ -7,11 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.redis import RateLimiter, cache_get, cache_set, cache_delete
 from app.core.security import (
+    blind_index_pii,
     create_access_token,
     create_refresh_token as generate_refresh_token,
-    decrypt_pii,
     encrypt_pii,
-    decode_token,
     hash_pii,
     hash_token,
 )
@@ -162,12 +161,14 @@ async def verify_sms_code(db: AsyncSession, phone: str, code: str, ip_address: s
     await cache_delete(f'lock:verify:{phone}')
 
     encrypted_phone = encrypt_pii(phone)
-    result = await db.execute(select(User).where(User.phone == encrypted_phone))
+    phone_lookup = blind_index_pii(phone)
+    result = await db.execute(select(User).where(User.phone_lookup == phone_lookup))
     user = result.scalar_one_or_none()
 
     if user is None:
         user = User(
             phone=encrypted_phone,
+            phone_lookup=phone_lookup,
             nickname=f'user{phone[-4:]}',
             role='student',
             trust_score=0,
@@ -239,13 +240,15 @@ class PasswordError(Exception):
 async def register_with_password(db: AsyncSession, phone: str, password: str, ip_address: str | None = None, user_agent: str | None = None) -> dict[str, str]:
     phone_hash = hash_pii(phone)
     encrypted_phone = encrypt_pii(phone)
-    result = await db.execute(select(User).where(User.phone == encrypted_phone))
+    phone_lookup = blind_index_pii(phone)
+    result = await db.execute(select(User).where(User.phone_lookup == phone_lookup))
     if result.scalar_one_or_none() is not None:
         await _audit_auth(db, 'register_failed', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent, detail={'reason': 'phone_already_registered'})
         raise PasswordError('phone already registered')
 
     user = User(
         phone=encrypted_phone,
+        phone_lookup=phone_lookup,
         nickname=f'user{phone[-4:]}',
         role='student',
         trust_score=0,
@@ -268,8 +271,8 @@ async def login_with_password(db: AsyncSession, phone: str, password: str, ip_ad
         await _audit_auth(db, 'login_locked', phone_hash=phone_hash, ip_address=ip_address, user_agent=user_agent)
         raise PasswordError('too many failed attempts, try again later')
 
-    encrypted_phone = encrypt_pii(phone)
-    result = await db.execute(select(User).where(User.phone == encrypted_phone))
+    phone_lookup = blind_index_pii(phone)
+    result = await db.execute(select(User).where(User.phone_lookup == phone_lookup))
     user = result.scalar_one_or_none()
 
     if user is None or user.password_hash is None:
@@ -438,8 +441,8 @@ async def wechat_login(db: AsyncSession, code: str) -> dict[str, str]:
 
     openid = data['openid']
     encrypted_openid = encrypt_pii(openid)
-
-    result = await db.execute(select(User).where(User.wechat_openid == encrypted_openid))
+    openid_lookup = blind_index_pii(openid)
+    result = await db.execute(select(User).where(User.wechat_openid_lookup == openid_lookup))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -452,10 +455,13 @@ async def wechat_login(db: AsyncSession, code: str) -> dict[str, str]:
         nickname = info.get('nickname', f'wx_user{openid[-6:]}')
         avatar = info.get('headimgurl', '').replace('\\', '') if 'headimgurl' in info else None
 
+        phone_value = f'wechat:{openid[:8]}'
         user = User(
-            phone=encrypt_pii(f'wechat:{openid[:8]}'),
+            phone=encrypt_pii(phone_value),
+            phone_lookup=blind_index_pii(phone_value),
             nickname=nickname,
             wechat_openid=encrypted_openid,
+            wechat_openid_lookup=openid_lookup,
             avatar_url=avatar,
             role='student',
             trust_score=0,
@@ -476,15 +482,20 @@ def gen_random_state() -> str:
 
 
 async def _get_or_create_dev_wechat_user(db: AsyncSession) -> User:
+    dev_openid = 'dev_wechat'
+    openid_lookup = blind_index_pii(dev_openid)
     result = await db.execute(
-        select(User).where(User.wechat_openid == encrypt_pii('dev_wechat'))
+        select(User).where(User.wechat_openid_lookup == openid_lookup)
     )
     user = result.scalar_one_or_none()
     if user is None:
+        phone_value = 'wechat:dev_user'
         user = User(
-            phone=encrypt_pii('wechat:dev_user'),
+            phone=encrypt_pii(phone_value),
+            phone_lookup=blind_index_pii(phone_value),
             nickname='dev_wx_user',
-            wechat_openid=encrypt_pii('dev_wechat'),
+            wechat_openid=encrypt_pii(dev_openid),
+            wechat_openid_lookup=openid_lookup,
             role='student',
             trust_score=0,
             is_active=True,

@@ -10,7 +10,7 @@ import bcrypt
 from sqlalchemy import func, select, text as sa_text
 
 from app.core.database import async_session
-from app.core.security import encrypt_pii
+from app.core.security import blind_index_pii, encrypt_pii
 from app.models.user import User
 from app.models.college import College
 from app.models.course import Course
@@ -563,7 +563,8 @@ async def seed():
         mock_users: dict[str, User] = {}
         for mu in MOCK_USERS:
             encrypted_phone = encrypt_pii(mu['phone'])
-            result = await db.execute(select(User).where(User.phone == encrypted_phone))
+            phone_lookup = blind_index_pii(mu['phone'])
+            result = await db.execute(select(User).where(User.phone_lookup == phone_lookup))
             user = result.scalar()
             if not user:
                 result = await db.execute(select(User).where(User.phone == mu['phone']))
@@ -571,6 +572,7 @@ async def seed():
             if not user:
                 user = User(
                     phone=encrypted_phone, nickname=mu['nickname'],
+                    phone_lookup=phone_lookup,
                     role=mu['role'], trust_score=mu['trust_score'],
                     public_display_name=mu['display_name'],
                     password_hash=MOCK_PASSWORD_HASH,
@@ -580,12 +582,14 @@ async def seed():
             else:
                 if user.phone == mu['phone']:
                     user.phone = encrypted_phone
+                user.phone_lookup = phone_lookup
                 if not user.password_hash:
                     user.password_hash = MOCK_PASSWORD_HASH
             mock_users[mu['phone']] = user
 
         encrypted_maintainer = encrypt_pii(MAINTAINER_PHONE)
-        result = await db.execute(select(User).where(User.phone == encrypted_maintainer))
+        maintainer_lookup = blind_index_pii(MAINTAINER_PHONE)
+        result = await db.execute(select(User).where(User.phone_lookup == maintainer_lookup))
         maintainer = result.scalar()
         if not maintainer:
             result = await db.execute(select(User).where(User.phone == MAINTAINER_PHONE))
@@ -593,6 +597,7 @@ async def seed():
         if not maintainer:
             maintainer = User(
                 phone=encrypted_maintainer, nickname='管理员', role='maintainer',
+                phone_lookup=maintainer_lookup,
                 trust_score=100, public_display_name='川流课栈管理员',
                 password_hash=MOCK_PASSWORD_HASH,
             )
@@ -601,6 +606,7 @@ async def seed():
         else:
             if maintainer.phone == MAINTAINER_PHONE:
                 maintainer.phone = encrypted_maintainer
+            maintainer.phone_lookup = maintainer_lookup
             if not maintainer.password_hash:
                 maintainer.password_hash = MOCK_PASSWORD_HASH
 

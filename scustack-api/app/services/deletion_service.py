@@ -78,11 +78,18 @@ async def process_expired_deletions(db: AsyncSession) -> int:
     for deletion in expired:
         user = await db.get(User, deletion.user_id)
         if user:
+            from app.core.security import blind_index_pii, encrypt_pii
+
+            deleted_phone = f'deleted:{user.id}'
             user.nickname = f'deleted_user_{str(user.id)[:8]}'
-            user.phone = None
+            user.phone = encrypt_pii(deleted_phone)
+            user.phone_lookup = blind_index_pii(deleted_phone)
             user.email = None
+            user.email_lookup = None
             user.avatar_url = None
             user.university_id = None
+            user.wechat_openid = None
+            user.wechat_openid_lookup = None
             user.is_active = False
         deletion.status = 'completed'
 

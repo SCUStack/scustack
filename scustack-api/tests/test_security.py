@@ -1,6 +1,6 @@
 import os
 import pytest
-from app.core.security import encrypt_pii, decrypt_pii
+from app.core.security import blind_index_pii, decrypt_pii, encrypt_pii
 
 
 @pytest.fixture(autouse=True)
@@ -22,6 +22,11 @@ class TestPIIEncryption:
         c2 = encrypt_pii(plain)
         assert c1 != c2
 
+    def test_blind_index_is_stable_for_same_input(self):
+        plain = '13800138000'
+        assert blind_index_pii(plain) == blind_index_pii(plain)
+        assert blind_index_pii(plain) != blind_index_pii('13900139000')
+
     def test_decrypt_returns_original_text(self):
         plain = '2024123456'
         encrypted = encrypt_pii(plain)
@@ -37,7 +42,7 @@ class TestPIIEncryption:
         encrypted = encrypt_pii(plain)
         assert decrypt_pii(encrypted) == plain
 
-    def test_missing_key_raises(self, monkeypatch):
-        monkeypatch.delenv('SCUSTACK_ENCRYPTION_KEY', raising=False)
+    def test_empty_key_raises(self, monkeypatch):
+        monkeypatch.setenv('SCUSTACK_ENCRYPTION_KEY', '')
         with pytest.raises(RuntimeError, match='ENCRYPTION_KEY'):
             encrypt_pii('test')

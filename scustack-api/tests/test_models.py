@@ -8,6 +8,7 @@ class TestUserModel:
     def test_create_user(self):
         user = User(
             phone='encrypted_phone_hex',
+            phone_lookup='lookup_hash',
             nickname='测试用户',
             role='student',
             trust_score=0,
@@ -24,6 +25,7 @@ class TestUserModel:
     def test_user_defaults(self):
         user = User(
             phone='encrypted_phone_hex',
+            phone_lookup='lookup_hash',
             nickname='test',
             role='student',
             trust_score=0,
