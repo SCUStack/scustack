@@ -91,6 +91,9 @@ async def review_material(
         if m.contributor_id:
             from app.tasks.achievement import check_achievements_after_approval
             check_achievements_after_approval.delay(str(m.contributor_id), str(m.id))
+        if m.source_type == 'hosted':
+            from app.tasks.content_extract import extract_material_content_to_es
+            extract_material_content_to_es.delay(str(m.id))
 
     await db.commit()
     return {'code': 0, 'data': None, 'message': f'material {body.action}'}

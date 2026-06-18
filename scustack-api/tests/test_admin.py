@@ -82,9 +82,12 @@ class TestReviewQueue:
         mat.course_id = uuid.uuid4()
         mat.title = 'Test'
         mat.id = uuid.uuid4()
+        mat.source_type = 'hosted'
         with patch('app.api.v1.admin.review_service.review_material', new_callable=AsyncMock, return_value=mat), \
              patch('app.api.v1.admin.audit_service.log_action', new_callable=AsyncMock), \
-             patch('app.api.v1.admin.user_service.notify_course_followers', new_callable=AsyncMock):
+             patch('app.api.v1.admin.user_service.notify_course_followers', new_callable=AsyncMock), \
+             patch('app.tasks.achievement.check_achievements_after_approval.delay', create=True), \
+             patch('app.tasks.content_extract.extract_material_content_to_es.delay', create=True) as mock_extract:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.post(
@@ -92,6 +95,7 @@ class TestReviewQueue:
                     json={'action': 'approved'},
                 )
                 assert resp.status_code == 200
+                mock_extract.assert_called_once()
 
     async def test_review_reject(self):
         user = _make_user()

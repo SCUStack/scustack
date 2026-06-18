@@ -41,6 +41,11 @@ MATERIALS_MAPPING = {
                 'analyzer': 'ik_max_word_analyzer',
                 'search_analyzer': 'ik_smart_analyzer',
             },
+            'content_text': {
+                'type': 'text',
+                'analyzer': 'ik_max_word_analyzer',
+                'search_analyzer': 'ik_smart_analyzer',
+            },
             'course_name': {
                 'type': 'text',
                 'analyzer': 'ik_max_word_analyzer',
@@ -111,7 +116,7 @@ async def search_materials(
         must.append({
             'multi_match': {
                 'query': query,
-                'fields': ['title^3', 'description^2', 'course_name^2', 'course_aliases^2'],
+                'fields': ['title^3', 'description^2', 'content_text^2', 'course_name^2', 'course_aliases^2'],
                 'type': 'best_fields',
             }
         })
