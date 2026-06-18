@@ -5,6 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.middleware.security import SecurityHeadersMiddleware
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +25,31 @@ class TestSecurityHeaders:
             csp = resp.headers['content-security-policy']
             assert "default-src 'self'" in csp
             assert "object-src 'none'" in csp
+
+    async def test_csp_is_strict_in_non_dev(self):
+        middleware = SecurityHeadersMiddleware(app)
+        with patch('app.middleware.security.settings.APP_ENV', 'prod'):
+            response = await middleware.dispatch(
+                MagicMock(url=MagicMock(scheme='https')),
+                AsyncMock(return_value=MagicMock(headers={})),
+            )
+
+        csp = response.headers['Content-Security-Policy']
+        assert "'unsafe-inline'" not in csp
+        assert 'http://localhost:*' not in csp
+        assert "frame-src 'self'" in csp
+
+    async def test_csp_keeps_dev_only_exceptions_in_dev(self):
+        middleware = SecurityHeadersMiddleware(app)
+        with patch('app.middleware.security.settings.APP_ENV', 'dev'):
+            response = await middleware.dispatch(
+                MagicMock(url=MagicMock(scheme='http')),
+                AsyncMock(return_value=MagicMock(headers={})),
+            )
+
+        csp = response.headers['Content-Security-Policy']
+        assert "'unsafe-inline'" in csp
+        assert 'http://localhost:*' in csp
 
     async def test_x_content_type_options(self):
         transport = ASGITransport(app=app)
