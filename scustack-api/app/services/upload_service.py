@@ -67,6 +67,41 @@ async def generate_upload_token(file_name: str, content_type: str, file_size: in
     return {'upload_url': result['presigned_url'], 'storage_key': result['storage_key']}
 
 
+def verify_uploaded_object(storage_key: str, expected_size: int | None, expected_format: str | None) -> str | None:
+    """Verify server-visible upload metadata for a hosted object."""
+    from app.core import oss
+
+    if not storage_key.startswith('materials/'):
+        return 'invalid storage key'
+
+    ext = storage_key.rsplit('.', 1)[-1].lower() if '.' in storage_key else ''
+    if expected_format and ext != expected_format.lower():
+        return 'uploaded object format does not match declared format'
+
+    if getattr(oss, '_has_oss', False) is False:
+        return None
+
+    actual_size = oss.get_object_size(storage_key)
+    if actual_size is None:
+        return 'uploaded object not found'
+    if expected_size is not None and actual_size != expected_size:
+        return 'uploaded object size does not match declared file size'
+    return None
+
+
+BLOCK_KEYWORDS = ['代写', '刷课', '代考', '作弊', '卖答案', '广告推广']
+SUSPICIOUS_KEYWORDS = ['微信', 'qq', '加群', '付费', '私聊', '联系我']
+
+
+def classify_material_content(title: str, description: str | None = None) -> str:
+    text = f'{title} {description or ""}'.lower()
+    if any(kw in text for kw in BLOCK_KEYWORDS):
+        return 'blocked'
+    if any(kw in text for kw in SUSPICIOUS_KEYWORDS):
+        return 'suspicious'
+    return 'clean'
+
+
 async def check_duplicate(db: AsyncSession, file_hash: str) -> dict:
     result = await db.execute(
         select(Material).where(

@@ -64,6 +64,7 @@ class MaterialResponse(BaseModel):
     link_checked_at: datetime | None = None
     link_status: str | None = None
     link_failure_count: int | None = 0
+    virus_scan_status: str | None = None
     parts: list[dict] | None = None
     contributor_id: UUID | None
     contributor: ContributorInfo | None = None

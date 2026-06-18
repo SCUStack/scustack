@@ -105,17 +105,22 @@ async def get_material(db: AsyncSession, material_id: UUID) -> Material | None:
 
 async def create_material(db: AsyncSession, user_id: UUID, **kwargs) -> Material:
     kwargs.setdefault('contributor_id', user_id)
+    version_fields = {
+        'storage_key': kwargs.pop('storage_key', None),
+        'file_hash': kwargs.get('file_hash'),
+        'file_size': kwargs.get('file_size'),
+    }
     material = Material(**kwargs)
     db.add(material)
     await db.flush()
 
-    if kwargs.get('storage_key') and kwargs.get('file_hash'):
+    if version_fields['storage_key'] and version_fields['file_hash']:
         v = MaterialVersion(
             material_id=material.id,
             version_number=1,
-            file_hash=kwargs['file_hash'],
-            storage_key=kwargs['storage_key'],
-            file_size=kwargs.get('file_size', 0),
+            file_hash=version_fields['file_hash'],
+            storage_key=version_fields['storage_key'],
+            file_size=version_fields['file_size'] or 0,
             uploaded_by=user_id,
         )
         db.add(v)

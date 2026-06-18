@@ -371,7 +371,7 @@ async function submitSingle() {
       } catch { /* non-critical */ }
     }
 
-    toast.success('上传成功')
+    toast.success('资料已提交审核')
     navigateTo('/user/contributions')
   } catch (e: unknown) {
     errorMsg.value = (e as Error).message || '提交失败，请稍后重试'
@@ -459,7 +459,7 @@ async function submitBatch() {
 
   if (failCount === 0 && successCount > 0) {
     localStorage.removeItem('uploadDraft')
-    toast.success(`成功上传 ${successCount} 份资料`)
+    toast.success(`已提交 ${successCount} 份资料，等待审核`)
     navigateTo('/user/contributions')
   }
 }

@@ -36,26 +36,22 @@ def virus_scan(material_id: str, storage_key: str):
 
 
 @app.task(queue='scan')
-def pre_screen_content(material_id: str, title: str, description: str | None = None):
+def pre_screen_content(material_id: str, title: str, description: str | None = None, source_type: str = 'hosted'):
     """Auto-approve or flag content based on keyword screening.
 
     Rules:
     - Block-list keywords → review_status='rejected'
-    - Suspicious keywords → trust_status='doubtful', review_status='approved'
-    - Clean content → review_status='approved'
+    - Suspicious keywords → trust_status='doubtful'
+    - Hosted uploads stay pending until human review / scan outcome
+    - External links may still auto-approve if clean
     """
     import asyncio
     from app.core.database import async_session
     from app.models.material import Material
     from sqlalchemy import select
+    from app.services.upload_service import classify_material_content
 
-    text = f'{title} {description or ""}'.lower()
-
-    BLOCK_KEYWORDS = ['代写', '刷课', '代考', '作弊', '卖答案', '广告推广']
-    SUSPICIOUS_KEYWORDS = ['微信', 'qq', '加群', '付费', '私聊', '联系我']
-
-    is_blocked = any(kw in text for kw in BLOCK_KEYWORDS)
-    is_suspicious = any(kw in text for kw in SUSPICIOUS_KEYWORDS)
+    classification = classify_material_content(title, description)
 
     async def _do():
         async with async_session() as db:
@@ -63,14 +59,17 @@ def pre_screen_content(material_id: str, title: str, description: str | None = N
             m = result.scalar_one_or_none()
             if m is None:
                 return
-            if is_blocked:
+            if classification == 'blocked':
                 m.review_status = 'rejected'
-            elif is_suspicious:
-                m.review_status = 'approved'
+                m.virus_scan_status = m.virus_scan_status or 'blocked'
+            elif classification == 'suspicious':
                 m.trust_status = 'doubtful'
+                if source_type == 'external':
+                    m.review_status = 'approved'
             else:
-                m.review_status = 'approved'
-                m.trust_status = 'unverified'
+                if source_type == 'external':
+                    m.review_status = 'approved'
+                m.trust_status = m.trust_status or 'unverified'
             await db.commit()
 
     asyncio.run(_do())

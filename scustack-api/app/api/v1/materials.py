@@ -77,6 +77,17 @@ async def create_material(
     elif await copyright_service.check_title_blocklist(body.title):
         kwargs['review_status'] = 'pending'
 
+    if body.source_type == 'hosted':
+        verify_error = upload_service.verify_uploaded_object(
+            body.storage_key or '',
+            body.file_size,
+            body.format,
+        )
+        if verify_error:
+            return {'code': 40000, 'data': None, 'message': verify_error}
+        kwargs['review_status'] = 'pending'
+        kwargs['virus_scan_status'] = 'queued'
+
     m = await material_service.create_material(db, current_user.id, **kwargs)
     await db.flush()
     try:
@@ -84,13 +95,21 @@ async def create_material(
     except Exception:
         pass  # Non-critical; don't fail material creation
     await db.commit()
-    # Trigger async content pre-screening (imported lazily to avoid hard Celery dependency)
+    # Trigger async upload validation pipeline before anything becomes publicly visible.
     try:
-        from app.tasks.material_tasks import pre_screen_content
-        pre_screen_content.delay(str(m.id), m.title, m.description)
+        from app.tasks.material_tasks import pre_screen_content, virus_scan
+        if m.source_type == 'hosted':
+            latest_version = await material_service.get_latest_version(db, m.id)
+            if latest_version is not None:
+                virus_scan.delay(str(m.id), latest_version.storage_key)
+        pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:
         pass
-    return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'material created'}
+    return {
+        'code': 0,
+        'data': MaterialResponse.model_validate(m).model_dump(mode='json'),
+        'message': 'material submitted for review',
+    }
 
 
 @router.patch('/{material_id}')
