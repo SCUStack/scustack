@@ -1,3 +1,5 @@
+import { onMounted, onUnmounted } from 'vue'
+
 export function useKeyboardShortcuts() {
   function onKeydown(e: KeyboardEvent) {
     if (e.key === '/' && !isInputFocused()) {

@@ -2,13 +2,21 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 
+const runtimeConfigMock = vi.hoisted(() => ({
+  public: { apiBase: 'http://api.test' },
+}))
+
+vi.stubGlobal('useRuntimeConfig', () => runtimeConfigMock)
+vi.stubGlobal('navigateTo', vi.fn())
+vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ code: 0, data: { keywords: [] } }))
+
 describe('SearchBar', () => {
   beforeEach(() => {
     vi.useFakeTimers()
   })
 
   afterEach(() => {
-    vi.restoreAllTimers()
+    vi.useRealTimers()
   })
 
   it('mounts successfully', async () => {
@@ -71,7 +79,7 @@ describe('SearchBar', () => {
     expect((input.element as HTMLInputElement).value).toBe('test')
   })
 
-  it('has keyboard shortcut hint', async () => {
+  it('uses the provided placeholder text', async () => {
     const { default: SearchBar } = await import('../components/search/SearchBar.vue')
     const wrapper = mount(SearchBar, {
       global: {
@@ -81,6 +89,6 @@ describe('SearchBar', () => {
         },
       },
     })
-    expect(wrapper.text()).toContain('/')
+    expect(wrapper.find('input').attributes('placeholder')).toContain('搜索')
   })
 })

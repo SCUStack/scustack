@@ -34,6 +34,9 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useAuthStore } from '../../stores/auth'
+
 const props = defineProps<{
   materialId: string
   initialRating: number

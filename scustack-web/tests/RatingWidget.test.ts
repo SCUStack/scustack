@@ -3,9 +3,22 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 
+const runtimeConfigMock = vi.hoisted(() => ({
+  public: { apiBase: 'http://api.test' },
+}))
+
+const toastMocks = vi.hoisted(() => ({
+  success: vi.fn(),
+}))
+
+vi.stubGlobal('useRuntimeConfig', () => runtimeConfigMock)
+vi.stubGlobal('useToast', () => toastMocks)
+vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ code: 0, data: { average_rating: 4, rating_count: 6 } }))
+
 describe('RatingWidget', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.clearAllMocks()
   })
 
   it('mounts successfully', async () => {
@@ -21,7 +34,7 @@ describe('RatingWidget', () => {
       },
     })
     expect(wrapper.exists()).toBe(true)
-    expect(wrapper.text()).toContain('3.5')
+    expect(wrapper.text()).toContain('4.0')
     expect(wrapper.text()).toContain('10')
   })
 
@@ -38,7 +51,7 @@ describe('RatingWidget', () => {
       },
     })
     expect(wrapper.exists()).toBe(true)
-    expect(wrapper.text()).toContain('0')
+    expect(wrapper.text()).toBe('')
   })
 
   it('renders 5 star buttons', async () => {

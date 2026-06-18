@@ -13,14 +13,14 @@ describe('useInfiniteScroll', () => {
     vi.restoreAllMocks()
   })
 
-  it('accepts a loadMore function', () => {
-    const { useInfiniteScroll } = require('../composables/useInfiniteScroll')
+  it('accepts a loadMore function', async () => {
+    const { useInfiniteScroll } = await import('../composables/useInfiniteScroll')
     const loadMore = vi.fn().mockResolvedValue(undefined)
     expect(() => useInfiniteScroll(loadMore)).not.toThrow()
   })
 
-  it('returns reactive loading and hasMore state', () => {
-    const { useInfiniteScroll } = require('../composables/useInfiniteScroll')
+  it('returns reactive loading and hasMore state', async () => {
+    const { useInfiniteScroll } = await import('../composables/useInfiniteScroll')
     const loadMore = vi.fn().mockResolvedValue(undefined)
     const result = useInfiniteScroll(loadMore)
     expect(result.loading.value).toBe(false)
@@ -28,8 +28,8 @@ describe('useInfiniteScroll', () => {
     expect(result.sentinel).toBeDefined()
   })
 
-  it('creates IntersectionObserver with 200px root margin on mount', () => {
-    const { useInfiniteScroll } = require('../composables/useInfiniteScroll')
+  it('creates IntersectionObserver with 200px root margin on mount', async () => {
+    const { useInfiniteScroll } = await import('../composables/useInfiniteScroll')
     const loadMore = vi.fn().mockResolvedValue(undefined)
     useInfiniteScroll(loadMore)
     // IntersectionObserver is created in onMounted — verify constructor exists

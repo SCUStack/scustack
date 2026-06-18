@@ -1,3 +1,5 @@
+import { onMounted, onUnmounted, ref } from 'vue'
+
 export function useInfiniteScroll(loadMore: () => Promise<void>) {
   const sentinel = ref<HTMLElement | null>(null)
   const loading = ref(false)
