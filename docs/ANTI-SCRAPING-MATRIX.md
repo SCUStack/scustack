@@ -24,15 +24,15 @@ The source of truth for the machine-readable matrix lives in `scustack-api/app/c
 
 | Route | Surface | Level | Current protection | Intended behavior | Redis failure strategy |
 | --- | --- | --- | --- | --- | --- |
-| `GET /api/v1/homepage` | Homepage discovery feed | `guarded` | No dedicated route limiter | Treat as a list-discovery path; add cursor-sensitive discovery limits and observability. | Fail open only with explicit protection-gap signal. |
-| `GET /api/v1/search` | Search results | `strict` | Per-IP limiter + rapid-scroll throttling | Preserve current search throttles and upgrade to identity-aware counters and escalation. | Do not silently drop all protection. |
-| `GET /api/v1/search/suggest` | Search suggestions | `strict` | Per-IP limiter | Share limiter identity with search and cap suggestion harvesting more aggressively. | Do not silently drop all protection. |
-| `GET /api/v1/colleges` | Top-level catalog | `guarded` | No dedicated route limiter | Bring into shared discovery-path limiting so enumeration cannot start here for free. | Fail open only with observability and a documented gap. |
-| `GET /api/v1/courses` | Course catalog | `guarded` | No dedicated route limiter | Protect both global and college-scoped list flows under the same discovery policy. | Fail open only with observability and a documented gap. |
-| `GET /api/v1/materials` | Materials list | `strict` | No dedicated route limiter | Apply discovery limits comparable to search so empty-query enumeration is harder. | Do not silently lose all protection. |
-| `GET /api/v1/materials/{material_id}` | Material detail | `guarded` | No dedicated route limiter | Allow ordinary reading while making deep scripted crawling measurable. | Fail open with observability is acceptable initially. |
-| `GET /api/v1/materials/{material_id}/related` | Related-material traversal | `strict` | No dedicated route limiter | Treat graph expansion as an enumeration vector and limit bursts more tightly than normal detail reads. | Do not silently become unbounded. |
-| `GET /api/v1/materials/{material_id}/download` | Hosted file download | `critical` | Per-user daily limit + per-IP hourly limiter | Keep strict quotas and introduce identity-aware fallback behavior. | Fail closed or explicit deny-on-uncertain. |
+| `GET /api/v1/homepage` | Homepage discovery feed | `guarded` | No dedicated route limiter | Treat as a list-discovery path; add cursor-sensitive discovery limits and observability. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/search` | Search results | `strict` | Per-IP limiter + rapid-scroll throttling | Preserve current search throttles and upgrade to identity-aware counters and escalation. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/search/suggest` | Search suggestions | `strict` | Per-IP limiter | Share limiter identity with search and cap suggestion harvesting more aggressively. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/colleges` | Top-level catalog | `guarded` | No dedicated route limiter | Bring into shared discovery-path limiting so enumeration cannot start here for free. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/courses` | Course catalog | `guarded` | No dedicated route limiter | Protect both global and college-scoped list flows under the same discovery policy. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/materials` | Materials list | `strict` | No dedicated route limiter | Apply discovery limits comparable to search so empty-query enumeration is harder. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/materials/{material_id}` | Material detail | `guarded` | No dedicated route limiter | Allow ordinary reading while making deep scripted crawling measurable. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/materials/{material_id}/related` | Related-material traversal | `strict` | No dedicated route limiter | Treat graph expansion as an enumeration vector and limit bursts more tightly than normal detail reads. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/materials/{material_id}/download` | Hosted file download | `critical` | Per-user daily limit + per-IP hourly limiter | Keep strict quotas and introduce identity-aware fallback behavior. | Explicit deny-on-uncertain. |
 
 ## Notes
 

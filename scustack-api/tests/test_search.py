@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.core.redis import RateLimiter
 
 
 @pytest.fixture
@@ -95,6 +96,13 @@ class TestSearchAPI:
             resp = await client.get('/api/v1/search/suggest?q=数据')
             assert resp.json()['code'] == 0
             is_allowed.assert_awaited_with('suggest:identity-key')
+
+    async def test_search_allows_memory_fallback_when_redis_is_unavailable(self, client):
+        memory_decision = RateLimiter.Decision(allowed=True, source='memory', remaining=10, retry_after=0, degraded=True)
+        with patch('app.api.v1.search.search', new_callable=AsyncMock, return_value={'items': [], 'total': 0}), \
+             patch('app.api.v1.search.RateLimiter.check', new_callable=AsyncMock, return_value=memory_decision):
+            resp = await client.get('/api/v1/search?q=数据结构')
+            assert resp.json()['code'] == 0
 
 
 class TestSearchService:

@@ -159,13 +159,27 @@ async def download_material(
 ):
     ip = request.client.host if request.client else 'unknown'
     identity = build_request_identity(request, current_user)
-    user_limiter = RateLimiter(max_requests=50, window_seconds=86400)
-    if not await user_limiter.is_allowed(f'download:user:{current_user.id}'):
+    user_limiter = RateLimiter(
+        max_requests=50,
+        window_seconds=86400,
+        failure_strategy=RateLimiter.FailureStrategy.DENY,
+    )
+    user_check = await user_limiter.check(f'download:user:{current_user.id}')
+    if not user_check.allowed:
+        if user_check.source == 'deny_without_redis':
+            return JSONResponse({'code': 50310, 'data': None, 'message': 'download protection temporarily unavailable'}, status_code=503)
         headers = await user_limiter.limit_headers(f'download:user:{current_user.id}')
         return JSONResponse({'code': 42900, 'data': None, 'message': 'daily download limit reached'}, status_code=429, headers=headers)
 
-    ip_limiter = RateLimiter(max_requests=200, window_seconds=3600)
-    if not await ip_limiter.is_allowed(identity.scoped_key('download')):
+    ip_limiter = RateLimiter(
+        max_requests=200,
+        window_seconds=3600,
+        failure_strategy=RateLimiter.FailureStrategy.DENY,
+    )
+    ip_check = await ip_limiter.check(identity.scoped_key('download'))
+    if not ip_check.allowed:
+        if ip_check.source == 'deny_without_redis':
+            return JSONResponse({'code': 50310, 'data': None, 'message': 'download protection temporarily unavailable'}, status_code=503)
         return JSONResponse({'code': 42900, 'data': None, 'message': 'download rate limit exceeded'}, status_code=429)
 
     m = await material_service.get_material(db, material_id)

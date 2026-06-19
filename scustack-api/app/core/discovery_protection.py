@@ -19,8 +19,13 @@ async def enforce_discovery_rate_limit(
     identity = build_request_identity(request, current_user)
     policy = ANTI_SCRAPING_POLICY_BY_ID[route_id]
     limit = DISCOVERY_LIMITS[policy.protection_level][identity.identity_type]
-    limiter = RateLimiter(max_requests=limit, window_seconds=60)
+    limiter = RateLimiter(
+        max_requests=limit,
+        window_seconds=60,
+        failure_strategy=RateLimiter.FailureStrategy.MEMORY,
+    )
     key = identity.scoped_key(f'discovery:{route_id}')
-    allowed = await limiter.is_allowed(key)
+    decision = await limiter.check(key)
+    allowed = decision.allowed
     headers = await limiter.limit_headers(key) if not allowed else {}
     return allowed, headers, identity

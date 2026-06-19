@@ -41,7 +41,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Log unusually deep pagination or repeated feed pulls for observability.',
             'Treat this endpoint as a list-discovery path, not as a static marketing page.',
         ),
-        redis_failure_strategy='Fail open with degraded visibility today, but emit an explicit protection-gap signal.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing all protection.',
     ),
     EndpointProtectionPolicy(
         route_id='search_query',
@@ -56,7 +56,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Escalate suspicious repeated enumeration through identity-aware counters.',
             'Use this endpoint as the baseline for stricter protections on adjacent discovery routes.',
         ),
-        redis_failure_strategy='Do not silently drop all protection; use explicit fallback behavior in #245.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing all protection.',
     ),
     EndpointProtectionPolicy(
         route_id='search_suggest',
@@ -71,7 +71,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Cap automated suggestion harvesting more aggressively than normal search.',
             'Feed protection signals into the same escalation path as search enumeration.',
         ),
-        redis_failure_strategy='Do not silently become unbounded; use explicit fallback behavior in #245.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently becoming unbounded.',
     ),
     EndpointProtectionPolicy(
         route_id='colleges_list',
@@ -85,7 +85,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Bring into the same discovery-path limiter family as courses and materials lists.',
             'Keep anonymous browsing possible while making bulk enumeration meaningfully slower.',
         ),
-        redis_failure_strategy='Fail open is acceptable only with explicit observability and a documented gap.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing discovery protection.',
     ),
     EndpointProtectionPolicy(
         route_id='courses_list',
@@ -99,7 +99,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Protect both all-course pagination and college-scoped listing paths.',
             'Align limiter policy with the discovery matrix instead of leaving it search-only.',
         ),
-        redis_failure_strategy='Fail open is acceptable only with explicit observability and a documented gap.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing discovery protection.',
     ),
     EndpointProtectionPolicy(
         route_id='materials_list',
@@ -113,7 +113,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Apply discovery-path rate limits comparable to protected search flows.',
             'Treat repeated list enumeration as high-risk even when queries are empty.',
         ),
-        redis_failure_strategy='Do not silently lose all protection on this high-value list path.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing all protection.',
     ),
     EndpointProtectionPolicy(
         route_id='material_detail',
@@ -127,7 +127,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Allow ordinary human navigation while making scripted deep crawling measurable.',
             'Coordinate with adjacent related-material traversal to prevent graph harvesting.',
         ),
-        redis_failure_strategy='Fail open with observability is acceptable until stricter fallback is introduced.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing detail traversal protection.',
     ),
     EndpointProtectionPolicy(
         route_id='material_related',
@@ -141,7 +141,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Treat repeated related-material traversal as an enumeration vector.',
             'Apply tighter burst controls than ordinary detail reads.',
         ),
-        redis_failure_strategy='Do not silently become unbounded once discovery protections are introduced.',
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently becoming unbounded.',
     ),
     EndpointProtectionPolicy(
         route_id='download_redirect',
@@ -155,7 +155,7 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
             'Preserve strict download quotas and add identity-aware fallback behavior.',
             'Treat Redis failure as a critical protection-path incident, not a silent bypass.',
         ),
-        redis_failure_strategy='Fail closed or explicit deny-on-uncertain for the highest-value protection path.',
+        redis_failure_strategy='Explicit deny-on-uncertain when Redis is unavailable for the highest-value extraction path.',
     ),
 )
 

@@ -30,7 +30,11 @@ async def search_endpoint(
     ip = request.client.host if request and request.client else 'unknown'
     identity = build_request_identity(request, current_user)
     max_req = 60 if current_user else 30
-    limiter = RateLimiter(max_requests=max_req, window_seconds=60)
+    limiter = RateLimiter(
+        max_requests=max_req,
+        window_seconds=60,
+        failure_strategy=RateLimiter.FailureStrategy.MEMORY,
+    )
     key = identity.scoped_key('search')
     if not await limiter.is_allowed(key):
         headers = await limiter.limit_headers(key)
@@ -44,7 +48,11 @@ async def search_endpoint(
         if last_ts:
             gap = float(now_ts) - float(last_ts)
             if gap < 0.15:
-                rapid = RateLimiter(max_requests=5, window_seconds=10)
+                rapid = RateLimiter(
+                    max_requests=5,
+                    window_seconds=10,
+                    failure_strategy=RateLimiter.FailureStrategy.MEMORY,
+                )
                 if not await rapid.is_allowed(identity.scoped_key('search:rapid')):
                     return JSONResponse(
                         {'code': 42900, 'data': None, 'message': 'scrolling too fast, slow down'},
@@ -104,7 +112,11 @@ async def suggest_endpoint(
     request: Request = None,
     current_user: User | None = Depends(get_optional_user),
 ):
-    limiter = RateLimiter(max_requests=60, window_seconds=60)
+    limiter = RateLimiter(
+        max_requests=60,
+        window_seconds=60,
+        failure_strategy=RateLimiter.FailureStrategy.MEMORY,
+    )
     identity = build_request_identity(request, current_user)
     key = identity.scoped_key('suggest')
     if not await limiter.is_allowed(key):

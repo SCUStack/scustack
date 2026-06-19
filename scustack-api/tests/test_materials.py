@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
+from app.core.redis import RateLimiter
 from app.dependencies import get_current_user
 from app.main import app
 
@@ -214,8 +215,10 @@ class TestMaterialDownload:
 
     async def test_download_not_found(self, client):
         app.dependency_overrides[get_current_user] = lambda: MagicMock()
+        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
         try:
-            with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
+            with patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[allow_decision, allow_decision]), \
+                 patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download')
                 assert resp.json()['code'] == 40400
         finally:
@@ -231,16 +234,29 @@ class TestMaterialDownload:
         material.contributor_id = None
         version = MagicMock()
         version.storage_key = 'materials/demo.pdf'
+        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
         try:
             with patch('app.api.v1.materials.build_request_identity', return_value=identity), \
                  patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
                  patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
                  patch('app.api.v1.materials.oss.generate_download_url', return_value='https://example.com/file'), \
                  patch('app.core.redis.incr_download', new_callable=AsyncMock), \
-                 patch('app.api.v1.materials.RateLimiter.is_allowed', new_callable=AsyncMock, side_effect=[True, True]) as is_allowed:
+                 patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[allow_decision, allow_decision]) as check_mock:
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
                 assert resp.status_code == 302
-                assert is_allowed.await_args_list[1].args[0] == 'download:identity-key'
+                assert check_mock.await_args_list[1].args[0] == 'download:identity-key'
+        finally:
+            app.dependency_overrides.clear()
+
+    async def test_download_denies_when_redis_protection_is_unavailable(self, client):
+        app.dependency_overrides[get_current_user] = lambda: MagicMock(id='user-1')
+        deny_decision = RateLimiter.Decision(allowed=False, source='deny_without_redis', remaining=0, retry_after=60, degraded=True)
+        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
+        try:
+            with patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[deny_decision, allow_decision]):
+                resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
+                assert resp.status_code == 503
+                assert resp.json()['code'] == 50310
         finally:
             app.dependency_overrides.clear()
 

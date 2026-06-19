@@ -1,3 +1,7 @@
+import time
+from dataclasses import dataclass
+from enum import StrEnum
+
 from redis.asyncio import ConnectionPool, Redis
 
 from app.core.config import settings
@@ -5,6 +9,7 @@ from app.core.config import settings
 pool = ConnectionPool.from_url(settings.REDIS_URL, max_connections=20)
 
 redis = Redis(connection_pool=pool)
+_memory_windows: dict[str, tuple[int, float]] = {}
 
 
 async def cache_get(key: str) -> str | None:
@@ -97,18 +102,83 @@ async def flush_download_deltas(material_ids: list[str]) -> None:
 
 
 class RateLimiter:
-    def __init__(self, max_requests: int = 60, window_seconds: int = 60):
+    class FailureStrategy(StrEnum):
+        OPEN = 'open'
+        MEMORY = 'memory'
+        DENY = 'deny'
+
+    @dataclass(frozen=True)
+    class Decision:
+        allowed: bool
+        source: str
+        remaining: int
+        retry_after: int
+        degraded: bool
+
+    def __init__(
+        self,
+        max_requests: int = 60,
+        window_seconds: int = 60,
+        failure_strategy: 'RateLimiter.FailureStrategy' = FailureStrategy.OPEN,
+    ):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
+        self.failure_strategy = failure_strategy
 
-    async def is_allowed(self, key: str) -> bool:
+    def _memory_check(self, key: str) -> 'RateLimiter.Decision':
+        now = time.time()
+        count, reset_at = _memory_windows.get(key, (0, now + self.window_seconds))
+        if now >= reset_at:
+            count = 0
+            reset_at = now + self.window_seconds
+        count += 1
+        _memory_windows[key] = (count, reset_at)
+        remaining = max(0, self.max_requests - count)
+        retry_after = max(0, int(reset_at - now))
+        return self.Decision(
+            allowed=count <= self.max_requests,
+            source='memory',
+            remaining=remaining,
+            retry_after=retry_after,
+            degraded=True,
+        )
+
+    async def check(self, key: str) -> 'RateLimiter.Decision':
         try:
             current = await redis.incr(key)
             if current == 1:
                 await redis.expire(key, self.window_seconds)
-            return current <= self.max_requests
+            remaining = max(0, self.max_requests - current)
+            ttl = await redis.ttl(key)
+            return self.Decision(
+                allowed=current <= self.max_requests,
+                source='redis',
+                remaining=remaining,
+                retry_after=max(0, ttl),
+                degraded=False,
+            )
         except Exception:
-            return True  # Fail open: allow traffic when Redis is unavailable
+            if self.failure_strategy == self.FailureStrategy.MEMORY:
+                return self._memory_check(key)
+            if self.failure_strategy == self.FailureStrategy.DENY:
+                return self.Decision(
+                    allowed=False,
+                    source='deny_without_redis',
+                    remaining=0,
+                    retry_after=self.window_seconds,
+                    degraded=True,
+                )
+            return self.Decision(
+                allowed=True,
+                source='open_without_redis',
+                remaining=self.max_requests,
+                retry_after=0,
+                degraded=True,
+            )
+
+    async def is_allowed(self, key: str) -> bool:
+        decision = await self.check(key)
+        return decision.allowed
 
     async def remaining(self, key: str) -> int:
         try:
@@ -120,16 +190,14 @@ class RateLimiter:
 
     async def limit_headers(self, key: str) -> dict[str, str]:
         """Generate X-RateLimit-* and Retry-After headers for this key."""
-        try:
-            remaining_val = await self.remaining(key)
-            ttl = await redis.ttl(key)
-        except Exception:
-            remaining_val = self.max_requests
-            ttl = 0
+        decision = await self.check(key)
         headers = {
             'X-RateLimit-Limit': str(self.max_requests),
-            'X-RateLimit-Remaining': str(remaining_val),
+            'X-RateLimit-Remaining': str(decision.remaining),
+            'X-RateLimit-Source': decision.source,
         }
-        if remaining_val <= 0 and ttl > 0:
-            headers['Retry-After'] = str(ttl)
+        if decision.retry_after > 0:
+            headers['Retry-After'] = str(decision.retry_after)
+        if decision.degraded:
+            headers['X-Protection-Degraded'] = 'true'
         return headers
