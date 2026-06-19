@@ -80,7 +80,7 @@ async def search_endpoint(
         await cache_set(identity.scoped_key('search:ts'), now_ts, ttl=30)
         if last_ts:
             gap = float(now_ts) - float(last_ts)
-            if gap < 0.15:
+            if gap < 0.3:
                 rapid_scroll_detected = True
                 rapid = RateLimiter(
                     max_requests=5,

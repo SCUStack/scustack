@@ -1,7 +1,7 @@
 """create site_configs table
 
-Revision ID: 028_create_site_configs
-Revises: 027_add_rate_limit_logs
+Revision ID: 030
+Revises: 029
 Create Date: 2026-06-19 14:00:00
 """
 
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '028_create_site_configs'
-down_revision = '027_add_rate_limit_logs'
+revision = '030'
+down_revision = '029'
 branch_labels = None
 depends_on = None
 
