@@ -5,6 +5,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.core.redis import RateLimiter
+from app.core.search_pressure import SearchPressureDecision, SearchPressureLevel
 
 
 @pytest.fixture
@@ -103,6 +104,28 @@ class TestSearchAPI:
              patch('app.api.v1.search.RateLimiter.check', new_callable=AsyncMock, return_value=memory_decision):
             resp = await client.get('/api/v1/search?q=数据结构')
             assert resp.json()['code'] == 0
+
+    async def test_search_pressure_slowdown_caps_page_size(self, client):
+        with patch('app.api.v1.search.search', new_callable=AsyncMock, return_value={'items': [], 'total': 0}) as search_mock, \
+             patch('app.api.v1.search.apply_search_pressure', new_callable=AsyncMock, return_value=SearchPressureDecision(level=SearchPressureLevel.SLOWDOWN, score=5, page_size_cap=8, reason='search_pressure_slowdown')), \
+             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True), \
+             patch('app.api.v1.search.cache_get', new_callable=AsyncMock, return_value=None), \
+             patch('app.api.v1.search.cache_set', new_callable=AsyncMock):
+            resp = await client.get('/api/v1/search?q=&page=2&page_size=20')
+            assert resp.status_code == 200
+            assert resp.headers['X-Page-Size-Cap'] == '8'
+            assert search_mock.await_args.kwargs['page_size'] == 8
+
+    async def test_search_pressure_block_returns_escalated_response(self, client):
+        block_decision = SearchPressureDecision(level=SearchPressureLevel.BLOCK, score=9, page_size_cap=None, reason='suspicious_search_behavior')
+        with patch('app.api.v1.search.apply_search_pressure', new_callable=AsyncMock, return_value=block_decision), \
+             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True), \
+             patch('app.api.v1.search.cache_get', new_callable=AsyncMock, return_value=None), \
+             patch('app.api.v1.search.cache_set', new_callable=AsyncMock):
+            resp = await client.get('/api/v1/search?q=&page=5&page_size=50')
+            assert resp.status_code == 429
+            assert resp.json()['code'] == 42910
+            assert resp.headers['X-Anti-Scraping-Level'] == 'block'
 
 
 class TestSearchService:

@@ -4,6 +4,7 @@ import time
 
 from app.core.request_identity import build_request_identity
 from app.core.redis import RateLimiter, cache_get, cache_set
+from app.core.search_pressure import SearchPressureLevel, apply_search_pressure
 from app.dependencies import get_optional_user
 from app.models.user import User
 from app.services.search_service import get_search_filter_config, search, suggest
@@ -40,6 +41,8 @@ async def search_endpoint(
         headers = await limiter.limit_headers(key)
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
 
+    rapid_scroll_detected = False
+
     # Rapid-fire page scrolling detection
     if page > 1:
         last_ts = await cache_get(identity.scoped_key('search:ts'))
@@ -48,6 +51,7 @@ async def search_endpoint(
         if last_ts:
             gap = float(now_ts) - float(last_ts)
             if gap < 0.15:
+                rapid_scroll_detected = True
                 rapid = RateLimiter(
                     max_requests=5,
                     window_seconds=10,
@@ -59,12 +63,35 @@ async def search_endpoint(
                         status_code=429,
                     )
 
+    pressure = await apply_search_pressure(
+        identity_key=identity.scoped_key('search'),
+        query=q,
+        page=page,
+        page_size=page_size,
+        is_authenticated=current_user is not None,
+        rapid_scroll_detected=rapid_scroll_detected,
+    )
+    if pressure.level == SearchPressureLevel.BLOCK:
+        return JSONResponse(
+            {
+                'code': 42910,
+                'data': {'level': pressure.level.value, 'score': pressure.score},
+                'message': 'suspicious search behavior detected',
+            },
+            status_code=429,
+            headers={
+                'X-Anti-Scraping-Level': pressure.level.value,
+                'X-Anti-Scraping-Score': str(pressure.score),
+            },
+        )
+    effective_page_size = pressure.page_size_cap or page_size
+
     try:
         result = await search(
             q=q, college_id=college_id, course_id=course_id,
             category=category, semester=semester, source_type=source_type,
             format=format, trust_status=trust_status,
-            sort=sort, page=page, page_size=page_size,
+            sort=sort, page=page, page_size=effective_page_size,
         )
     except Exception as e:
         return JSONResponse(
@@ -92,7 +119,12 @@ async def search_endpoint(
         except Exception:
             pass
 
-    return {'code': 0, 'data': result, 'message': 'ok'}
+    response = JSONResponse({'code': 0, 'data': result, 'message': 'ok'})
+    if pressure.level == SearchPressureLevel.SLOWDOWN:
+        response.headers['X-Anti-Scraping-Level'] = pressure.level.value
+        response.headers['X-Anti-Scraping-Score'] = str(pressure.score)
+        response.headers['X-Page-Size-Cap'] = str(effective_page_size)
+    return response
 
 
 @router.get('/search/hot')
