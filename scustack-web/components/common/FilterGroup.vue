@@ -20,12 +20,14 @@
       >
         <AppIcon v-if="selected.includes(opt)" name="Check" size="12" class="text-white" />
       </span>
-      <span class="text-sm">{{ optLabels[opt] || opt }}</span>
+      <span class="text-sm">{{ getBusinessLabel(opt) }}</span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { getBusinessLabel } from '~/data/business'
+
 const props = defineProps<{
   label: string
   options: string[]
@@ -33,14 +35,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ update: [values: string[]] }>()
-
-const optLabels: Record<string, string> = {
-  maintainer_picked: '维护者精选',
-  community_verified: '社区验证',
-  unverified: '未验证',
-  hosted: '托管文件',
-  external: '外部链接',
-}
 
 function toggle(opt: string) {
   const next = props.selected.includes(opt)

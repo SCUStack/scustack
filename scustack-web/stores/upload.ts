@@ -2,6 +2,7 @@
  * Upload store — batch file list, shared metadata, upload progress.
  * Centralizes upload state previously scattered across upload.vue.
  */
+import { materialCategories } from '~/data/business'
 
 export interface BatchFileEntry {
   id: string
@@ -43,7 +44,7 @@ export const useUploadStore = defineStore('upload', () => {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           file: f,
           title,
-          category: defaultCategory || '课堂笔记',
+          category: defaultCategory || materialCategories[0],
           status: 'pending',
           progress: 0,
           errorMsg: '',

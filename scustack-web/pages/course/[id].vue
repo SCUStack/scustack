@@ -50,10 +50,7 @@
             <option v-for="s in semesters" :key="s" :value="s">{{ s }}</option>
           </select>
           <select v-model="inCourseSort" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
-            <option value="relevance">相关度</option>
-            <option value="newest">最新</option>
-            <option value="downloads">最多下载</option>
-            <option value="rating">最高评分</option>
+            <option v-for="sort in searchSortOptions" :key="sort.key" :value="sort.key">{{ sort.label }}</option>
           </select>
         </div>
       </div>
@@ -108,6 +105,8 @@
 </template>
 
 <script setup lang="ts">
+import { materialCategories, materialSemesters, searchSortOptions } from '~/data/business'
+
 const route = useRoute()
 const { apiBase } = useRuntimeConfig().public
 
@@ -134,8 +133,8 @@ const inCourseQuery = ref('')
 const inCourseCategory = ref('')
 const inCourseSemester = ref('')
 const inCourseSort = ref('relevance')
-const categories = ['课堂笔记', '考试资料', '复习提纲', '教材', '习题集', '实验报告', '历年真题', '课件讲义']
-const semesters = ['2026-2027-1', '2025-2026-2', '2025-2026-1', '2024-2025-2', '2024-2025-1']
+const categories = [...materialCategories]
+const semesters = [...materialSemesters]
 const currentPage = ref(1)
 const hasQueryFilters = computed(() => Boolean(inCourseQuery.value || inCourseCategory.value || inCourseSemester.value))
 const totalPages = computed(() => Math.ceil(total.value / PAGE_SIZE) || 1)

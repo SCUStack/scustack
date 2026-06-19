@@ -62,11 +62,8 @@
       <div v-if="!batchMode">
         <label class="block text-sm font-medium text-slate-700 mb-2">来源类型 *</label>
         <div class="flex gap-4">
-          <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="radio" v-model="form.sourceType" value="hosted" class="accent-primary-600" /> 上传文件
-          </label>
-          <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="radio" v-model="form.sourceType" value="external" class="accent-primary-600" /> 外部链接
+          <label v-for="option in sourceTypeOptions" :key="option.value" class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="radio" v-model="form.sourceType" :value="option.value" class="accent-primary-600" /> {{ option.label }}
           </label>
         </div>
       </div>
@@ -176,11 +173,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { materialCategories, materialSemesters, sourceTypeOptions } from '~/data/business'
 
 definePageMeta({ middleware: ['auth'], ssr: false })
 
-const categories = ['课堂笔记', '考试资料', '复习提纲', '教材', '习题集', '实验报告', '历年真题', '课件讲义']
-const semesters = ['2026-2027-1', '2025-2026-2', '2025-2026-1', '2024-2025-2', '2024-2025-1']
+const categories = [...materialCategories]
+const semesters = [...materialSemesters]
 
 interface BatchFileEntry {
   id: string

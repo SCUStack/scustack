@@ -81,6 +81,8 @@
 </template>
 
 <script setup lang="ts">
+import { searchFilterGroups, searchSortOptions } from '~/data/business'
+
 definePageMeta({ ssr: true })
 
 const {
@@ -91,26 +93,13 @@ const {
 
 const showMobileFilters = ref(false)
 
-const sorts = [
-  { key: 'relevance', label: '相关度' },
-  { key: 'newest', label: '最新' },
-  { key: 'downloads', label: '最多下载' },
-  { key: 'rating', label: '最高评分' },
-]
+const sorts = searchSortOptions
 
-const filterLabelMap: Record<string, Record<string, string>> = {
-  category: { '课堂笔记': '课堂笔记', '考试资料': '考试资料', '复习提纲': '复习提纲', '教材': '教材', '习题集': '习题集', '实验报告': '实验报告', '历年真题': '历年真题', '课件讲义': '课件讲义' },
-  semester: { '2026-2027-1': '2026-2027-1', '2025-2026-2': '2025-2026-2', '2025-2026-1': '2025-2026-1', '2024-2025-2': '2024-2025-2', '2024-2025-1': '2024-2025-1' },
-  trust_status: { maintainer_picked: '维护者精选', community_verified: '社区验证', unverified: '未验证' },
-  source_type: { hosted: '托管文件', external: '外部链接' },
-}
-
-const filterGroups = [
-  { key: 'category', label: '资料分类', options: ['课堂笔记', '考试资料', '复习提纲', '教材', '习题集', '实验报告', '历年真题', '课件讲义'] },
-  { key: 'semester', label: '学期', options: ['2026-2027-1', '2025-2026-2', '2025-2026-1', '2024-2025-2', '2024-2025-1'] },
-  { key: 'trust_status', label: '信任状态', options: ['maintainer_picked', 'community_verified', 'unverified'] },
-  { key: 'source_type', label: '来源', options: ['hosted', 'external'] },
-]
+const filterGroups = searchFilterGroups.map(group => ({
+  key: group.key,
+  label: group.label,
+  options: group.options.map(option => option.value),
+}))
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize) || 1)
 

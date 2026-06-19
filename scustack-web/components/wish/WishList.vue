@@ -74,6 +74,8 @@
 </template>
 
 <script setup lang="ts">
+import { materialCategories } from '~/data/business'
+
 const props = defineProps<{ courseId: string }>()
 
 function timeAgo(dateStr: string): string {
@@ -101,7 +103,7 @@ const newCategory = ref('')
 const creating = ref(false)
 const createError = ref('')
 
-const categories = ['课堂笔记', '考试资料', '复习提纲', '教材', '习题集', '实验报告', '历年真题', '课件讲义']
+const categories = [...materialCategories]
 
 async function fetchWishes() {
   loading.value = true

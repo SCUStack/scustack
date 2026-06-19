@@ -71,10 +71,7 @@
                 class="h-8 px-2 border border-slate-200 rounded text-xs"
                 @change="setTrust(item.material_id, ($event.target as HTMLSelectElement).value)"
               >
-                <option value="unverified">未验证</option>
-                <option value="community_verified">社区验证</option>
-                <option value="maintainer_picked">维护者精选</option>
-                <option value="doubtful">存疑</option>
+                <option v-for="option in trustStatusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
               <button
                 class="h-8 px-3 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 cursor-pointer transition-colors duration-150"
@@ -155,6 +152,8 @@
 </template>
 
 <script setup lang="ts">
+import { trustStatusOptions } from '~/data/business'
+
 definePageMeta({ layout: false })
 
 const { apiBase } = useRuntimeConfig().public

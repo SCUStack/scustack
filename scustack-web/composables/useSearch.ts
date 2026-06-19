@@ -1,19 +1,8 @@
+import { businessLabelMaps, searchFilterGroupLabels } from '~/data/business'
 import type { MaterialItem } from '~/types/api'
 
-const FILTER_LABELS: Record<string, Record<string, string>> = {
-  category: { '课堂笔记': '课堂笔记', '考试资料': '考试资料', '复习提纲': '复习提纲', '教材': '教材', '习题集': '习题集', '实验报告': '实验报告', '历年真题': '历年真题', '课件讲义': '课件讲义', '考研专区': '考研专区' },
-  semester: {},
-  trust_status: { maintainer_picked: '维护者精选', community_verified: '社区验证', unverified: '未验证', doubtful: '存疑' },
-  source_type: { hosted: '托管文件', external: '外部链接' },
-  format: {},
-}
-
-const FILTER_GROUP_LABELS: Record<string, string> = {
-  category: '分类', semester: '学期', source_type: '来源', format: '格式', trust_status: '信任状态', college_id: '学院',
-}
-
 function filterDisplay(key: string, value: string): string {
-  return FILTER_LABELS[key]?.[value] || value
+  return businessLabelMaps[key]?.[value] || value
 }
 
 /**
@@ -55,7 +44,7 @@ export function useSearch() {
     const chips: { key: string; value: string; label: string; display: string }[] = []
     for (const [key, values] of Object.entries(filters)) {
       for (const v of values) {
-        chips.push({ key, value: v, label: FILTER_GROUP_LABELS[key] || key, display: filterDisplay(key, v) })
+        chips.push({ key, value: v, label: searchFilterGroupLabels[key] || key, display: filterDisplay(key, v) })
       }
     }
     return chips

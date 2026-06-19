@@ -110,6 +110,8 @@
 </template>
 
 <script setup lang="ts">
+import { categoryOptions, searchSortOptions, semesterOptions, trustStatusOptions } from '~/data/business'
+
 const MIN_LOAD_MS = 300
 const PAGE_SIZE = 20
 
@@ -144,24 +146,10 @@ interface FilterChip {
 }
 
 const filterChips = ref<FilterChip[]>([
-  { key: 'category', label: '分类', active: false, value: '', display: '', options: [
-    { value: '课堂笔记', label: '课堂笔记' }, { value: '考试资料', label: '考试资料' },
-    { value: '复习提纲', label: '复习提纲' }, { value: '教材', label: '教材' },
-    { value: '习题集', label: '习题集' }, { value: '实验报告', label: '实验报告' },
-    { value: '历年真题', label: '历年真题' }, { value: '课件讲义', label: '课件讲义' },
-  ]},
-  { key: 'semester', label: '学期', active: false, value: '', display: '', options: [
-    { value: '2026-2027-1', label: '2026-2027-1' }, { value: '2025-2026-2', label: '2025-2026-2' },
-    { value: '2025-2026-1', label: '2025-2026-1' }, { value: '2024-2025-2', label: '2024-2025-2' },
-    { value: '2024-2025-1', label: '2024-2025-1' },
-  ]},
-  { key: 'trust_status', label: '信任', active: false, value: '', display: '', options: [
-    { value: 'maintainer_picked', label: '维护者精选' }, { value: 'community_verified', label: '社区验证' },
-  ]},
-  { key: 'sort', label: '排序', active: false, value: 'relevance', display: '相关度', options: [
-    { value: 'relevance', label: '相关度' }, { value: 'newest', label: '最新' },
-    { value: 'downloads', label: '最多下载' }, { value: 'rating', label: '最高评分' },
-  ]},
+  { key: 'category', label: '分类', active: false, value: '', display: '', options: [...categoryOptions] },
+  { key: 'semester', label: '学期', active: false, value: '', display: '', options: [...semesterOptions] },
+  { key: 'trust_status', label: '信任', active: false, value: '', display: '', options: [...trustStatusOptions] },
+  { key: 'sort', label: '排序', active: false, value: 'relevance', display: '相关度', options: searchSortOptions.map(option => ({ value: option.key, label: option.label })) },
 ])
 
 const activeChip = ref<FilterChip | null>(null)

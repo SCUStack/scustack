@@ -35,10 +35,7 @@
             </p>
           </div>
           <select :value="m.trust_status || 'unverified'" class="h-7 px-2 border border-slate-200 rounded text-xs" @change="setTrust(m.id, ($event.target as HTMLSelectElement).value)">
-            <option value="unverified">未验证</option>
-            <option value="community_verified">社区验证</option>
-            <option value="maintainer_picked">维护者精选</option>
-            <option value="doubtful">存疑</option>
+            <option v-for="option in trustStatusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select>
           <button v-if="m.review_status !== 'removed'" class="h-7 px-2 rounded text-xs text-red-400 hover:bg-red-50 cursor-pointer" @click="removeMaterial(m.id)">下架</button>
         </div>
@@ -49,6 +46,8 @@
 </template>
 
 <script setup lang="ts">
+import { materialCategories, trustStatusOptions } from '~/data/business'
+
 definePageMeta({ layout: false })
 const { apiBase } = useRuntimeConfig().public
 const items = ref<any[]>([])
@@ -59,7 +58,7 @@ const statusFilter = ref('')
 const categoryFilter = ref('')
 let timer: ReturnType<typeof setTimeout> | null = null
 
-const categories = ['课堂笔记','考试资料','复习提纲','教材','习题集','实验报告','历年真题','课件讲义']
+const categories = [...materialCategories]
 
 function debounceSearch() {
   if (timer) clearTimeout(timer)
