@@ -144,10 +144,10 @@ async function loadTab(key: string, append = false) {
 async function loadRecommend(s: TabState, append: boolean) {
   if (!s.homepageExhausted) {
     const resp = await $fetch<{ code: number; data: any }>(
-      `${apiBase}/api/v1/homepage?cursor=${s.homepageCursor}&limit=${PAGE_SIZE}`,
+      `${apiBase}/api/v1/homepage/recent-updates?cursor=${s.homepageCursor}&limit=${PAGE_SIZE}`,
     )
     if (resp.code === 0) {
-      const recs = resp.data.calendar_recommendations || resp.data.recent_updates || []
+      const recs = resp.data.recent_updates || []
       if (recs.length > 0) {
         const deduped = dedupeItems(s, recs)
         if (!append) { s.left = []; s.right = [] }

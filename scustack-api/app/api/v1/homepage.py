@@ -60,6 +60,41 @@ async def get_homepage(
     }
 
 
+@router.get('/homepage/recent-updates')
+async def get_recent_updates(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    cursor: int = Query(0, ge=0, alias='cursor'),
+    limit: int = Query(15, ge=1, le=50, alias='limit'),
+    current_user: User | None = Depends(get_optional_user),
+):
+    allowed, headers, _ = await enforce_discovery_rate_limit(
+        'homepage_recent_updates',
+        request,
+        current_user,
+    )
+    if not allowed:
+        return JSONResponse(
+            {'code': 42900, 'data': None, 'message': 'too many discovery requests'},
+            status_code=429,
+            headers=headers,
+        )
+
+    recent = await homepage_service.get_recent_updates(db, cursor, limit)
+    return {
+        'code': 0,
+        'data': {
+            'recent_updates': [
+                MaterialResponse.model_validate(m).model_dump(mode='json')
+                for m in recent
+            ],
+            'cursor': cursor,
+            'limit': limit,
+        },
+        'message': 'ok',
+    }
+
+
 @router.get('/announcements/active')
 async def active_announcements(db: AsyncSession = Depends(get_db)):
     from app.services.announcement_service import get_active

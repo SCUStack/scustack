@@ -44,6 +44,21 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
         redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing all protection.',
     ),
     EndpointProtectionPolicy(
+        route_id='homepage_recent_updates',
+        route_pattern='GET /api/v1/homepage/recent-updates',
+        surface='homepage',
+        exposure='Cursor-based recent-updates feed used for continued homepage browsing.',
+        protection_level=ProtectionLevel.GUARDED,
+        intended_identity='Anonymous fingerprint by IP today, upgrade to unified request identity in #240.',
+        current_protection='No dedicated route limiter before splitting it from the homepage aggregate.',
+        intended_behaviors=(
+            'Apply the same discovery-path family of limits as the homepage feed.',
+            'Protect repeated cursor-driven feed pulls without re-running homepage aggregate work.',
+            'Keep pagination observable as a discovery surface in its own right.',
+        ),
+        redis_failure_strategy='Degrade to per-process in-memory limiting instead of silently losing all protection.',
+    ),
+    EndpointProtectionPolicy(
         route_id='search_query',
         route_pattern='GET /api/v1/search',
         surface='search',

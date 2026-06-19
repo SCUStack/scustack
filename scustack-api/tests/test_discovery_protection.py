@@ -63,7 +63,20 @@ class TestDiscoveryProtection:
              patch('app.api.v1.homepage.homepage_service.get_calendar_recommendations', new_callable=AsyncMock, return_value=[]), \
              patch('app.api.v1.homepage.homepage_service.get_recent_updates', new_callable=AsyncMock, return_value=[]), \
              patch('app.api.v1.homepage.homepage_service.get_hot_courses', new_callable=AsyncMock, return_value=[]), \
-             patch('app.api.v1.homepage.homepage_service.get_calendar_label', return_value='近期更新'):
+             patch('app.api.v1.homepage.homepage_service.get_calendar_label', return_value='近期更新'), \
+             patch('app.api.v1.homepage.homepage_presentation_service.get_homepage_presentation', new_callable=AsyncMock, return_value={'banners': []}):
             resp = await client.get('/api/v1/homepage')
             assert resp.json()['code'] == 0
             check_mock.assert_awaited_with('discovery:homepage_feed:identity-key')
+
+    async def test_homepage_recent_updates_uses_discovery_rate_limit(self, client):
+        identity = MagicMock()
+        identity.identity_type = 'anonymous'
+        identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
+        allow_decision = MagicMock(allowed=True)
+        with patch('app.core.discovery_protection.build_request_identity', return_value=identity), \
+             patch('app.core.discovery_protection.RateLimiter.check', new_callable=AsyncMock, return_value=allow_decision) as check_mock, \
+             patch('app.api.v1.homepage.homepage_service.get_recent_updates', new_callable=AsyncMock, return_value=[]):
+            resp = await client.get('/api/v1/homepage/recent-updates')
+            assert resp.json()['code'] == 0
+            check_mock.assert_awaited_with('discovery:homepage_recent_updates:identity-key')

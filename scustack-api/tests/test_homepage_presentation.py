@@ -1,4 +1,5 @@
 import uuid
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -93,3 +94,52 @@ class TestHomepageApi:
       resp = await client.get('/api/v1/homepage')
       assert resp.status_code == 200
       assert resp.json()['data']['banners'][0]['title'] == DEFAULT_HOMEPAGE_PRESENTATION['banners'][0]['title']
+
+  async def test_recent_updates_endpoint_returns_feed_only_payload(self, client):
+    allow_decision = MagicMock(allowed=True)
+    recent_material = SimpleNamespace(
+      id=uuid.uuid4(),
+      course_id=uuid.uuid4(),
+      title='离散数学期末复习',
+      description='近期上传',
+      category='复习提纲',
+      semester='2025-2026-2',
+      teacher='张老师',
+      source_type='hosted',
+      external_url=None,
+      format='pdf',
+      file_size=1024,
+      file_hash='abc',
+      trust_status='community_verified',
+      review_status='approved',
+      average_rating=4.5,
+      rating_count=3,
+      download_count=12,
+      is_pinned=False,
+      parts=[],
+      contributor_id=None,
+      contributor=None,
+      rating_distribution=None,
+      created_at=MagicMock(isoformat=lambda: '2026-06-19T00:00:00+00:00'),
+      updated_at=MagicMock(isoformat=lambda: '2026-06-19T00:00:00+00:00'),
+    )
+
+    with patch('app.core.discovery_protection.RateLimiter.check', new_callable=AsyncMock, return_value=allow_decision), \
+         patch('app.core.discovery_protection.build_request_identity', return_value=MagicMock(identity_type='anonymous', scoped_key=lambda prefix: f'{prefix}:identity-key')), \
+         patch('app.core.discovery_protection.log_anti_scraping_event', new_callable=AsyncMock), \
+         patch('app.api.v1.homepage.homepage_service.get_recent_updates', new_callable=AsyncMock, return_value=[recent_material]) as recent_mock, \
+         patch('app.api.v1.homepage.homepage_service.get_stats', new_callable=AsyncMock) as stats_mock, \
+         patch('app.api.v1.homepage.homepage_service.get_calendar_recommendations', new_callable=AsyncMock) as calendar_mock, \
+         patch('app.api.v1.homepage.homepage_service.get_hot_courses', new_callable=AsyncMock) as hot_mock, \
+         patch('app.api.v1.homepage.homepage_presentation_service.get_homepage_presentation', new_callable=AsyncMock) as presentation_mock:
+      resp = await client.get('/api/v1/homepage/recent-updates?cursor=15&limit=15')
+
+    assert resp.status_code == 200
+    assert resp.json()['data']['cursor'] == 15
+    assert resp.json()['data']['limit'] == 15
+    assert len(resp.json()['data']['recent_updates']) == 1
+    recent_mock.assert_awaited_once()
+    stats_mock.assert_not_called()
+    calendar_mock.assert_not_called()
+    hot_mock.assert_not_called()
+    presentation_mock.assert_not_called()

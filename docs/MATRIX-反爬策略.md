@@ -25,6 +25,7 @@ The source of truth for the machine-readable matrix lives in `scustack-api/app/c
 | Route | Surface | Level | Current protection | Intended behavior | Redis failure strategy |
 | --- | --- | --- | --- | --- | --- |
 | `GET /api/v1/homepage` | Homepage discovery feed | `guarded` | No dedicated route limiter | Treat as a list-discovery path; add cursor-sensitive discovery limits and observability. | Degrade to per-process in-memory limiting. |
+| `GET /api/v1/homepage/recent-updates` | Homepage recent feed pagination | `guarded` | No dedicated route limiter before endpoint split | Protect repeated cursor-driven feed pulls without recomputing homepage aggregate sections. | Degrade to per-process in-memory limiting. |
 | `GET /api/v1/search` | Search results | `strict` | Per-IP limiter + rapid-scroll throttling | Preserve current search throttles and upgrade to identity-aware counters and escalation. | Degrade to per-process in-memory limiting. |
 | `GET /api/v1/search/suggest` | Search suggestions | `strict` | Per-IP limiter | Share limiter identity with search and cap suggestion harvesting more aggressively. | Degrade to per-process in-memory limiting. |
 | `GET /api/v1/colleges` | Top-level catalog | `guarded` | No dedicated route limiter | Bring into shared discovery-path limiting so enumeration cannot start here for free. | Degrade to per-process in-memory limiting. |

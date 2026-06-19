@@ -197,7 +197,7 @@ onMounted(async () => {
       recentLoading.value = true
       try {
         const resp = await $fetch<{ code: number; data: any }>(
-          `${apiBase}/api/v1/homepage?cursor=${recentCursor.value}&limit=15`,
+          `${apiBase}/api/v1/homepage/recent-updates?cursor=${recentCursor.value}&limit=15`,
         )
         if (resp.code === 0 && resp.data?.recent_updates?.length) {
           recentItems.value.push(...resp.data.recent_updates)
