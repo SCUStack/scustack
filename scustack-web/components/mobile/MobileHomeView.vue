@@ -1,8 +1,8 @@
 <template>
   <div class="pb-4 min-h-screen">
     <!-- Two-column masonry -->
-    <Transition name="tab-fade">
-      <div :key="activeTab" class="px-3 pt-3 min-h-[300px]">
+    <Transition name="tab-slide" mode="out-in">
+      <div :key="activeTab" class="px-3 pt-5 min-h-[300px]">
         <!-- Skeleton on first load -->
         <div v-if="currentLoading && currentLeft.length === 0 && currentRight.length === 0" class="flex gap-3">
           <div class="flex-1 space-y-3">
@@ -232,12 +232,21 @@ onMounted(() => {
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 
-.tab-fade-enter-active,
-.tab-fade-leave-active {
-  transition: opacity 0.15s ease;
+.tab-slide-enter-active,
+.tab-slide-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
 }
-.tab-fade-enter-from,
-.tab-fade-leave-to {
+.tab-slide-enter-from,
+.tab-slide-leave-to {
   opacity: 0;
+  transform: translate3d(0, 10px, 0);
+}
+
+.tab-slide-enter-to,
+.tab-slide-leave-from {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 </style>

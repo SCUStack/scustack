@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="modelValue" class="fixed inset-0 z-[60] lg:hidden" @click.self="$emit('update:modelValue', false)">
-        <div class="absolute inset-0 bg-black/40" />
-        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] flex flex-col">
+      <div v-if="modelValue" class="fixed inset-0 z-[90] lg:hidden" @click.self="$emit('update:modelValue', false)">
+        <div class="absolute inset-0 bg-black/40" @click="$emit('update:modelValue', false)" />
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] flex flex-col" style="padding-bottom: var(--safe-area-bottom)">
           <!-- Handle -->
           <div class="flex justify-center pt-3 pb-1">
             <div class="w-10 h-1 rounded-full bg-slate-300" />

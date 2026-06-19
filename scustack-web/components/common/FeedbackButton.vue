@@ -1,7 +1,7 @@
 <template>
   <div>
     <button
-      class="fixed bottom-16 lg:bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-primary-700 text-white shadow-lg hover:bg-primary-800 hover:shadow-xl cursor-pointer border-none flex items-center justify-center transition-all duration-200"
+      class="fixed right-4 bottom-[calc(var(--mobile-bottom-nav-height)+0.9rem)] lg:bottom-6 lg:right-6 z-40 w-12 h-12 rounded-2xl bg-primary-700 text-white shadow-[0_14px_30px_rgba(29,78,216,0.28)] hover:bg-primary-800 hover:shadow-[0_18px_36px_rgba(29,78,216,0.34)] cursor-pointer border border-white/20 flex items-center justify-center transition-all duration-200"
       aria-label="反馈"
       title="帮助我们变得更好"
       @click="showModal = true"

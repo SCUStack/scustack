@@ -1,5 +1,9 @@
 <template>
   <div class="min-h-screen bg-slate-50">
+    <div v-if="isHome" class="pointer-events-none fixed inset-x-0 top-0 z-0 lg:hidden">
+      <div class="h-40 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.14),_transparent_58%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_48%),linear-gradient(180deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.74)_72%,_rgba(248,250,252,0))]" />
+    </div>
+
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary-700 focus:text-white focus:rounded-md focus:no-underline">跳到主要内容</a>
 
     <!-- ═══════ DESKTOP NAVBAR ═══════ -->
@@ -115,47 +119,55 @@
     <!-- ═══════ MOBILE NAVBAR (home only) ═══════ -->
     <header
       v-if="isHome"
-      class="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center gap-1 px-3 bg-white/95 backdrop-blur border-b border-slate-200"
-      style="padding-top: var(--safe-area-top); padding-left: calc(0.75rem + var(--safe-area-left)); padding-right: calc(0.75rem + var(--safe-area-right)); height: calc(var(--mobile-header-height) + var(--safe-area-top))"
+      class="lg:hidden fixed top-0 left-0 right-0 z-50"
+      style="padding-top: var(--safe-area-top); padding-left: calc(0.75rem + var(--safe-area-left)); padding-right: calc(0.75rem + var(--safe-area-right))"
     >
-      <button class="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer border-none" @click="navigateTo('/user/profile')">
-        <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" class="w-full h-full object-cover" alt="" />
-        <AppIcon v-else name="User" :size="18" class="text-primary-600" />
-      </button>
+      <div class="relative mt-2 overflow-hidden rounded-[28px] border border-white/65 shadow-[0_12px_34px_rgba(15,23,42,0.12)]">
+        <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.44))] backdrop-blur-2xl backdrop-saturate-150" />
+        <div class="absolute inset-[1px] rounded-[27px] bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_34%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_28%)]" />
+        <div class="relative flex items-center gap-2 px-2 py-2">
+          <button class="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer border border-primary-100/80 shadow-sm" @click="navigateTo('/user/profile')">
+            <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" class="w-full h-full object-cover" alt="" />
+            <AppIcon v-else name="User" :size="18" class="text-primary-600" />
+          </button>
 
-      <!-- Filter tabs -->
-      <div class="flex-1 flex gap-5 overflow-x-auto no-scrollbar scroll-fade min-w-0 px-1">
-        <button
-          v-for="tab in homeTabs"
-          :key="tab.key"
-          class="relative shrink-0 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer border-none bg-transparent"
-          :class="activeHomeTab === tab.key ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'"
-          @click="setHomeTab(tab.key)"
-        >
-          {{ tab.label }}
-          <span
-            class="absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 rounded-full bg-primary-600 transition-all duration-200"
-            :class="activeHomeTab === tab.key ? 'w-5 opacity-100' : 'w-0 opacity-0'"
-          />
-        </button>
+          <div class="flex-1 min-w-0 px-1">
+            <div class="flex gap-1 overflow-x-auto no-scrollbar min-w-0">
+              <button
+                v-for="tab in homeTabs"
+                :key="tab.key"
+                class="relative shrink-0 rounded-xl px-3 py-2.5 text-sm font-semibold tracking-[0.01em] transition-all duration-250 cursor-pointer border-none overflow-hidden"
+                :class="activeHomeTab === tab.key ? 'bg-white/88 text-slate-900 shadow-[0_6px_18px_rgba(15,23,42,0.10)]' : 'bg-transparent text-slate-600 hover:text-slate-800'"
+                @click="setHomeTab(tab.key)"
+              >
+                {{ tab.label }}
+                <span
+                  class="absolute left-1/2 bottom-[4px] h-[3px] -translate-x-1/2 rounded-full bg-primary-600 shadow-[0_1px_8px_rgba(37,99,235,0.35)] transition-all duration-250"
+                  :class="activeHomeTab === tab.key ? 'w-8 opacity-100' : 'w-0 opacity-0'"
+                />
+              </button>
+            </div>
+          </div>
+
+          <button class="w-10 h-10 flex items-center justify-center rounded-2xl cursor-pointer transition-colors duration-150 text-slate-700 hover:text-slate-900 hover:bg-white/50 shrink-0 border-none bg-transparent" @click="navigateTo('/search')">
+            <AppIcon name="Search" :size="20" />
+          </button>
+
+          <button
+            class="relative w-10 h-10 flex items-center justify-center rounded-2xl cursor-pointer transition-colors duration-150 text-slate-700 hover:text-slate-900 hover:bg-white/50 shrink-0 border-none bg-transparent"
+            @click="toggleNotifications">
+            <AppIcon name="Bell" :size="20" />
+            <span v-if="auth.isLoggedIn && auth.unreadNotificationCount > 0"
+              class="absolute top-1.5 right-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium">
+              {{ auth.unreadNotificationCount > 9 ? '9+' : auth.unreadNotificationCount }}
+            </span>
+          </button>
+        </div>
       </div>
 
-      <button class="w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer transition-colors duration-150 text-slate-600 hover:text-slate-800 hover:bg-slate-100 shrink-0" @click="navigateTo('/search')">
-        <AppIcon name="Search" :size="20" />
-      </button>
-
-      <button
-        class="relative w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer transition-colors duration-150 text-slate-600 hover:text-slate-800 hover:bg-slate-100 shrink-0"
-        @click="toggleNotifications">
-        <AppIcon name="Bell" :size="20" />
-        <span v-if="auth.isLoggedIn && auth.unreadNotificationCount > 0"
-          class="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium">
-          {{ auth.unreadNotificationCount > 9 ? '9+' : auth.unreadNotificationCount }}
-        </span>
-      </button>
       <!-- Mobile notification dropdown -->
       <div v-if="showNotifications"
-        class="absolute right-3 top-full mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-lg z-50" @click.stop>
+        class="absolute right-3 top-full mt-2 w-72 bg-white/96 border border-slate-200 rounded-2xl shadow-xl z-50 backdrop-blur" @click.stop>
         <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <span class="text-sm font-medium text-slate-700">通知</span>
           <button v-if="notificationList.length > 0" class="text-xs text-primary-600 hover:text-primary-700 cursor-pointer" @click="markAllRead">全部已读</button>
@@ -185,35 +197,37 @@
 
     <!-- Mobile bottom nav -->
     <nav
-      class="lg:hidden fixed bottom-0 left-0 right-0 z-[60] h-14 bg-white/95 backdrop-blur border-t border-slate-200"
-      style="padding-bottom: var(--safe-area-bottom); padding-left: var(--safe-area-left); padding-right: var(--safe-area-right); height: var(--mobile-bottom-nav-height)"
+      class="lg:hidden fixed bottom-0 left-0 right-0 z-[60]"
+      style="padding-bottom: calc(0.5rem + var(--safe-area-bottom)); padding-left: calc(0.75rem + var(--safe-area-left)); padding-right: calc(0.75rem + var(--safe-area-right))"
     >
-      <div class="h-full max-w-lg mx-auto flex items-center justify-around px-2">
-        <NuxtLink to="/" class="flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full no-underline transition-all duration-200 py-1"
-          :class="route.path === '/' ? 'text-primary-600' : 'text-slate-400 hover:text-slate-600'">
+      <div class="relative mx-auto flex h-[68px] max-w-lg items-center justify-around overflow-hidden rounded-[28px] border border-white/60 shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
+        <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.78),rgba(255,255,255,0.54))] backdrop-blur-2xl backdrop-saturate-150" />
+        <div class="absolute inset-[1px] rounded-[27px] bg-[linear-gradient(180deg,rgba(255,255,255,0.28),rgba(255,255,255,0.10))]" />
+        <NuxtLink to="/" class="flex flex-col items-center justify-center gap-1 min-w-0 flex-1 h-[52px] no-underline transition-all duration-200 rounded-2xl"
+          :class="route.path === '/' ? 'relative z-10 text-primary-700 bg-white/34' : 'relative z-10 text-slate-600 hover:text-slate-800'">
           <AppIcon name="Home" :size="20" :class="route.path === '/' ? 'scale-110' : ''" />
-          <span class="text-[10px] font-medium leading-none">首页</span>
+          <span class="text-[10px] font-semibold leading-none">首页</span>
         </NuxtLink>
-        <NuxtLink to="/course" class="flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full no-underline transition-all duration-200 py-1"
-          :class="route.path.startsWith('/course') ? 'text-primary-600' : 'text-slate-400 hover:text-slate-600'">
+        <NuxtLink to="/course" class="flex flex-col items-center justify-center gap-1 min-w-0 flex-1 h-[52px] no-underline transition-all duration-200 rounded-2xl"
+          :class="route.path.startsWith('/course') ? 'relative z-10 text-primary-700 bg-white/34' : 'relative z-10 text-slate-600 hover:text-slate-800'">
           <AppIcon name="BookOpen" :size="20" :class="route.path.startsWith('/course') ? 'scale-110' : ''" />
-          <span class="text-[10px] font-medium leading-none">课程</span>
+          <span class="text-[10px] font-semibold leading-none">课程</span>
         </NuxtLink>
-        <NuxtLink to="/search" class="flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full no-underline transition-all duration-200 py-1"
-          :class="route.path.startsWith('/search') || route.path.startsWith('/material') ? 'text-primary-600' : 'text-slate-400 hover:text-slate-600'">
+        <NuxtLink to="/search" class="flex flex-col items-center justify-center gap-1 min-w-0 flex-1 h-[52px] no-underline transition-all duration-200 rounded-2xl"
+          :class="route.path.startsWith('/search') || route.path.startsWith('/material') ? 'relative z-10 text-primary-700 bg-white/34' : 'relative z-10 text-slate-600 hover:text-slate-800'">
           <AppIcon name="Search" :size="20" :class="route.path.startsWith('/search') || route.path.startsWith('/material') ? 'scale-110' : ''" />
-          <span class="text-[10px] font-medium leading-none">资料</span>
+          <span class="text-[10px] font-semibold leading-none">资料</span>
         </NuxtLink>
-        <NuxtLink to="/colleges" class="flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full no-underline transition-all duration-200 py-1"
-          :class="route.path.startsWith('/colleges') ? 'text-primary-600' : 'text-slate-400 hover:text-slate-600'">
+        <NuxtLink to="/colleges" class="flex flex-col items-center justify-center gap-1 min-w-0 flex-1 h-[52px] no-underline transition-all duration-200 rounded-2xl"
+          :class="route.path.startsWith('/colleges') ? 'relative z-10 text-primary-700 bg-white/34' : 'relative z-10 text-slate-600 hover:text-slate-800'">
           <AppIcon name="Building2" :size="20" :class="route.path.startsWith('/colleges') ? 'scale-110' : ''" />
-          <span class="text-[10px] font-medium leading-none">学院</span>
+          <span class="text-[10px] font-semibold leading-none">学院</span>
         </NuxtLink>
-        <button class="flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 h-full transition-all duration-200 py-1 border-none bg-transparent cursor-pointer"
-          :class="route.path.startsWith('/user') ? 'text-primary-600' : 'text-slate-400 hover:text-slate-600'"
+        <button class="flex flex-col items-center justify-center gap-1 min-w-0 flex-1 h-[52px] transition-all duration-200 rounded-2xl border-none bg-transparent cursor-pointer"
+          :class="route.path.startsWith('/user') ? 'relative z-10 text-primary-700 bg-white/34' : 'relative z-10 text-slate-600 hover:text-slate-800'"
           @click="goToProfile">
           <AppIcon name="User" :size="20" :class="route.path.startsWith('/user') ? 'scale-110' : ''" />
-          <span class="text-[10px] font-medium leading-none">我的</span>
+          <span class="text-[10px] font-semibold leading-none">我的</span>
         </button>
       </div>
     </nav>
@@ -222,7 +236,7 @@
     <div v-if="isHome" class="lg:hidden" style="height: calc(var(--mobile-header-height) + var(--safe-area-top))" />
     <div class="hidden lg:block" :class="isHome ? '' : 'h-14'" />
 
-    <main id="main-content" class="lg:pb-0" style="padding-bottom: var(--mobile-bottom-nav-height)">
+    <main id="main-content" class="relative z-10 lg:pb-0" style="padding-bottom: calc(var(--mobile-bottom-nav-height) + 0.75rem)">
       <slot />
     </main>
 

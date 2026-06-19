@@ -1,31 +1,39 @@
 <template>
   <div class="pb-4">
-    <!-- Search bar -->
-    <div class="px-4 pt-3 pb-2">
-      <form @submit.prevent="onSubmit">
-        <div class="relative">
-          <AppIcon name="Search" :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="query"
-            type="search"
-            placeholder="搜索课程、资料..."
-            class="w-full h-11 pl-9 pr-3 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary-500"
-          />
-        </div>
-      </form>
+    <div class="px-3 pt-3">
+      <div class="rounded-[28px] border border-white/65 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.46))] p-2 shadow-[0_12px_34px_rgba(15,23,42,0.12)] backdrop-blur-2xl backdrop-saturate-150">
+        <form class="flex items-center gap-2" @submit.prevent="onSubmit">
+          <div class="relative min-w-0 flex-1">
+            <AppIcon name="Search" :size="16" class="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-slate-500" />
+            <input
+              v-model="query"
+              type="search"
+              placeholder="搜索课程、资料..."
+              class="w-full h-9 rounded-2xl border border-white/60 bg-white/72 pl-10 pr-4 text-sm text-slate-800 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 shadow-[0_8px_22px_rgba(15,23,42,0.06)] backdrop-blur-xl backdrop-saturate-150 transition-all duration-200 placeholder:text-slate-400 focus:border-primary-300 focus:bg-white/82 focus:shadow-[0_10px_26px_rgba(37,99,235,0.10),inset_0_0_0_1px_rgba(147,197,253,0.7)]"
+            />
+          </div>
+          <button class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-white/56 text-slate-700 transition-colors duration-150 hover:bg-white/72 cursor-pointer" type="button" @click="openAllFilters" aria-label="打开筛选">
+            <AppIcon name="SlidersHorizontal" size="16" />
+            <span v-if="activeFilterCount > 0" class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-600 text-white text-[10px] font-medium">
+              {{ activeFilterCount }}
+            </span>
+          </button>
+        </form>
+      </div>
     </div>
 
     <!-- Filter chips -->
-    <div class="px-4 py-2">
+    <div class="px-4 py-3">
       <div class="flex gap-2 overflow-x-auto no-scrollbar scroll-fade">
         <button
           v-for="chip in filterChips"
           :key="chip.key"
           :class="[
-            'shrink-0 px-3 py-2.5 rounded-full text-xs font-medium cursor-pointer transition-colors duration-150 border',
+            'shrink-0 px-3 py-2 rounded-full text-[11px] font-medium cursor-pointer transition-colors duration-150 border',
+            'leading-none',
             chip.active
               ? 'bg-primary-500 text-white border-primary-500'
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300',
+              : 'bg-white/78 text-slate-600 border-white/60 shadow-[0_4px_14px_rgba(15,23,42,0.05)] backdrop-blur-lg hover:border-slate-300',
           ]"
           @click="toggleChip(chip)"
         >
@@ -37,24 +45,36 @@
 
     <!-- Chip value picker sheet -->
     <FilterSheet
-      v-if="activeChip"
       v-model="showChipSheet"
-      :title="activeChip.label"
-      :show-clear="!!activeChip.value"
-      @clear="clearChip(activeChip)"
+      :title="sheetTitle"
+      :show-clear="sheetCanClear"
+      @clear="clearActiveSheet"
     >
       <div class="space-y-2">
-        <button
-          v-for="opt in activeChip.options"
-          :key="opt.value"
-          :class="[
-            'w-full text-left px-3 py-2.5 rounded-md text-sm cursor-pointer transition-colors',
-            activeChip.value === opt.value ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-600 hover:bg-slate-50',
-          ]"
-          @click="selectChipValue(activeChip, opt.value); showChipSheet = false"
-        >
-          {{ opt.label }}
-        </button>
+        <template v-if="activeChip">
+          <button
+            v-for="opt in activeChip.options"
+            :key="opt.value"
+            :class="[
+              'w-full text-left px-3 py-2.5 rounded-md text-sm cursor-pointer transition-colors',
+              activeChip.value === opt.value ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-600 hover:bg-slate-50',
+            ]"
+            @click="selectChipValue(activeChip, opt.value); showChipSheet = false"
+          >
+            {{ opt.label }}
+          </button>
+        </template>
+        <template v-else>
+          <button
+            v-for="chip in filterChips"
+            :key="`all-${chip.key}`"
+            class="w-full flex items-center justify-between rounded-md px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+            @click="openChipSheet(chip)"
+          >
+            <span>{{ chip.label }}</span>
+            <span class="text-xs text-slate-400">{{ chip.active && chip.display ? chip.display : '全部' }}</span>
+          </button>
+        </template>
       </div>
     </FilterSheet>
 
@@ -147,6 +167,7 @@ interface FilterChip {
 }
 
 const filterChips = ref<FilterChip[]>([])
+const showAllFilters = ref(false)
 
 function buildFilterChips() {
   const chips = backendFilterGroups.value.map((group: { key: string; label: string; options: { value: string; label: string }[] }) => ({
@@ -175,6 +196,9 @@ function buildFilterChips() {
 }
 
 const activeChip = ref<FilterChip | null>(null)
+const activeFilterCount = computed(() => filterChips.value.filter(chip => chip.active).length)
+const sheetTitle = computed(() => activeChip.value ? activeChip.value.label : '筛选')
+const sheetCanClear = computed(() => activeChip.value ? !!activeChip.value.value : activeFilterCount.value > 0)
 
 function toggleChip(chip: FilterChip) {
   if (chip.active) {
@@ -186,6 +210,17 @@ function toggleChip(chip: FilterChip) {
     activeChip.value = chip
     showChipSheet.value = true
   }
+}
+
+function openChipSheet(chip: FilterChip) {
+  activeChip.value = chip
+  showAllFilters.value = false
+}
+
+function openAllFilters() {
+  activeChip.value = null
+  showAllFilters.value = true
+  showChipSheet.value = true
 }
 
 function selectChipValue(chip: FilterChip, value: string) {
@@ -200,6 +235,20 @@ function clearChip(chip: FilterChip) {
   chip.active = false
   chip.value = ''
   chip.display = ''
+  doSearch()
+}
+
+function clearActiveSheet() {
+  if (activeChip.value) {
+    clearChip(activeChip.value)
+    showChipSheet.value = false
+    return
+  }
+  for (const chip of filterChips.value) {
+    chip.active = false
+    chip.value = ''
+    chip.display = ''
+  }
   showChipSheet.value = false
   doSearch()
 }
@@ -269,5 +318,13 @@ watch([backendFilterGroups, sortOptions], () => {
 .scroll-fade {
   mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+}
+
+input[type="search"]:focus-visible {
+  outline: none;
+}
+
+input[type="search"]:focus {
+  border-radius: 1rem;
 }
 </style>

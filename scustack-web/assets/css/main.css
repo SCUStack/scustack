@@ -34,8 +34,8 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
-  --mobile-header-height: 56px;
-  --mobile-bottom-nav-height: calc(56px + var(--safe-area-bottom));
+  --mobile-header-height: 64px;
+  --mobile-bottom-nav-height: calc(68px + var(--safe-area-bottom));
 }
 
 html {
