@@ -23,7 +23,7 @@
               <button v-if="activeFilterCount > 0" class="text-xs text-primary-600 hover:text-primary-700 cursor-pointer" @click="clearAllFilters">清除全部</button>
             </div>
             <div class="space-y-5">
-              <FilterGroup v-for="g in filterGroups" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []" @update="(v: string[]) => setFilter(g.key, v)" />
+              <FilterGroup v-for="g in filterGroupsForUi" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []" @update="(v: string[]) => setFilter(g.key, v)" />
             </div>
           </div>
         </aside>
@@ -48,7 +48,7 @@
 
           <FilterSheet v-model="showMobileFilters" title="筛选" :show-clear="activeFilterCount > 0" @clear="clearAllFilters">
             <div class="space-y-5">
-              <FilterGroup v-for="g in filterGroups" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []" @update="(v: string[]) => setFilter(g.key, v)" />
+              <FilterGroup v-for="g in filterGroupsForUi" :key="g.key" :label="g.label" :options="g.options" :selected="filters[g.key] || []" @update="(v: string[]) => setFilter(g.key, v)" />
             </div>
           </FilterSheet>
 
@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { searchFilterGroups, searchSortOptions } from '~/data/business'
+import { useSearchFilterConfig } from '~/composables/useSearchFilterConfig'
 
 definePageMeta({ ssr: true })
 
@@ -92,14 +92,14 @@ const {
 } = useSearch()
 
 const showMobileFilters = ref(false)
+const { filterGroups, sortOptions, load: loadFilterConfig } = useSearchFilterConfig()
 
-const sorts = searchSortOptions
-
-const filterGroups = searchFilterGroups.map(group => ({
+const sorts = computed(() => sortOptions.value)
+const filterGroupsForUi = computed(() => filterGroups.value.map((group: { key: string; label: string; options: { value: string; label: string }[] }) => ({
   key: group.key,
   label: group.label,
-  options: group.options.map(option => option.value),
-}))
+  options: group.options.map((option: { value: string; label: string }) => option.value),
+})))
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize) || 1)
 
@@ -118,6 +118,7 @@ const pageNumbers = computed(() => {
 })
 
 onMounted(() => {
+  loadFilterConfig()
   syncFromUrl()
   doSearch()
 })

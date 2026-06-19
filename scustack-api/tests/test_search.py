@@ -65,6 +65,17 @@ class TestSearchAPI:
             data = resp.json()['data']
             assert len(data['courses']) >= 1
 
+    async def test_search_filters(self, client):
+        with patch('app.api.v1.search.get_search_filter_config', new_callable=AsyncMock, return_value={
+            'sorts': [{'key': 'relevance', 'label': '相关度'}],
+            'filters': [{'key': 'category', 'label': '资料分类', 'options': [{'value': '课堂笔记', 'label': '课堂笔记'}]}],
+        }):
+            resp = await client.get('/api/v1/search/filters')
+            data = resp.json()['data']
+            assert resp.json()['code'] == 0
+            assert data['sorts'][0]['key'] == 'relevance'
+            assert data['filters'][0]['key'] == 'category'
+
 
 class TestSearchService:
     @pytest.mark.asyncio
@@ -123,3 +134,28 @@ class TestSearchService:
         }):
             result = await search('不存在的关键词xyz123')
             assert result == {'items': [], 'total': 0, 'page': 1, 'page_size': 20}
+
+    @pytest.mark.asyncio
+    async def test_get_search_filter_config_uses_distinct_semesters(self):
+        from app.services.search_service import get_search_filter_config
+
+        semester_scalars = MagicMock()
+        semester_scalars.all.return_value = ['2026-2027-1', '2025-2026-2']
+        session = MagicMock()
+        session.scalars = AsyncMock(return_value=semester_scalars)
+
+        class SessionContext:
+            async def __aenter__(self):
+                return session
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        with patch('app.services.search_service.async_session', return_value=SessionContext()):
+            result = await get_search_filter_config()
+
+        semester_filter = next(f for f in result['filters'] if f['key'] == 'semester')
+        assert semester_filter['options'] == [
+            {'value': '2026-2027-1', 'label': '2026-2027-1'},
+            {'value': '2025-2026-2', 'label': '2025-2026-2'},
+        ]

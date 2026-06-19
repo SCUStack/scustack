@@ -5,7 +5,7 @@ import time
 from app.core.redis import RateLimiter, cache_get, cache_set
 from app.dependencies import get_optional_user
 from app.models.user import User
-from app.services.search_service import search, suggest
+from app.services.search_service import get_search_filter_config, search, suggest
 
 router = APIRouter(tags=['search'])
 
@@ -105,4 +105,10 @@ async def suggest_endpoint(q: str = Query('', min_length=1), request: Request = 
         headers = await limiter.limit_headers(key)
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
     result = await suggest(q)
+    return {'code': 0, 'data': result, 'message': 'ok'}
+
+
+@router.get('/search/filters')
+async def search_filters_endpoint():
+    result = await get_search_filter_config()
     return {'code': 0, 'data': result, 'message': 'ok'}

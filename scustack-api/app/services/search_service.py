@@ -1,10 +1,65 @@
-from sqlalchemy import func, or_, select
+from sqlalchemy import distinct, func, or_, select
 
 from app.core import elasticsearch as es
 from app.core.database import async_session
 from app.models.college import College
 from app.models.course import Course
 from app.models.material import Material
+
+SEARCH_SORT_OPTIONS = [
+    {'key': 'relevance', 'label': '相关度'},
+    {'key': 'newest', 'label': '最新'},
+    {'key': 'downloads', 'label': '最多下载'},
+    {'key': 'rating', 'label': '最高评分'},
+]
+
+SEARCH_FILTER_OPTIONS = {
+    'category': [
+        {'value': '课堂笔记', 'label': '课堂笔记'},
+        {'value': '考试资料', 'label': '考试资料'},
+        {'value': '复习提纲', 'label': '复习提纲'},
+        {'value': '教材', 'label': '教材'},
+        {'value': '习题集', 'label': '习题集'},
+        {'value': '实验报告', 'label': '实验报告'},
+        {'value': '历年真题', 'label': '历年真题'},
+        {'value': '课件讲义', 'label': '课件讲义'},
+        {'value': '考研专区', 'label': '考研专区'},
+    ],
+    'source_type': [
+        {'value': 'hosted', 'label': '托管文件'},
+        {'value': 'external', 'label': '外部链接'},
+    ],
+    'trust_status': [
+        {'value': 'maintainer_picked', 'label': '维护者精选'},
+        {'value': 'community_verified', 'label': '社区验证'},
+        {'value': 'unverified', 'label': '未验证'},
+        {'value': 'doubtful', 'label': '存疑'},
+    ],
+}
+
+
+async def get_search_filter_config() -> dict:
+    semester_options = await _get_semester_options()
+    return {
+        'sorts': SEARCH_SORT_OPTIONS,
+        'filters': [
+            {'key': 'category', 'label': '资料分类', 'options': SEARCH_FILTER_OPTIONS['category']},
+            {'key': 'semester', 'label': '学期', 'options': semester_options},
+            {'key': 'trust_status', 'label': '信任状态', 'options': SEARCH_FILTER_OPTIONS['trust_status']},
+            {'key': 'source_type', 'label': '来源', 'options': SEARCH_FILTER_OPTIONS['source_type']},
+        ],
+    }
+
+
+async def _get_semester_options() -> list[dict[str, str]]:
+    async with async_session() as db:
+        stmt = (
+            select(distinct(Material.semester))
+            .where(Material.review_status == 'approved')
+            .order_by(Material.semester.desc())
+        )
+        semesters = [value for value in (await db.scalars(stmt)).all() if value]
+    return [{'value': semester, 'label': semester} for semester in semesters]
 
 
 async def search(

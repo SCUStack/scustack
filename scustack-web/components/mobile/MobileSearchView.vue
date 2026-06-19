@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { categoryOptions, searchSortOptions, semesterOptions, trustStatusOptions } from '~/data/business'
+import { useSearchFilterConfig } from '~/composables/useSearchFilterConfig'
 
 const MIN_LOAD_MS = 300
 const PAGE_SIZE = 20
@@ -125,6 +125,7 @@ const loading = ref(false)
 const searched = ref(false)
 const searchError = ref(false)
 const showChipSheet = ref(false)
+const { filterGroups: backendFilterGroups, sortOptions, load: loadFilterConfig } = useSearchFilterConfig()
 
 function appendToColumns(items: any[]) {
   for (const item of items) {
@@ -145,12 +146,33 @@ interface FilterChip {
   options: { value: string; label: string }[]
 }
 
-const filterChips = ref<FilterChip[]>([
-  { key: 'category', label: '分类', active: false, value: '', display: '', options: [...categoryOptions] },
-  { key: 'semester', label: '学期', active: false, value: '', display: '', options: [...semesterOptions] },
-  { key: 'trust_status', label: '信任', active: false, value: '', display: '', options: [...trustStatusOptions] },
-  { key: 'sort', label: '排序', active: false, value: 'relevance', display: '相关度', options: searchSortOptions.map(option => ({ value: option.key, label: option.label })) },
-])
+const filterChips = ref<FilterChip[]>([])
+
+function buildFilterChips() {
+  const chips = backendFilterGroups.value.map((group: { key: string; label: string; options: { value: string; label: string }[] }) => ({
+    key: group.key,
+    label: group.key === 'trust_status' ? '信任' : group.label.replace('资料', '').replace('状态', ''),
+    active: false,
+    value: '',
+    display: '',
+    options: group.options,
+  }))
+
+  const sortChip = {
+    key: 'sort',
+    label: '排序',
+    active: false,
+    value: 'relevance',
+    display: '相关度',
+    options: sortOptions.value.map((option: { key: string; label: string }) => ({ value: option.key, label: option.label })),
+  }
+
+  const prevByKey = new Map(filterChips.value.map(chip => [chip.key, chip]))
+  filterChips.value = [...chips, sortChip].map(chip => {
+    const prev = prevByKey.get(chip.key)
+    return prev ? { ...chip, active: prev.active, value: prev.value, display: prev.display } : chip
+  })
+}
 
 const activeChip = ref<FilterChip | null>(null)
 
@@ -229,6 +251,15 @@ function retrySearch() {
 function onSubmit() {
   doSearch()
 }
+
+onMounted(async () => {
+  await loadFilterConfig()
+  buildFilterChips()
+})
+
+watch([backendFilterGroups, sortOptions], () => {
+  buildFilterChips()
+}, { deep: true })
 </script>
 
 <style scoped>
