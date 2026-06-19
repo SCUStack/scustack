@@ -81,22 +81,24 @@ class TestSearchAPI:
     async def test_search_uses_unified_request_identity_key(self, client):
         identity = MagicMock()
         identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
+        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
         with patch('app.api.v1.search.build_request_identity', return_value=identity), \
              patch('app.api.v1.search.search', new_callable=AsyncMock, return_value={'items': [], 'total': 0}), \
-             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True) as is_allowed:
+             patch('app.api.v1.search.RateLimiter.check', new_callable=AsyncMock, return_value=allow_decision) as check_mock:
             resp = await client.get('/api/v1/search?q=test')
             assert resp.json()['code'] == 0
-            is_allowed.assert_awaited_with('search:identity-key')
+            check_mock.assert_awaited_with('search:identity-key')
 
     async def test_suggest_uses_unified_request_identity_key(self, client):
         identity = MagicMock()
         identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
+        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
         with patch('app.api.v1.search.build_request_identity', return_value=identity), \
              patch('app.api.v1.search.suggest', new_callable=AsyncMock, return_value={'courses': [], 'materials': []}), \
-             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True) as is_allowed:
+             patch('app.api.v1.search.RateLimiter.check', new_callable=AsyncMock, return_value=allow_decision) as check_mock:
             resp = await client.get('/api/v1/search/suggest?q=数据')
             assert resp.json()['code'] == 0
-            is_allowed.assert_awaited_with('suggest:identity-key')
+            check_mock.assert_awaited_with('suggest:identity-key')
 
     async def test_search_allows_memory_fallback_when_redis_is_unavailable(self, client):
         memory_decision = RateLimiter.Decision(allowed=True, source='memory', remaining=10, retry_after=0, degraded=True)
@@ -110,22 +112,26 @@ class TestSearchAPI:
              patch('app.api.v1.search.apply_search_pressure', new_callable=AsyncMock, return_value=SearchPressureDecision(level=SearchPressureLevel.SLOWDOWN, score=5, page_size_cap=8, reason='search_pressure_slowdown')), \
              patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True), \
              patch('app.api.v1.search.cache_get', new_callable=AsyncMock, return_value=None), \
-             patch('app.api.v1.search.cache_set', new_callable=AsyncMock):
+             patch('app.api.v1.search.cache_set', new_callable=AsyncMock), \
+             patch('app.api.v1.search.log_anti_scraping_event', new_callable=AsyncMock) as log_event:
             resp = await client.get('/api/v1/search?q=&page=2&page_size=20')
             assert resp.status_code == 200
             assert resp.headers['X-Page-Size-Cap'] == '8'
             assert search_mock.await_args.kwargs['page_size'] == 8
+            log_event.assert_awaited()
 
     async def test_search_pressure_block_returns_escalated_response(self, client):
         block_decision = SearchPressureDecision(level=SearchPressureLevel.BLOCK, score=9, page_size_cap=None, reason='suspicious_search_behavior')
         with patch('app.api.v1.search.apply_search_pressure', new_callable=AsyncMock, return_value=block_decision), \
              patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True), \
              patch('app.api.v1.search.cache_get', new_callable=AsyncMock, return_value=None), \
-             patch('app.api.v1.search.cache_set', new_callable=AsyncMock):
+             patch('app.api.v1.search.cache_set', new_callable=AsyncMock), \
+             patch('app.api.v1.search.log_anti_scraping_event', new_callable=AsyncMock) as log_event:
             resp = await client.get('/api/v1/search?q=&page=5&page_size=50')
             assert resp.status_code == 429
             assert resp.json()['code'] == 42910
             assert resp.headers['X-Anti-Scraping-Level'] == 'block'
+            log_event.assert_awaited()
 
 
 class TestSearchService:

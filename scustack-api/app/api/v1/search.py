@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 import time
 
+from app.core.anti_scraping_events import log_anti_scraping_event
 from app.core.request_identity import build_request_identity
 from app.core.redis import RateLimiter, cache_get, cache_set
 from app.core.search_pressure import SearchPressureLevel, apply_search_pressure
@@ -37,8 +38,35 @@ async def search_endpoint(
         failure_strategy=RateLimiter.FailureStrategy.MEMORY,
     )
     key = identity.scoped_key('search')
-    if not await limiter.is_allowed(key):
+    base_limit_decision = await limiter.check(key)
+    if base_limit_decision.degraded:
+        await log_anti_scraping_event(
+            action='search_limit_degraded',
+            route_id='search_query',
+            detail={
+                'identity_type': identity.identity_type,
+                'decision_source': base_limit_decision.source,
+                'degraded': True,
+                'limit': max_req,
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
+    if not base_limit_decision.allowed:
         headers = await limiter.limit_headers(key)
+        await log_anti_scraping_event(
+            action='search_rate_limited',
+            route_id='search_query',
+            detail={
+                'identity_type': identity.identity_type,
+                'decision_source': base_limit_decision.source,
+                'limit': max_req,
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
 
     rapid_scroll_detected = False
@@ -57,7 +85,20 @@ async def search_endpoint(
                     window_seconds=10,
                     failure_strategy=RateLimiter.FailureStrategy.MEMORY,
                 )
-                if not await rapid.is_allowed(identity.scoped_key('search:rapid')):
+                rapid_decision = await rapid.check(identity.scoped_key('search:rapid'))
+                if not rapid_decision.allowed:
+                    await log_anti_scraping_event(
+                        action='search_rapid_scroll_block',
+                        route_id='search_query',
+                        detail={
+                            'identity_type': identity.identity_type,
+                            'decision_source': rapid_decision.source,
+                            'gap_seconds': gap,
+                        },
+                        current_user=current_user,
+                        ip_address=ip,
+                        user_agent=request.headers.get('user-agent', ''),
+                    )
                     return JSONResponse(
                         {'code': 42900, 'data': None, 'message': 'scrolling too fast, slow down'},
                         status_code=429,
@@ -72,6 +113,21 @@ async def search_endpoint(
         rapid_scroll_detected=rapid_scroll_detected,
     )
     if pressure.level == SearchPressureLevel.BLOCK:
+        await log_anti_scraping_event(
+            action='search_pressure_block',
+            route_id='search_query',
+            detail={
+                'identity_type': identity.identity_type,
+                'score': pressure.score,
+                'reason': pressure.reason,
+                'page': page,
+                'page_size': page_size,
+                'query_empty': not q.strip(),
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
         return JSONResponse(
             {
                 'code': 42910,
@@ -121,6 +177,22 @@ async def search_endpoint(
 
     response = JSONResponse({'code': 0, 'data': result, 'message': 'ok'})
     if pressure.level == SearchPressureLevel.SLOWDOWN:
+        await log_anti_scraping_event(
+            action='search_pressure_slowdown',
+            route_id='search_query',
+            detail={
+                'identity_type': identity.identity_type,
+                'score': pressure.score,
+                'reason': pressure.reason,
+                'page': page,
+                'page_size': page_size,
+                'effective_page_size': effective_page_size,
+                'query_empty': not q.strip(),
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
         response.headers['X-Anti-Scraping-Level'] = pressure.level.value
         response.headers['X-Anti-Scraping-Score'] = str(pressure.score)
         response.headers['X-Page-Size-Cap'] = str(effective_page_size)
@@ -151,8 +223,33 @@ async def suggest_endpoint(
     )
     identity = build_request_identity(request, current_user)
     key = identity.scoped_key('suggest')
-    if not await limiter.is_allowed(key):
+    decision = await limiter.check(key)
+    if decision.degraded:
+        await log_anti_scraping_event(
+            action='suggest_limit_degraded',
+            route_id='search_suggest',
+            detail={
+                'identity_type': identity.identity_type,
+                'decision_source': decision.source,
+                'degraded': True,
+            },
+            current_user=current_user,
+            ip_address=request.client.host if request and request.client else 'unknown',
+            user_agent=request.headers.get('user-agent', '') if request else '',
+        )
+    if not decision.allowed:
         headers = await limiter.limit_headers(key)
+        await log_anti_scraping_event(
+            action='suggest_rate_limited',
+            route_id='search_suggest',
+            detail={
+                'identity_type': identity.identity_type,
+                'decision_source': decision.source,
+            },
+            current_user=current_user,
+            ip_address=request.client.host if request and request.client else 'unknown',
+            user_agent=request.headers.get('user-agent', '') if request else '',
+        )
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
     result = await suggest(q)
     return {'code': 0, 'data': result, 'message': 'ok'}

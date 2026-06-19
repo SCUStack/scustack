@@ -7,6 +7,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.dependencies import get_current_user
+from app.core.database import get_db
 from app.main import app
 
 
@@ -267,6 +268,37 @@ class TestAuditLogs:
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.get('/api/v1/admin/audit-logs')
                 assert resp.status_code == 200
+
+    async def test_security_logs_returns_anti_scraping_events(self):
+        user = _make_user()
+        app.dependency_overrides[get_current_user] = lambda: user
+
+        event = MagicMock()
+        event.id = uuid.uuid4()
+        event.action = 'anti_scraping.search_pressure_block'
+        event.resource = 'anti_scraping:search_query'
+        event.detail = {'identity_type': 'anonymous', 'decision_source': 'memory', 'score': 9, 'reason': 'suspicious_search_behavior'}
+        event.created_at = datetime.now(timezone.utc)
+
+        scalar_result = MagicMock()
+        scalar_result.scalars.return_value.all.return_value = [event]
+        top_routes_result = MagicMock()
+        top_routes_result.all.return_value = [('anti_scraping:search_query', 3)]
+        action_counts_result = MagicMock()
+        action_counts_result.all.return_value = [('anti_scraping.search_pressure_block', 2)]
+
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(side_effect=[scalar_result, top_routes_result, action_counts_result])
+        app.dependency_overrides[get_db] = lambda: mock_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url='http://test') as client:
+            resp = await client.get('/api/v1/admin/security/logs')
+            assert resp.status_code == 200
+            data = resp.json()['data']
+            assert data['items'][0]['route_id'] == 'search_query'
+            assert data['top_routes'][0]['route_id'] == 'search_query'
+            assert data['action_counts'][0]['action'] == 'anti_scraping.search_pressure_block'
 
 
 class TestReviewService:

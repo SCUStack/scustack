@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.anti_scraping_events import log_anti_scraping_event
 from app.core.database import get_db
 from app.core.discovery_protection import enforce_discovery_rate_limit
 from app.core.request_identity import build_request_identity
@@ -166,6 +167,18 @@ async def download_material(
     )
     user_check = await user_limiter.check(f'download:user:{current_user.id}')
     if not user_check.allowed:
+        await log_anti_scraping_event(
+            action='download_limit_triggered',
+            route_id='download_redirect',
+            detail={
+                'identity_type': identity.identity_type,
+                'decision_source': user_check.source,
+                'limit_scope': 'user',
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
         if user_check.source == 'deny_without_redis':
             return JSONResponse({'code': 50310, 'data': None, 'message': 'download protection temporarily unavailable'}, status_code=503)
         headers = await user_limiter.limit_headers(f'download:user:{current_user.id}')
@@ -178,6 +191,18 @@ async def download_material(
     )
     ip_check = await ip_limiter.check(identity.scoped_key('download'))
     if not ip_check.allowed:
+        await log_anti_scraping_event(
+            action='download_limit_triggered',
+            route_id='download_redirect',
+            detail={
+                'identity_type': identity.identity_type,
+                'decision_source': ip_check.source,
+                'limit_scope': 'identity',
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
         if ip_check.source == 'deny_without_redis':
             return JSONResponse({'code': 50310, 'data': None, 'message': 'download protection temporarily unavailable'}, status_code=503)
         return JSONResponse({'code': 42900, 'data': None, 'message': 'download rate limit exceeded'}, status_code=429)

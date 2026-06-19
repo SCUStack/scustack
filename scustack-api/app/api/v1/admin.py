@@ -690,23 +690,52 @@ async def search_stats(
 # ── Security / Rate limit logs ────────────────────────────────────────────────
 
 @router.get('/security/logs')
-async def rate_limit_logs(
+async def anti_scraping_logs(
     limit: int = Query(50, le=100),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
 ):
     from sqlalchemy import select, func
-    from app.models.rate_limit_log import RateLimitLog
-    result = await db.execute(select(RateLimitLog).order_by(RateLimitLog.created_at.desc()).limit(limit))
-    items = [{'ip_hash': r.ip_hash, 'endpoint': r.endpoint, 'limit_type': r.limit_type, 'created_at': r.created_at.isoformat()} for r in result.scalars().all()]
+    from app.models.audit_log import AuditLog
+
+    base_stmt = select(AuditLog).where(AuditLog.action.like('anti_scraping.%'))
+    result = await db.execute(base_stmt.order_by(AuditLog.created_at.desc()).limit(limit))
+    rows = result.scalars().all()
+    items = [{
+        'id': str(r.id),
+        'action': r.action,
+        'route_id': (r.detail or {}).get('route_id') or (r.resource or '').replace('anti_scraping:', ''),
+        'identity_type': (r.detail or {}).get('identity_type'),
+        'decision_source': (r.detail or {}).get('decision_source'),
+        'score': (r.detail or {}).get('score'),
+        'reason': (r.detail or {}).get('reason'),
+        'detail': r.detail,
+        'created_at': r.created_at.isoformat(),
+    } for r in rows]
+
     today = func.date_trunc('day', func.now())
-    top = await db.execute(
-        select(RateLimitLog.ip_hash, func.count(RateLimitLog.id).label('cnt'))
-        .where(RateLimitLog.created_at >= today).group_by(RateLimitLog.ip_hash)
-        .order_by(func.count(RateLimitLog.id).desc()).limit(20)
+    top_routes_query = await db.execute(
+        select(AuditLog.resource, func.count(AuditLog.id).label('cnt'))
+        .where(AuditLog.action.like('anti_scraping.%'), AuditLog.created_at >= today)
+        .group_by(AuditLog.resource)
+        .order_by(func.count(AuditLog.id).desc())
+        .limit(10)
     )
-    top_ips = [{'ip_hash': r[0], 'count': r[1]} for r in top.all()]
-    return {'code': 0, 'data': {'items': items, 'top_ips': top_ips}, 'message': 'ok'}
+    top_routes = [{
+        'route_id': (r[0] or '').replace('anti_scraping:', ''),
+        'count': r[1],
+    } for r in top_routes_query.all()]
+
+    action_counts_query = await db.execute(
+        select(AuditLog.action, func.count(AuditLog.id).label('cnt'))
+        .where(AuditLog.action.like('anti_scraping.%'), AuditLog.created_at >= today)
+        .group_by(AuditLog.action)
+        .order_by(func.count(AuditLog.id).desc())
+        .limit(10)
+    )
+    action_counts = [{'action': r[0], 'count': r[1]} for r in action_counts_query.all()]
+
+    return {'code': 0, 'data': {'items': items, 'top_routes': top_routes, 'action_counts': action_counts}, 'message': 'ok'}
 
 
 # ── Duplicate detection ───────────────────────────────────────────────────────
