@@ -97,7 +97,7 @@
     </div>
 
     <!-- Edit modal -->
-    <div v-if="showEdit" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showEdit = false">
+    <div v-if="showEdit" role="dialog" aria-modal="true" aria-label="编辑个人资料" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showEdit = false">
       <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
         <h3 class="text-base font-medium text-slate-900 mb-4">编辑资料</h3>
         <div class="space-y-4">

@@ -16,7 +16,7 @@
         @focus="onFocus"
         @blur="onBlur"
       />
-      <button v-if="query" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer" @click="clear">
+      <button v-if="query" aria-label="清空搜索内容" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer" @click="clear">
         <AppIcon name="X" :size="14" />
       </button>
     </div>
@@ -24,6 +24,8 @@
     <!-- Dropdown panel -->
     <div
       v-if="panelVisible"
+      role="region"
+      aria-label="搜索建议与历史"
       class="absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow z-50 max-h-80 overflow-y-auto"
       @mousedown.prevent
     >
@@ -46,7 +48,7 @@
         <div v-if="searchHistory.length > 0" class="p-1">
           <div class="flex items-center justify-between px-2 py-1.5">
             <span class="text-xs font-medium text-slate-500">搜索历史</span>
-            <button class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent p-0" @click.stop="clearHistory">清除全部</button>
+            <button aria-label="清除全部搜索历史" class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent p-0" @click.stop="clearHistory">清除全部</button>
           </div>
           <div
             v-for="(term, idx) in searchHistory"
@@ -59,7 +61,7 @@
               <AppIcon name="Clock" :size="14" class="text-slate-300" />
               <span class="text-sm text-slate-700 truncate max-w-[200px]">{{ term }}</span>
             </div>
-            <button class="text-slate-300 hover:text-slate-500 cursor-pointer border-none bg-transparent p-0 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="removeHistory(idx)">
+            <button :aria-label="`删除搜索历史 ${term}`" class="text-slate-300 hover:text-slate-500 cursor-pointer border-none bg-transparent p-0 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="removeHistory(idx)">
               <AppIcon name="X" :size="12" />
             </button>
           </div>

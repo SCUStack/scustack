@@ -4,7 +4,7 @@
     <div class="hidden lg:block">
       <div>
     <!-- Banner carousel -->
-    <section class="relative w-full overflow-hidden bg-slate-900" style="height: 20vh; min-height: 180px; max-height: 300px;">
+    <section class="relative w-full overflow-hidden bg-slate-900" aria-label="首页横幅轮播" style="height: 20vh; min-height: 180px; max-height: 300px;">
       <div
         v-for="(banner, idx) in banners" :key="idx"
         class="absolute inset-0 transition-opacity duration-500"
@@ -21,6 +21,7 @@
       <div class="absolute bottom-3 right-4 flex gap-1.5 z-10">
         <button
           v-for="(banner, idx) in banners" :key="idx"
+          :aria-label="`切换到第 ${idx + 1} 个首页横幅`"
           class="w-2 h-2 rounded-full transition-all duration-300 cursor-pointer border-0"
           :class="idx === activeBanner ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/70'"
           @click="activeBanner = idx"

@@ -38,7 +38,7 @@
       </div>
 
       <!-- Create modal -->
-      <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showForm = false">
+      <div v-if="showForm" role="dialog" aria-modal="true" aria-label="新建全站通知" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showForm = false">
         <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
           <h3 class="text-base font-medium text-slate-900 mb-4">新建通知</h3>
           <div class="space-y-3">
