@@ -180,6 +180,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { loadRecentViews, type RecentItem } from '~/composables/useLocalExperienceState'
 import { useAuthStore } from '../../stores/auth'
 import { useAuth } from '../../composables/useAuth'
 
@@ -188,14 +189,6 @@ const auth = useAuthStore()
 const showEdit = ref(false)
 const saving = ref(false)
 const editForm = ref({ nickname: '' })
-
-interface RecentItem {
-  id: string
-  type: string
-  title: string
-  url: string
-  time: string
-}
 
 const recentItems = ref<RecentItem[]>([])
 
@@ -211,10 +204,7 @@ const roleLabel = computed(() => {
 
 onMounted(() => {
   if (auth.isLoggedIn) editForm.value.nickname = auth.user?.nickname || ''
-  try {
-    const raw = localStorage.getItem('scustack_recent')
-    if (raw) recentItems.value = JSON.parse(raw)
-  } catch { /* ignore */ }
+  recentItems.value = loadRecentViews()
 })
 
 async function handleSave() {

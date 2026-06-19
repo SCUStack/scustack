@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { clearSearchHistory, loadSearchHistory, saveSearchHistory } from '~/composables/useLocalExperienceState'
 
 const props = withDefaults(defineProps<{
   variant?: 'nav' | 'hero'
@@ -126,27 +127,24 @@ const panelVisible = computed(() => {
 })
 
 function loadHistory() {
-  try {
-    const raw = localStorage.getItem('scustack_search_history')
-    if (raw) searchHistory.value = JSON.parse(raw)
-  } catch { searchHistory.value = [] }
+  searchHistory.value = loadSearchHistory()
 }
 
 function saveToHistory(term: string) {
   const t = term.trim()
   if (!t) return
   searchHistory.value = [t, ...searchHistory.value.filter(h => h !== t)].slice(0, 20)
-  try { localStorage.setItem('scustack_search_history', JSON.stringify(searchHistory.value)) } catch { /* noop */ }
+  saveSearchHistory(searchHistory.value)
 }
 
 function removeHistory(idx: number) {
   searchHistory.value.splice(idx, 1)
-  try { localStorage.setItem('scustack_search_history', JSON.stringify(searchHistory.value)) } catch { /* noop */ }
+  saveSearchHistory(searchHistory.value)
 }
 
 function clearHistory() {
   searchHistory.value = []
-  try { localStorage.removeItem('scustack_search_history') } catch { /* noop */ }
+  clearSearchHistory()
 }
 
 async function fetchHotSearches() {

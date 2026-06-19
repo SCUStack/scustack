@@ -173,6 +173,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { clearUploadDraft, loadUploadDraft, saveUploadDraft, type UploadDraft } from '~/composables/useLocalExperienceState'
 import { materialCategories, materialSemesters, sourceTypeOptions } from '~/data/business'
 
 definePageMeta({ middleware: ['auth'], ssr: false })
@@ -290,7 +291,7 @@ async function onCourseChange(id: string) {
 }
 
 function saveDraft() {
-  localStorage.setItem('uploadDraft', JSON.stringify({ ...form }))
+  saveUploadDraft({ ...form } as UploadDraft)
 }
 
 async function submit() {
@@ -360,7 +361,7 @@ async function submitSingle() {
       createdMaterialId = materialResp.data?.id || ''
     }
 
-    localStorage.removeItem('uploadDraft')
+    clearUploadDraft()
 
     if (form.fulfillWishId && createdMaterialId) {
       try {
@@ -458,7 +459,7 @@ async function submitBatch() {
   submitting.value = false
 
   if (failCount === 0 && successCount > 0) {
-    localStorage.removeItem('uploadDraft')
+    clearUploadDraft()
     toast.success(`已提交 ${successCount} 份资料，等待审核`)
     navigateTo('/user/contributions')
   }
@@ -477,9 +478,7 @@ watch(batchMode, () => {
 })
 
 onMounted(() => {
-  const draft = localStorage.getItem('uploadDraft')
-  if (draft) {
-    try { Object.assign(form, JSON.parse(draft)) } catch {}
-  }
+  const draft = loadUploadDraft()
+  if (draft) Object.assign(form, draft)
 })
 </script>

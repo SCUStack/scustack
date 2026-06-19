@@ -55,6 +55,8 @@
 </template>
 
 <script setup lang="ts">
+import { isAnnouncementDismissed, markAnnouncementDismissed } from '~/composables/useLocalExperienceState'
+
 const { apiBase } = useRuntimeConfig().public
 const activeAnnouncements = ref<any[]>([])
 const currentIndex = ref(0)
@@ -79,7 +81,7 @@ function severityLabel(s: string): string {
 
 function dismissCurrent() {
   if (!current.value) return
-  try { localStorage.setItem('scustack_dismissed:' + current.value.id, new Date().toDateString()) } catch {}
+  markAnnouncementDismissed(current.value.id, new Date().toDateString())
   // Remove current and advance
   activeAnnouncements.value = activeAnnouncements.value.filter(a => a.id !== current.value.id)
   if (currentIndex.value >= activeAnnouncements.value.length) currentIndex.value = 0
@@ -90,9 +92,7 @@ onMounted(async () => {
     const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/announcements/active`)
     if (resp.code === 0) {
       const today = new Date().toDateString()
-      activeAnnouncements.value = resp.data.filter((a: any) => {
-        try { return localStorage.getItem('scustack_dismissed:' + a.id) !== today } catch { return true }
-      })
+      activeAnnouncements.value = resp.data.filter((a: any) => !isAnnouncementDismissed(a.id, today))
     }
   } catch { /* noop */ }
 })

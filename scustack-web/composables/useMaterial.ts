@@ -1,3 +1,4 @@
+import { saveRecentView as persistRecentView, type RecentItem } from '~/composables/useLocalExperienceState'
 import type { MaterialItem, MaterialVersion, CollectionItem } from '~/types/api'
 
 /**
@@ -72,21 +73,16 @@ export function useMaterial(materialId: Ref<string>) {
 
   // ── Data fetching ────────────────────────────────────────────────────
 
-  interface RecentItem { id: string; type: string; title: string; url: string; time: string }
-
   function saveRecentView() {
     if (!material.value) return
-    try {
-      const raw = localStorage.getItem('scustack_recent')
-      const list: RecentItem[] = raw ? JSON.parse(raw) : []
-      const filtered = list.filter((i) => i.id !== material.value!.id)
-      filtered.unshift({
-        id: material.value.id, type: 'material',
-        title: material.value.title, url: `/material/${material.value.id}`,
-        time: new Date().toLocaleDateString('zh-CN'),
-      })
-      localStorage.setItem('scustack_recent', JSON.stringify(filtered.slice(0, 20)))
-    } catch { /* ignore */ }
+    const recentItem: RecentItem = {
+      id: material.value.id,
+      type: 'material',
+      title: material.value.title,
+      url: `/material/${material.value.id}`,
+      time: new Date().toLocaleDateString('zh-CN'),
+    }
+    persistRecentView(recentItem)
   }
 
   async function fetchMaterial(retryAttempt = 0) {

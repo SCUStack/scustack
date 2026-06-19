@@ -106,6 +106,7 @@
 
 <script setup lang="ts">
 import { materialCategories, materialSemesters, searchSortOptions } from '~/data/business'
+import { saveRecentView, type RecentItem } from '~/composables/useLocalExperienceState'
 
 const route = useRoute()
 const { apiBase } = useRuntimeConfig().public
@@ -217,19 +218,14 @@ function goToPage(page: number) {
 
 function saveRecentCourse() {
   if (!course.value) return
-  try {
-    const raw = localStorage.getItem('scustack_recent')
-    const list: any[] = raw ? JSON.parse(raw) : []
-    const filtered = list.filter((i: any) => i.id !== course.value.id)
-    filtered.unshift({
-      id: course.value.id,
-      type: 'course',
-      title: course.value.name,
-      url: `/course/${course.value.id}`,
-      time: new Date().toLocaleDateString('zh-CN'),
-    })
-    localStorage.setItem('scustack_recent', JSON.stringify(filtered.slice(0, 20)))
-  } catch { /* ignore */ }
+  const recentItem: RecentItem = {
+    id: course.value.id,
+    type: 'course',
+    title: course.value.name,
+    url: `/course/${course.value.id}`,
+    time: new Date().toLocaleDateString('zh-CN'),
+  }
+  saveRecentView(recentItem)
 }
 
 onMounted(async () => {
