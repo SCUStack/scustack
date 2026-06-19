@@ -128,7 +128,7 @@
     </div>
 
     <!-- Mobile: waterfall feed -->
-    <div class="lg:hidden">
+    <div v-if="isMobile" class="lg:hidden">
       <MobileHomeView />
     </div>
   </div>
@@ -138,6 +138,7 @@
 definePageMeta({ title: '首页' })
 
 const { apiBase } = useRuntimeConfig().public
+const { isMobile } = useDevice()
 
 const calendarLabel = ref('')
 const calendarItems = ref<any[]>([])
@@ -169,26 +170,35 @@ const prefersReducedMotion = typeof window !== 'undefined' ? window.matchMedia('
 function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.value.length }
 function prevBanner() { activeBanner.value = (activeBanner.value - 1 + banners.value.length) % banners.value.length }
 
-onMounted(async () => {
-  if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
-
+const { data: homepagePayload } = await useAsyncData('homepage-index', async () => {
   try {
     const [homeResp, collegeResp] = await Promise.all([
       $fetch<{ code: number; data: any }>(`${apiBase}/api/v1/homepage`),
       $fetch<{ code: number; data: { id: string; name: string }[] }>(`${apiBase}/api/v1/colleges`),
     ])
-    if (homeResp.code === 0) {
-      const d = homeResp.data
-      if (Array.isArray(d.banners) && d.banners.length > 0) banners.value = d.banners
-      calendarLabel.value = d.calendar_label
-      calendarItems.value = d.calendar_recommendations || []
-      recentItems.value = d.recent_updates || []
-      recentCursor.value = (d.recent_updates || []).length
-      hotCourses.value = d.hot_courses || []
-      totalMaterialCount.value = d.stats?.material_count || 0
-    }
-    if (collegeResp.code === 0) colleges.value = collegeResp.data
-  } catch { /* noop */ }
+    return { homeResp, collegeResp }
+  } catch {
+    return null
+  }
+})
+
+const initialPayload = homepagePayload.value
+if (initialPayload?.homeResp?.code === 0) {
+  const d = initialPayload.homeResp.data
+  if (Array.isArray(d.banners) && d.banners.length > 0) banners.value = d.banners
+  calendarLabel.value = d.calendar_label
+  calendarItems.value = d.calendar_recommendations || []
+  recentItems.value = d.recent_updates || []
+  recentCursor.value = (d.recent_updates || []).length
+  hotCourses.value = d.hot_courses || []
+  totalMaterialCount.value = d.stats?.material_count || 0
+}
+if (initialPayload?.collegeResp?.code === 0) {
+  colleges.value = initialPayload.collegeResp.data
+}
+
+onMounted(async () => {
+  if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
 
   if (recentSentinel.value) {
     const MAX_RECENT = 89
