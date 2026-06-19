@@ -1,5 +1,16 @@
 ﻿# 川流课栈 技术架构书
 
+| 字段 | 内容 |
+|---|---|
+| Type | `architecture` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 项目的技术架构、关键选型、系统边界与中长期演进方向。 |
+
+> 本文是项目技术架构的主文档，描述系统设计和目标形态。涉及当前低预算 MVP 的执行细节时，以 `DEPLOYMENT-部署手册.md` 和专项方案文档为准。
+
 ## 目录
 
 1. [架构总览](#1-架构总览)
@@ -38,10 +49,10 @@
 | **UI 组件库** | Element Plus | 中文 UI 组件库中维护最活跃，文档完善 |
 | **后端框架** | Python FastAPI | Pydantic 自动校验 + Swagger 自动生成，MVP 开发速度最快；Python 生态为后续 AI 功能铺路 |
 | **数据库** | PostgreSQL 16 | JSONB 灵活元数据、递归 CTE 树形查询、zhparser 中文分词、pgvector 向量检索预留 |
-| **搜索引擎** | Elasticsearch 8.x + IK 分词器 | 中文分词 + 自定义词典 + 中英文混合搜索，质量不可替代 |
+| **搜索引擎** | PostgreSQL 基础搜索（MVP） / Elasticsearch 8.x + IK（后续升级） | 400 元预算内先不上独立 ES，等数据规模和搜索质量需求上来后再升级 |
 | **缓存** | Redis 7 | 会话管理、热点数据缓存、速率限制计数器 |
-| **文件存储** | 阿里云 OSS + CDN | 零运维、按量付费、内置图片处理与内容审核 |
-| **文档预览** | OnlyOffice (自托管) + PDF.js | 完整 Office 保真度，开源方案 |
+| **文件存储** | 腾讯云 COS（推荐） / 阿里云 OSS（备选） | 前期免费额度更友好，适合低预算 MVP |
+| **文档预览** | PDF.js + 原生图片/文本预览（MVP） / OnlyOffice（后续升级） | 400 元预算内不单独部署 OnlyOffice |
 | **消息队列** | Celery (Redis broker) | 异步任务（病毒扫描、缩略图生成、搜索索引更新、内容提取） |
 
 ### 1.3 系统架构图
@@ -54,65 +65,56 @@ graph TB
         Mobile["手机浏览器"]
     end
 
-    Desktop --> CDN["阿里云 CDN"]
-    Tablet --> CDN
-    Mobile --> CDN
+    Desktop --> Nginx["Nginx + HTTPS"]
+    Tablet --> Nginx
+    Mobile --> Nginx
 
-    CDN --> Static["静态资源<br/>(CDN 缓存)"]
-    CDN --> Nuxt["Nuxt 3<br/>(SSR 节点)"]
-    CDN --> OSS["阿里云 OSS<br/>(用户文件)"]
-
-    Nuxt --> Nginx["Nginx 反向代理"]
-
-    Nginx --> FastAPI1["FastAPI<br/>(API 节点 1)"]
-    Nginx --> FastAPI2["FastAPI<br/>(API 节点 2)"]
-
-    FastAPI1 --> PostgreSQL["PostgreSQL<br/>(RDS)"]
-    FastAPI2 --> PostgreSQL
-    FastAPI1 --> Redis["Redis<br/>(缓存/队列)"]
-    FastAPI2 --> Redis
-    FastAPI1 --> ES["Elasticsearch<br/>(搜索)"]
-    FastAPI2 --> ES
-
-    OSS --> Celery["Celery Worker"]
+    Nginx --> Nuxt["Nuxt 3<br/>(SSR 节点)"]
+    Nginx --> FastAPI["FastAPI<br/>(API 节点)"]
+    FastAPI --> PostgreSQL["PostgreSQL<br/>(Docker 同机)"]
+    FastAPI --> Redis["Redis<br/>(缓存/队列，同机)"]
+    FastAPI --> COS["COS / OSS<br/>(用户文件)"]
+    FastAPI --> Celery["Celery Worker<br/>(同机)"]
     Celery --> PostgreSQL
     Celery --> Redis
-    Celery --> ES
-    Celery --> OnlyOffice["OnlyOffice<br/>(文档预览)"]
+    Celery --> COS
 
-    subgraph VPC["阿里云 VPC 内网"]
-        Nuxt
+    subgraph SingleHost["单机轻量云服务器"]
         Nginx
-        FastAPI1
-        FastAPI2
+        Nuxt
+        FastAPI
         PostgreSQL
         Redis
-        ES
         Celery
-        OnlyOffice
     end
 ```
 
 ### 1.4 MVP 阶段云资源规划
 
-| 资源 | 规格 | 月成本估算 |
+当前项目的真实 MVP 预算目标是首年约 `¥400`。在这个约束下，必须采用单机部署，并主动裁剪高成本组件。
+
+| 资源 | 规格 | 首年成本估算 |
 |---|---|---|
-| ECS (应用服务器) ×2 | 4C8G，用于 Nginx + Nuxt SSR + FastAPI | ¥600 |
-| ECS (弹性扩容) | 按需，期末季临时增加 2-4 台 | ¥200-400 (均摊) |
-| RDS PostgreSQL | 2C4G，50GB SSD | ¥400 |
-| PgBouncer | ECS 应用服务器上部署，或 RDS 内置连接池 | ¥0 |
-| Elasticsearch | 2C8G，单节点 | ¥500 |
-| Redis | 1GB 标准版 | ¥150 |
-| OSS 存储 | 按量付费（预估 100-200GB） | ¥50-100 |
-| OSS 外网流量 | 月度约 300-800GB（经 CDN 回源） | ¥150-400 |
-| CDN | 按量付费（月度 500GB-1TB 流量） | ¥150-300 |
-| OnlyOffice | ECS 4C8G（与预览服务共用） | ¥300 |
-| **合计** | | **约 ¥2,500-3,250/月** |
+| 轻量云服务器 ×1 | 2C2G / 40-50GB SSD / 3-4Mbps | ¥99-199（活动价） |
+| 对象存储 | 腾讯云 COS（推荐）/ 阿里云 OSS（备选） | ¥0-50（取决于免费额度与流量） |
+| 域名 | `.cn` 或 `.com` 1 个 | ¥30-85 |
+| HTTPS | Let's Encrypt | ¥0 |
+| 监控/告警 | 云厂商基础监控 | ¥0 |
+| **合计** | | **约 ¥130-334 / 年** |
 
-> 潮汐成本策略：大学类工具的流量呈显著"潮汐效应"——平时日活低迷，期末考前两周流量暴增 5-10 倍。建议在阿里云 SLB 后配置弹性伸缩组（Auto Scaling），按 CPU 利用率 > 70% 自动扩容、< 30% 自动缩容，考完试即缩容。同时 OSS 和 CDN 的流量费是云服务中最容易被忽视的"隐藏账单"——务必在下载 API 层设置每日下载限额（每人 50 次/天）、严格限制单文件大小上限，并最大化 CDN 缓存命中率来压降回源流量。
+单机 MVP 上线时的组件边界：
 
+- 保留：`Nuxt 3`、`FastAPI`、`PostgreSQL`、`Redis`、`Celery`、`COS/OSS`
+- 暂缓：`Elasticsearch`
+- 暂缓：`OnlyOffice`
+- 不采用：`独立 RDS`、`独立 Redis`、`CDN`、`SLB`、`多机弹性扩容`
 
-> 实际成本可随学生团队申请阿里云教育优惠或云厂商赞助而大幅降低。
+成本控制原则：
+
+- 文件上传走对象存储，避免占满系统盘
+- 下载限额必须开启，优先控制外网下行费用
+- Office 文档先走下载或弱预览，不为预览单独养一台机器
+- 搜索先接受 MVP 级体验，后续再迁移到 Elasticsearch
 
 ---
 
@@ -1809,3 +1811,13 @@ SCUSTACK_SENTRY_DSN=https://xxx@sentry.io/xxx
 > **文档版本**: v1.1 | **作者**: 技术架构团队 | **最后更新**: 2026-06-17
 >
 > **v1.1 更新**: 同步实际代码现状 — §11.1 覆盖全部 96 个 API 端点（新增 /me/*, /wishes, /comments, /bookmarks, /collections, /corrections, /copyright, /homepage, /about, /feedback, /health, admin 扩展端点）；§3 更新为 22 个服务文件 + 18 个路由文件；§4.3 新增完整模型清单（22 文件 / 27 模型类）。
+| 字段 | 内容 |
+|---|---|
+| Type | `architecture` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 项目的技术架构、关键选型、系统边界与中长期演进方向。 |
+
+> 本文是项目技术架构的主文档，描述系统设计和目标形态。涉及当前低预算 MVP 的执行细节时，以 `DEPLOYMENT.md` 和专项方案文档为准。

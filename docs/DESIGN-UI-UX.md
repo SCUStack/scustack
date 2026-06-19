@@ -1024,3 +1024,13 @@ graph TD
 ---
 
 > **文档版本**: v1.0 | **设计参考**: Swiss Modernism 2.0 + Flat Design | **字体**: Noto Sans SC | **技术栈**: Nuxt 3 + Element Plus + Tailwind CSS | **最后更新**: 2026-06-14
+| 字段 | 内容 |
+|---|---|
+| Type | `design` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 产品界面、交互原则、页面结构和视觉设计约束。 |
+
+> 本文是 UI / UX 设计层的主文档，用于说明界面与交互目标，不承担部署或实现状态说明。

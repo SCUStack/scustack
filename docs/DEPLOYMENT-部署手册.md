@@ -1,16 +1,44 @@
 # Production Deployment Runbook
 
+| 字段 | 内容 |
+|---|---|
+| Type | `deployment` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 低预算单机 MVP 的生产部署、环境变量、验证与回滚说明。 |
+
+> 本文是当前可执行的部署主文档，默认面向 `¥400` 预算的单机上线方案，不覆盖多机高可用生产集群。
+
 ## 1. Infrastructure
 
-Recommended Alibaba Cloud baseline:
+Recommended MVP baseline for the current codebase and a first-year budget around `¥400`:
 
-- `2 x ECS 4C8G` for app traffic behind a load balancer
-- `1 x ECS 4C8G` for `OnlyOffice`
-- `1 x RDS PostgreSQL 16`
-- `1 x Redis 7`
-- `1 x Elasticsearch 8.x` with IK plugin
-- `1 x OSS bucket` for hosted files and thumbnails
-- `1 x CDN` in front of OSS file delivery
+- `1 x lightweight cloud server` with `2C2G`, `40-50GB SSD`, `3-4Mbps`
+- `1 x PostgreSQL 16` running on the same host via Docker
+- `1 x Redis 7` running on the same host via Docker
+- `1 x object storage bucket` for uploads and thumbnails
+- `0 x Elasticsearch` in MVP
+- `0 x OnlyOffice` in MVP
+- `0 x RDS / CDN / SLB` in MVP
+
+Recommended purchase path:
+
+- Primary: Alibaba Cloud Lightweight Application Server, if an annual promo in the `¥99-199` range is available
+- Backup: Tencent Cloud Lighthouse, if you have a student/campus offer or a short-term promo
+- Recommended object storage: Tencent COS because the new-user free quota is friendlier for an early-stage campus project
+
+Official links:
+
+- Alibaba Cloud Lightweight Application Server: https://www.aliyun.com/product/swas
+- Alibaba Cloud ECS promo page: https://cn.aliyun.com/daily-act/ecs/activity_selection%20?from_alibabacloud=&userCode=mvsk1hl5
+- Tencent Cloud Lighthouse: https://cloud.tencent.com/product/lighthouse
+- Tencent Cloud Campus promo: https://cloud.tencent.com/act/campus
+- Tencent Cloud COS free quota: https://cloud.tencent.com/document/product/436/6240
+- Tencent Cloud COS pricing: https://buy.cloud.tencent.com/price/cos
+- Alibaba Cloud OSS free quota: https://help.aliyun.com/zh/oss/free-quota-for-new-users
+- Alibaba Cloud OSS pricing overview: https://help.aliyun.com/zh/oss/billing-overview
 
 Clone the repo on each app host:
 
@@ -19,55 +47,25 @@ git clone https://github.com/yeyixiang2007/scustack.git
 cd scustack
 ```
 
-Build the custom Elasticsearch image with IK:
-
-```bash
-docker build -t scustack-elasticsearch:8.17.0 docker/elasticsearch
-```
-
-Run Elasticsearch:
-
-```bash
-docker run -d --name scustack-elasticsearch \
-  -p 9200:9200 -p 9300:9300 \
-  -e discovery.type=single-node \
-  -e xpack.security.enabled=false \
-  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
-  --ulimit memlock=-1:-1 \
-  -v es_data:/usr/share/elasticsearch/data \
-  scustack-elasticsearch:8.17.0
-```
-
-Run OnlyOffice:
-
-```bash
-docker run -d --name scustack-onlyoffice \
-  -p 8088:80 \
-  -e JWT_ENABLED=false \
-  -v oo_data:/var/www/onlyoffice/Data \
-  onlyoffice/documentserver:8.2
-```
+Do not deploy Elasticsearch or OnlyOffice in the `¥400` MVP profile. They are deferred upgrade items.
 
 ## 2. DNS And SSL
 
 Create DNS records:
 
 ```text
-scustack.cn              A      <SLB or ECS public IP>
+scustack.cn              A      <server public IP>
 www.scustack.cn          CNAME  scustack.cn
 api.scustack.cn          CNAME  scustack.cn
-files.scustack.cn        CNAME  <OSS CDN domain>
-office.scustack.cn       A      <OnlyOffice ECS public IP>
+files.scustack.cn        CNAME  <COS or OSS bucket domain>
 ```
-
-If using Alibaba Cloud ACM certificates, bind the certificate to SLB / CDN and terminate HTTPS there.
 
 If using Let's Encrypt on Nginx:
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d scustack.cn -d www.scustack.cn -d api.scustack.cn -d office.scustack.cn
+sudo certbot --nginx -d scustack.cn -d www.scustack.cn -d api.scustack.cn
 ```
 
 Verify certificate renewal:
@@ -84,18 +82,18 @@ Backend production `.env`:
 cat > scustack-api/.env <<'EOF'
 SCUSTACK_APP_ENV=prod
 SCUSTACK_DEBUG=false
-SCUSTACK_DB_HOST=<rds-host>
+SCUSTACK_DB_HOST=<postgres-host>
 SCUSTACK_DB_PORT=5432
 SCUSTACK_DB_USER=<db-user>
 SCUSTACK_DB_PASSWORD=<db-password>
 SCUSTACK_DB_NAME=scustack
 SCUSTACK_DB_POOL_SIZE=20
 SCUSTACK_REDIS_URL=redis://<redis-host>:6379/0
-SCUSTACK_ES_HOST=http://<es-host>:9200
-SCUSTACK_OSS_ACCESS_KEY_ID=<oss-ak>
-SCUSTACK_OSS_ACCESS_KEY_SECRET=<oss-sk>
-SCUSTACK_OSS_ENDPOINT=https://oss-cn-chengdu.aliyuncs.com
-SCUSTACK_OSS_BUCKET=<oss-bucket>
+SCUSTACK_ES_HOST=
+SCUSTACK_OSS_ACCESS_KEY_ID=<cos-or-oss-ak>
+SCUSTACK_OSS_ACCESS_KEY_SECRET=<cos-or-oss-sk>
+SCUSTACK_OSS_ENDPOINT=<cos-or-oss-endpoint>
+SCUSTACK_OSS_BUCKET=<cos-or-oss-bucket>
 SCUSTACK_JWT_SECRET_KEY=<strong-random-secret>
 SCUSTACK_ENCRYPTION_KEY=<strong-random-secret>
 SCUSTACK_SENTRY_DSN=<sentry-dsn>
@@ -107,13 +105,13 @@ Frontend production `.env`:
 ```bash
 cat > scustack-web/.env <<'EOF'
 NUXT_PUBLIC_API_BASE=https://api.scustack.cn
-NUXT_PUBLIC_OFFICE_PREVIEW_BASE=https://office.scustack.cn
+NUXT_PUBLIC_OFFICE_PREVIEW_BASE=
 NUXT_PUBLIC_APP_ENV=prod
 NUXT_PUBLIC_SENTRY_DSN=<frontend-sentry-dsn>
 EOF
 ```
 
-Store secrets in Alibaba Cloud KMS, GitHub Actions secrets, or your deployment platform secret store. Do not commit `.env`.
+Store secrets in your cloud secret store or GitHub Actions secrets. Do not commit `.env`.
 
 Suggested production compose override for a single-node app host:
 
@@ -171,7 +169,13 @@ If using mock data in staging only:
 python -m scripts.seed_mock_data
 ```
 
-Initialize Elasticsearch index:
+Initialize the database and seed baseline data:
+
+```bash
+python scripts/seed_colleges.py
+```
+
+If you later enable Elasticsearch as an upgrade item, initialize the index manually:
 
 ```bash
 python - <<'PY'
@@ -215,11 +219,11 @@ redis-cli -h <redis-host> ping
 psql "postgresql://<db-user>:<db-password>@<rds-host>:5432/scustack" -c "select 1;"
 ```
 
-Check Elasticsearch and OnlyOffice:
+For the MVP profile, skip Elasticsearch and OnlyOffice checks. Verify app + storage instead:
 
 ```bash
-curl -fsS http://<es-host>:9200/_cluster/health
-curl -fsS https://office.scustack.cn/welcome/
+curl -fsS https://scustack.cn
+curl -fsS https://api.scustack.cn/api/v1/health
 ```
 
 If using containerized services:
@@ -296,3 +300,13 @@ Staging rollback verification status:
 
 - Not verified in this repository-only pass.
 - A staging rollback rehearsal is still required before declaring the runbook fully complete.
+| 字段 | 内容 |
+|---|---|
+| Type | `deployment` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 低预算单机 MVP 的生产部署、环境变量、验证与回滚说明。 |
+
+> 本文是当前可执行的部署主文档，默认面向 `¥400` 预算的单机上线方案，不覆盖多机高可用生产集群。

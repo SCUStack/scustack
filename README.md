@@ -28,10 +28,10 @@
 | 前端 | Nuxt 3 (Vue 3 + TypeScript) + Element Plus + Tailwind CSS |
 | 后端 | Python 3.12 + FastAPI + SQLAlchemy 2.0 (async) + Celery |
 | 数据库 | PostgreSQL 16 + Redis 7 |
-| 搜索 | Elasticsearch 8.x + IK 分词器 |
-| 文件存储 | 阿里云 OSS + CDN |
-| 文档预览 | PDF.js + OnlyOffice (自托管) + Shiki |
-| 部署 | 阿里云 ECS + RDS + Docker |
+| 搜索 | PostgreSQL 基础搜索（MVP） / Elasticsearch 8.x + IK（后续升级） |
+| 文件存储 | 腾讯云 COS（推荐） / 阿里云 OSS（备选） |
+| 文档预览 | PDF.js + 原生图片/文本预览（MVP） / OnlyOffice（后续升级） |
+| 部署 | 单机轻量云服务器 + Docker Compose |
 
 ## 快速开始
 
@@ -59,7 +59,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
-# 启动基础设施 (PostgreSQL, Redis, Elasticsearch, OnlyOffice)
+# 启动基础设施 (PostgreSQL, Redis；Elasticsearch / OnlyOffice 为可选组件)
 cd ..
 docker compose up -d
 
@@ -108,19 +108,19 @@ scustack/
 │   ├── alembic/               # 数据库迁移
 │   └── tests/                 # 测试
 ├── docs/                      # 项目文档
-│   ├── PRD.md                 # 产品需求文档
-│   ├── ARCHITECTURE.md        # 技术架构书
-│   └── UI-UX-DESIGN.md        # UI/UX 设计书
+│   ├── PRD-产品需求文档.md      # 产品需求文档
+│   ├── ARCHITECTURE-技术架构.md # 技术架构书
+│   └── DESIGN-UI-UX.md        # UI/UX 设计书
 └── docker-compose.yml         # 本地开发基础设施
 ```
 
 ## 文档
 
-- [产品需求文档 (PRD)](docs/PRD.md) — 用户故事、产品决策、MVP 范围
-- [技术架构书](docs/ARCHITECTURE.md) — 技术选型、数据库设计、API 规范、部署运维
-- [UI/UX 设计书](docs/UI-UX-DESIGN.md) — 设计系统、页面设计、组件库、交互模式
-- [生产部署 Runbook](docs/DEPLOYMENT.md) — 上线步骤、环境变量、健康检查、监控与回滚
-- [主站上线检查清单](docs/LAUNCH-CHECKLIST.md) — 站内已完成项、手工验证项、真实上线阻塞项
+- [产品需求文档](docs/PRD-产品需求文档.md) — 用户故事、产品决策、MVP 范围
+- [技术架构书](docs/ARCHITECTURE-技术架构.md) — 技术选型、数据库设计、API 规范、部署运维
+- [UI/UX 设计书](docs/DESIGN-UI-UX.md) — 设计系统、页面设计、组件库、交互模式
+- [部署手册](docs/DEPLOYMENT-部署手册.md) — 上线步骤、环境变量、健康检查、监控与回滚
+- [主站上线检查清单](docs/CHECKLIST-上线检查.md) — 站内已完成项、手工验证项、真实上线阻塞项
 
 ## 核心功能
 

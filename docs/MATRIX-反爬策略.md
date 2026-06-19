@@ -39,3 +39,13 @@ The source of truth for the machine-readable matrix lives in `scustack-api/app/c
 - This matrix covers public data exposure paths, not account-auth flows such as login, SMS verification, or password refresh.
 - The matrix distinguishes policy from implementation. A route may already have partial protections today while still carrying stricter intended behavior for follow-up issues.
 - Any new public list/detail/download endpoint should be added to the matrix before anti-scraping work is considered complete.
+| 字段 | 内容 |
+|---|---|
+| Type | `matrix` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 反爬策略矩阵、不同路由的保护等级及其策略边界。 |
+
+> 本文是反爬策略的主文档，定义不同能力等级下的保护要求，不负责具体代码实现细节。

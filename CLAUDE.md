@@ -83,7 +83,7 @@ scustack-api/                 # FastAPI backend
 
 ## Design system quick reference
 
-See `docs/UI-UX-DESIGN.md` for full specification.
+See `docs/DESIGN-UI-UX.md` for full specification.
 
 - Primary: `#1E3A5F`–`#3B82F6` (academic blue). Accent: `#F59E0B` (amber, CTAs and trust badges).
 - Font: Noto Sans SC (Google Fonts, weights 300/400/500/600/700).

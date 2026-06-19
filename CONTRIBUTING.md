@@ -79,4 +79,4 @@ pnpm test:e2e                   # E2E tests (Playwright)
 
 ## Architecture
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full technical architecture document, and [docs/UI-UX-DESIGN.md](docs/UI-UX-DESIGN.md) for the design system specification.
+See [docs/ARCHITECTURE-技术架构.md](docs/ARCHITECTURE-技术架构.md) for the full technical architecture document, and [docs/DESIGN-UI-UX.md](docs/DESIGN-UI-UX.md) for the design system specification.

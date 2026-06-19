@@ -27,3 +27,13 @@ This project distinguishes backend-backed business truth from browser-only conve
 
 All approved local-only state access should go through `scustack-web/composables/useLocalExperienceState.ts`.
 Direct new `localStorage` usage outside that boundary should be treated as a regression unless it is added to this document and the registry first.
+| 字段 | 内容 |
+|---|---|
+| Type | `state` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | 当前本地开发体验的状态边界、规则和已知约束。 |
+
+> 本文记录的是当前状态快照，帮助团队快速了解本地开发体验，不替代长期架构和部署文档。

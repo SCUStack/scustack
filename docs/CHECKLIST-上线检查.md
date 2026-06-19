@@ -10,9 +10,8 @@ It separates:
 
 Use this document together with:
 
-- [DEPLOYMENT.md](./DEPLOYMENT.md)
-- [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [AUDIT-PHASE1.md](./AUDIT-PHASE1.md)
+- [DEPLOYMENT-部署手册.md](./DEPLOYMENT-部署手册.md)
+- [ARCHITECTURE-技术架构.md](./ARCHITECTURE-技术架构.md)
 
 ## 1. In-Repo Launch Work Completed
 
@@ -135,3 +134,13 @@ The website should be considered ready for go-live only when:
 3. Every blocker in Section 4 is explicitly cleared or consciously waived by the people responsible for launch.
 
 If any item in Section 4 remains unresolved and unwaived, the website is **not yet truly launch-ready**, even if the repository itself is in good shape.
+| 字段 | 内容 |
+|---|---|
+| Type | `checklist` |
+| Status | `active` |
+| Owner | `team` |
+| Last Updated | `2026-06-19` |
+| Source of Truth | `yes` |
+| Scope | MVP 上线前需要逐项确认的准备项、验证项与风险项。 |
+
+> 本文用于上线前逐项核对，不替代部署步骤文档，也不承载架构决策。
