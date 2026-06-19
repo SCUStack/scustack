@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { resolveCoverSync } from '~/composables/useCoverImage'
-import tagsData from '~/data/covers'
+import { coverTagsData } from '~/data/coverRules'
 
 import type { MaterialItem } from '~/types/api'
 
@@ -81,7 +81,7 @@ const coverSrc = ref(
     id: props.item.id,
     title: props.item.title,
     category: props.item.category,
-  }, tagsData)
+  }, coverTagsData)
 )
 
 function onCoverError() {
