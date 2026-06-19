@@ -120,6 +120,7 @@ scustack/
 - [技术架构书](docs/ARCHITECTURE.md) — 技术选型、数据库设计、API 规范、部署运维
 - [UI/UX 设计书](docs/UI-UX-DESIGN.md) — 设计系统、页面设计、组件库、交互模式
 - [生产部署 Runbook](docs/DEPLOYMENT.md) — 上线步骤、环境变量、健康检查、监控与回滚
+- [主站上线检查清单](docs/LAUNCH-CHECKLIST.md) — 站内已完成项、手工验证项、真实上线阻塞项
 
 ## 核心功能
 
