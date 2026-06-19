@@ -130,6 +130,11 @@ Nuxt 3 相较 Next.js 的核心优势在于中文生态：Vue 在中国大学生
 - **首页信息流**：ISR（增量静态再生成），5 分钟过期 → 高并发承载
 - **用户中心/上传页**：CSR → 强交互体验
 
+首页的业务数据与展示数据分离：
+
+- **业务数据**：热门课程、近期更新、校历推荐，由 `/api/v1/homepage` 实时聚合
+- **展示数据**：Banner 等运营展示内容由后端 `site_configs` / `homepage_presentation_service.py` 提供，前端首页只消费契约，不再硬编码运营内容
+
 ### 2.2 目录结构
 
 ```
@@ -283,7 +288,7 @@ scustack-api/
 │   │   │   ├── courses.py     # 课程接口
 │   │   │   ├── feedback.py    # 用户反馈接口
 │   │   │   ├── health.py      # 健康检查接口
-│   │   │   ├── homepage.py    # 首页聚合接口
+│   │   │   ├── homepage.py    # 首页聚合接口（含展示配置）
 │   │   │   ├── materials.py   # 资料接口
 │   │   │   ├── search.py      # 搜索接口
 │   │   │   ├── upload.py      # 上传接口
@@ -309,6 +314,7 @@ scustack-api/
 │   │   ├── rate_limit_log.py
 │   │   ├── report.py
 │   │   ├── review_log.py
+│   │   ├── site_config.py
 │   │   ├── user.py
 │   │   ├── user_badge.py
 │   │   ├── user_consent.py
@@ -337,6 +343,7 @@ scustack-api/
 │   │   ├── course_service.py
 │   │   ├── deletion_service.py
 │   │   ├── homepage_service.py
+│   │   ├── homepage_presentation_service.py
 │   │   ├── material_service.py
 │   │   ├── report_service.py
 │   │   ├── review_service.py
@@ -1345,7 +1352,7 @@ POST   /api/v1/copyright/complaint                # 提交版权投诉
 GET    /api/v1/copyright/complaint/:id            # 投诉状态查询
 
 # ── 首页 ─────────────────────────────────────────────────
-GET    /api/v1/homepage                           # 首页聚合数据（Stats + 热门资料 + 公告）
+GET    /api/v1/homepage                           # 首页聚合数据（Stats + Banner 配置 + 热门资料 + 公告）
 
 # ── 关于 ─────────────────────────────────────────────────
 GET    /api/v1/about                              # 关于页面数据
@@ -1420,6 +1427,8 @@ GET    /api/v1/admin/announcements                # 公告列表 (maintainer+)
 POST   /api/v1/admin/announcements                # 创建公告 (maintainer+)
 PATCH  /api/v1/admin/announcements/:id            # 更新公告 (maintainer+)
 DELETE /api/v1/admin/announcements/:id            # 删除公告 (maintainer+)
+GET    /api/v1/admin/homepage-presentation        # 首页展示配置 (maintainer+)
+PATCH  /api/v1/admin/homepage-presentation        # 更新首页展示配置 (maintainer+)
 GET    /api/v1/admin/calendar                     # 校历列表 (maintainer+)
 POST   /api/v1/admin/calendar                     # 创建校历事件 (maintainer+)
 PATCH  /api/v1/admin/calendar/:id                 # 更新校历事件 (maintainer+)
