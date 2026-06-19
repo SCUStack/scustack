@@ -56,7 +56,7 @@
 const MIN_LOAD_MS = 300
 const PAGE_SIZE = 20
 
-const { apiBase } = useRuntimeConfig().public
+const apiBase = useApiBase()
 
 interface TabState {
   left: any[]

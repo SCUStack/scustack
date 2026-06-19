@@ -51,7 +51,7 @@
 | **数据库** | PostgreSQL 16 | JSONB 灵活元数据、递归 CTE 树形查询、zhparser 中文分词、pgvector 向量检索预留 |
 | **搜索引擎** | PostgreSQL 基础搜索（MVP） / Elasticsearch 8.x + IK（后续升级） | 400 元预算内先不上独立 ES，等数据规模和搜索质量需求上来后再升级 |
 | **缓存** | Redis 7 | 会话管理、热点数据缓存、速率限制计数器 |
-| **文件存储** | 腾讯云 COS（推荐） / 阿里云 OSS（备选） | 前期免费额度更友好，适合低预算 MVP |
+| **文件存储** | 多后端存储编排层（OSS / COS / R2 / 私有上传网关 / 外部链接） | 前期允许低成本异构接入，平台持有统一副本元数据，后续可平滑迁移到高耐久对象存储 |
 | **文档预览** | PDF.js + 原生图片/文本预览（MVP） / OnlyOffice（后续升级） | 400 元预算内不单独部署 OnlyOffice |
 | **消息队列** | Celery (Redis broker) | 异步任务（病毒扫描、缩略图生成、搜索索引更新、内容提取） |
 
@@ -73,11 +73,14 @@ graph TB
     Nginx --> FastAPI["FastAPI<br/>(API 节点)"]
     FastAPI --> PostgreSQL["PostgreSQL<br/>(Docker 同机)"]
     FastAPI --> Redis["Redis<br/>(缓存/队列，同机)"]
-    FastAPI --> COS["COS / OSS<br/>(用户文件)"]
+    FastAPI --> Storage["Storage Resolver<br/>(Provider Orchestrator)"]
+    Storage --> COS["OSS / COS / R2<br/>(托管副本)"]
+    Storage --> Gateway["私有上传网关<br/>(托管副本)"]
+    Storage --> External["外部链接 / 网盘<br/>(引用型副本)"]
     FastAPI --> Celery["Celery Worker<br/>(同机)"]
     Celery --> PostgreSQL
     Celery --> Redis
-    Celery --> COS
+    Celery --> Storage
 
     subgraph SingleHost["单机轻量云服务器"]
         Nginx
@@ -96,7 +99,7 @@ graph TB
 | 资源 | 规格 | 首年成本估算 |
 |---|---|---|
 | 轻量云服务器 ×1 | 2C2G / 40-50GB SSD / 3-4Mbps | ¥99-199（活动价） |
-| 对象存储 | 腾讯云 COS（推荐）/ 阿里云 OSS（备选） | ¥0-50（取决于免费额度与流量） |
+| 文件存储 | 主托管对象存储 + 补充副本/外链 | ¥0-50（取决于免费额度、流量与是否启用第二副本） |
 | 域名 | `.cn` 或 `.com` 1 个 | ¥30-85 |
 | HTTPS | Let's Encrypt | ¥0 |
 | 监控/告警 | 云厂商基础监控 | ¥0 |
@@ -104,14 +107,14 @@ graph TB
 
 单机 MVP 上线时的组件边界：
 
-- 保留：`Nuxt 3`、`FastAPI`、`PostgreSQL`、`Redis`、`Celery`、`COS/OSS`
+- 保留：`Nuxt 3`、`FastAPI`、`PostgreSQL`、`Redis`、`Celery`、`托管对象存储`
 - 暂缓：`Elasticsearch`
 - 暂缓：`OnlyOffice`
 - 不采用：`独立 RDS`、`独立 Redis`、`CDN`、`SLB`、`多机弹性扩容`
 
 成本控制原则：
 
-- 文件上传走对象存储，避免占满系统盘
+- 文件上传优先走托管存储或上传网关，避免占满系统盘
 - 下载限额必须开启，优先控制外网下行费用
 - Office 文档先走下载或弱预览，不为预览单独养一台机器
 - 搜索先接受 MVP 级体验，后续再迁移到 Elasticsearch
@@ -359,7 +362,13 @@ scustack-api/
 │   │   ├── database.py        # 数据库连接池
 │   │   ├── redis.py           # Redis 客户端
 │   │   ├── elasticsearch.py   # ES 客户端
-│   │   ├── oss.py             # 阿里云 OSS 客户端
+│   │   ├── oss.py             # 兼容层：默认托管存储实现
+│   │   ├── storage/           # 存储协议、provider、解析器
+│   │   │   ├── base.py
+│   │   │   ├── resolver.py
+│   │   │   ├── oss_provider.py
+│   │   │   ├── gateway_provider.py
+│   │   │   └── external_provider.py
 │   │   └── celery.py          # Celery 配置
 │   ├── middleware/
 │   │   ├── __init__.py
@@ -552,7 +561,7 @@ CREATE TABLE material_versions (
     material_id     UUID NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
     version_number  INTEGER NOT NULL,
     file_hash       VARCHAR(64) NOT NULL,        -- 此版本的 SHA-256
-    storage_key     VARCHAR(500) NOT NULL,        -- OSS 存储路径
+    storage_key     VARCHAR(500) NOT NULL,        -- 兼容字段：当前主托管副本 locator
     file_size       BIGINT NOT NULL,
     change_note     TEXT,                         -- 更新说明
     uploaded_by     UUID REFERENCES users(id),
@@ -563,6 +572,39 @@ CREATE TABLE material_versions (
 CREATE INDEX idx_versions_material ON material_versions(material_id);
 CREATE INDEX idx_versions_hash ON material_versions(file_hash);  -- 重复检测
 ```
+
+#### 文件副本 (material_file_replicas)
+
+```sql
+CREATE TABLE material_file_replicas (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    material_version_id UUID NOT NULL REFERENCES material_versions(id) ON DELETE CASCADE,
+    provider_type       VARCHAR(50) NOT NULL,      -- oss | cos | r2 | imgbed | external_link
+    provider_instance   VARCHAR(100) NOT NULL,     -- oss-main | imgbed-cacode | external-user
+    locator             VARCHAR(2000) NOT NULL,    -- object key / remote file id / canonical URL
+    access_url          VARCHAR(2000),
+    status              VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | ready | failed | degraded | deleted
+    role                VARCHAR(20) NOT NULL,      -- primary | replica | archive | fallback
+    checksum            VARCHAR(64),
+    file_size           BIGINT,
+    content_type        VARCHAR(100),
+    last_checked_at     TIMESTAMPTZ,
+    failure_count       INTEGER NOT NULL DEFAULT 0,
+    meta                JSONB,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_file_replicas_version ON material_file_replicas(material_version_id);
+CREATE INDEX idx_file_replicas_provider ON material_file_replicas(provider_type, provider_instance);
+CREATE INDEX idx_file_replicas_status ON material_file_replicas(status, role);
+```
+
+说明：
+
+- `material_versions` 表示逻辑版本对象
+- `material_file_replicas` 表示该版本在不同后端的物理副本
+- `storage_key` 在迁移期保留，仅用于兼容旧代码
 
 #### 评分 (ratings)
 
@@ -849,29 +891,57 @@ IK 分词器支持 `ext_dict` 热加载自定义词典，包含：
 
 ## 6. 文件存储与预览
 
-### 6.1 存储架构：阿里云 OSS + 直传
+### 6.1 存储架构：多后端存储编排 + 直传优先
 
-**核心原则：用户上传的文件永不经过应用服务器**
+当前阶段的存储设计不再假设“只有一个高耐久对象存储”，而是采用**逻辑文件对象 + 多后端物理副本**的架构。
+
+核心原则：
+
+- 用户上传的文件默认不经过应用服务器大文件中转
+- 平台掌握文件副本元数据，不把业务真相交给任一单独后端
+- 托管型存储和引用型外链分层建模
+- 主副本上传成功即可返回，其余副本异步补齐
+
+副本角色约定：
+
+- `primary`：当前默认下载源，必须为托管型 provider
+- `replica`：补充托管副本，用于冗余和故障切换
+- `fallback`：引用型外链，仅作兜底分发，不参与副本数承诺
+- `archive`：低频冷备或后续归档用途
+
+provider 分类：
+
+- **Managed Storage Provider**：OSS / COS / R2 / 私有上传网关 / S3 兼容后端
+- **Referenced Storage Provider**：网盘分享链接、外部下载页、其他第三方分发链接
+
+对应的专项设计见 [PLAN-存储架构设计.md](./PLAN-存储架构设计.md)。
 
 ```mermaid
 sequenceDiagram
     participant Browser as 浏览器
     participant FastAPI as FastAPI
-    participant OSS as 阿里云 OSS
+    participant Storage as Storage Resolver
+    participant Primary as Primary Provider
+    participant Replica as Replica Provider
     participant Celery as Celery Worker
 
     Browser->>FastAPI: ① POST /api/upload/token
-    Note over FastAPI: 验证权限<br/>校验文件类型<br/>校验文件大小<br/>生成存储路径
-    FastAPI-->>Browser: ② 返回 Presigned PUT URL<br/>(OSS 直传地址, 5min 有效)
+    Note over FastAPI: 验证权限<br/>校验文件类型<br/>校验文件大小<br/>选择主托管 provider
+    FastAPI->>Storage: 选择 primary provider
+    Storage->>Primary: create_upload_target()
+    FastAPI-->>Browser: ② 返回直传目标<br/>(5min 有效)
 
-    Browser->>OSS: ③ PUT 文件二进制流
-    OSS-->>Browser: ④ 上传完成回调
+    Browser->>Primary: ③ PUT 文件二进制流
+    Primary-->>Browser: ④ 上传完成
 
     Browser->>FastAPI: ⑤ POST /api/materials
+    Note over FastAPI: 创建 material + version<br/>写入 primary 副本记录
     FastAPI-->>Browser: ⑥ 资料创建成功
 
     FastAPI->>Celery: 触发异步任务
-    Note over Celery: ├─ 病毒扫描<br/>├─ 缩略图生成<br/>└─ ES 索引同步
+    Note over Celery: ├─ 病毒扫描<br/>├─ 缩略图生成<br/>├─ ES 索引同步<br/>└─ 副本复制 / 健康巡检
+    Celery->>Storage: 解析当前健康主副本
+    Storage->>Replica: 上传补充副本
 ```
 
 ### 6.2 文件安全校验管道
@@ -884,7 +954,7 @@ flowchart TD
     D --> E["第4层：ZIP Bomb 检测<br/>压缩比 > 100:1 则拒绝"]
     E --> F["第5层：ClamAV 病毒扫描<br/>Celery 异步任务"]
     F --> G["第6层：存储隔离<br/>文件域名独立于主应用<br/>独立 CSP"]
-    G --> H["存储至 OSS"]
+    G --> H["存储至主托管 provider"]
 ```
 
 **Magic Bytes 校验表**：
@@ -905,17 +975,17 @@ flowchart TD
 |---|---|---|---|
 | **PDF** | PDF.js（纯前端） | Canvas 叠加层渲染 | 零后端开销，支持中文 |
 | **DOCX/PPTX/XLSX** | OnlyOffice 文档服务器（自托管） | OnlyOffice 自定义水印 API | 完整 Office 保真度，开源社区版免费 |
-| **图片** | 原生 `<img>` + 阿里云图片处理 | OSS 图片水印参数 | OSS 自动缩放、水印、格式转换 |
+| **图片** | 原生 `<img>` + 主托管 provider 图片处理 | 对象存储动态水印参数 | 优先使用主托管副本的图片处理能力 |
 | **Markdown/代码** | Shiki 语法高亮 + remark/rehype 渲染 | CSS 伪元素水印层 | VS Code 级高亮质量，WASM 高性能 |
 | **纯文本** | 前端直接渲染 `<pre>` | CSS 伪元素水印层 | 限制展示行数，大文件截断 |
 | **压缩包** | 展示文件列表（名称、大小） | — | 不解压内容 |
-| **视频/音频** | HTML5 `<video>`/`<audio>` | — | 使用 OSS CDN 加速 |
+| **视频/音频** | HTML5 `<video>`/`<audio>` | — | 使用主托管副本或可回退副本分发 |
 
 动态盲水印策略（版权溯源关键措施）：
 
 - 水印内容：当前登录用户的 `UUID` 后 8 位 + 时间戳（如 `a1b2c3d4 · 2026-06-14`）
 - 水印样式：半透明（opacity 0.06-0.10），平铺覆盖整个预览区域，不影响阅读但截图可追溯
-- 实现方式：PDF/Office 预览在 Canvas 上叠加渲染水印层；图片使用 OSS 的 `watermark` 参数动态嵌入；文本类通过 CSS `::after` 伪元素平铺
+- 实现方式：PDF/Office 预览在 Canvas 上叠加渲染水印层；图片使用主托管 provider 的动态水印参数；文本类通过 CSS `::after` 伪元素平铺
 - 设计意图：当面临校方或出版社的版权施压时，水印机制能证明平台具有内容溯源能力，降低法律风险，同时威慑恶意传播行为（截图可追溯到人）
 
 OnlyOffice 中文字体配置：
@@ -950,11 +1020,45 @@ flowchart TD
     B1 -->|通过| B2{"第二层：每日配额检查<br/>日计数器 50 次/天 (防累积)"}
     B2 -->|超限| B2a["返回 429 Too Many Requests<br/>Retry-After: 次日 00:00"]
     B2 -->|通过| C["服务端验证：认证 + 权限 + 资料状态"]
-    C --> D["生成 Presigned GET URL<br/>OSS 私有 Bucket, 60min 有效"]
-    D --> E["返回 302 重定向至 Presigned URL"]
-    E --> F["浏览器直接从 OSS CDN 下载"]
-    F --> G["异步更新 download_count"]
+    C --> D["Storage Resolver 选择当前最佳副本<br/>primary > replica > fallback"]
+    D --> E["生成下载地址或签名 URL<br/>60min 有效"]
+    E --> F["返回 302 重定向至目标副本"]
+    F --> G["浏览器直接下载"]
+    G --> H["异步更新 download_count"]
 ```
+
+下载解析策略：
+
+- 默认优先使用健康的 `primary` 托管副本
+- 主副本失败时切换到其他 `ready` 托管副本
+- 只有在托管副本全部不可用时，才允许回退到 `fallback` 外链
+- 下载链路中的副本失败会累积到 `failure_count`，供后续巡检与修复任务使用
+
+### 6.6 副本管理与修复
+
+平台以“目标副本数”管理资料而非依赖单一存储后端。
+
+建议初期策略：
+
+- 普通资料：目标副本数 `1`
+- 高价值资料：目标副本数 `2`
+- 用户外链：允许仅存在 `fallback` 引用副本
+
+后台任务：
+
+- `replicate_material_version`：为缺失副本的资料补副本
+- `check_storage_replicas`：巡检托管副本可读性与元数据
+- `check_referenced_links`：检查外链是否失效
+- `repair_under_replicated_files`：少于目标副本数时自动修复
+
+### 6.7 当前阶段的现实取舍
+
+前期不假设一定拥有高耐久、商业 SLA 级主存储，因此架构目标不是“立刻完美持久化”，而是：
+
+- 允许便宜或临时 provider 启动 MVP
+- 记录每个版本当前有哪些副本、是否健康
+- 在未来接入正式高耐久对象存储时，无需推翻业务模型
+- 将外部网盘/图床视为可接入后端或兜底分发源，而非等价 durability 承诺
 
 防刷与流量保护：
 
@@ -967,7 +1071,7 @@ flowchart TD
 
 - 两层共享同一 Redis key 前缀 `rate_limit:download:{user_id}`，独立计数、独立 TTL
 - 单文件大小上限：PDF/Office < 50MB，视频 < 200MB，压缩包 < 100MB。拒绝超大文件上传
-- CDN 缓存最大化：OSS Presigned URL 配合 CDN 加速，回源率控制在 10% 以下，大幅降低 OSS 外网流量费（这是云账单中最容易被忽视的隐藏开销）
+- CDN 缓存最大化：主托管副本的签名 URL 配合 CDN 加速，回源率控制在 10% 以下，大幅降低外网流量费（这是云账单中最容易被忽视的隐藏开销）
 - 异常监控：监控单用户下载量突增（如 1 小时内 > 200 次），自动触发临时封禁 + 告警通知
 
 ---
@@ -1010,7 +1114,7 @@ flowchart TD
 后台定时任务（每周）：
 1. 扫描 `material_versions` 表，构建所有活跃的 `file_hash` 集合
 2. 扫描 OSS blobs 目录，列出所有存储的 blob
-3. 删除不在活跃集合中的 blob（保留 30 天宽限期）
+3. 删除不在活跃集合中的托管副本对象（保留 30 天宽限期）
 4. 记录清理日志
 
 ---
@@ -1777,11 +1881,20 @@ SCUSTACK_REDIS_URL=redis://redis.internal:6379/0
 # Elasticsearch
 SCUSTACK_ES_HOST=http://es.internal:9200
 
-# 阿里云
+# 存储编排
+SCUSTACK_STORAGE_DEFAULT_PROVIDER=oss-main
+SCUSTACK_STORAGE_TARGET_REPLICA_COUNT=1
+
+# 阿里云 / S3 兼容主托管存储
 SCUSTACK_OSS_ENDPOINT=https://oss-cn-chengdu.aliyuncs.com
 SCUSTACK_OSS_BUCKET=scustack-files
 SCUSTACK_OSS_ACCESS_KEY_ID=<key>
 SCUSTACK_OSS_ACCESS_KEY_SECRET=<secret>
+
+# 可选：补充上传网关
+SCUSTACK_GATEWAY_UPLOAD_URL=https://lfs.example.com/upload
+SCUSTACK_GATEWAY_PUBLIC_BASE=https://lfs.example.com
+SCUSTACK_GATEWAY_AUTH_CODE=<optional>
 
 # 短信服务 (阿里云 SMS)
 SCUSTACK_SMS_ACCESS_KEY_ID=<key>
@@ -1808,16 +1921,6 @@ SCUSTACK_SENTRY_DSN=https://xxx@sentry.io/xxx
 
 ---
 
-> **文档版本**: v1.1 | **作者**: 技术架构团队 | **最后更新**: 2026-06-17
+> **文档版本**: v1.2 | **作者**: 技术架构团队 | **最后更新**: 2026-06-19
 >
-> **v1.1 更新**: 同步实际代码现状 — §11.1 覆盖全部 96 个 API 端点（新增 /me/*, /wishes, /comments, /bookmarks, /collections, /corrections, /copyright, /homepage, /about, /feedback, /health, admin 扩展端点）；§3 更新为 22 个服务文件 + 18 个路由文件；§4.3 新增完整模型清单（22 文件 / 27 模型类）。
-| 字段 | 内容 |
-|---|---|
-| Type | `architecture` |
-| Status | `active` |
-| Owner | `team` |
-| Last Updated | `2026-06-19` |
-| Source of Truth | `yes` |
-| Scope | 项目的技术架构、关键选型、系统边界与中长期演进方向。 |
-
-> 本文是项目技术架构的主文档，描述系统设计和目标形态。涉及当前低预算 MVP 的执行细节时，以 `DEPLOYMENT.md` 和专项方案文档为准。
+> **v1.2 更新**: 新增低预算阶段的多后端存储编排方案；§1 更新文件存储选型；§4 新增 `material_file_replicas` 逻辑模型；§6 将单一 OSS 直传升级为“主副本 + 补副本 + 外链 fallback”的存储架构；附录补充多 provider 环境变量。

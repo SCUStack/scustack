@@ -1,134 +1,123 @@
 <template>
   <div>
-    <!-- Desktop: keep existing layout -->
     <div class="hidden lg:block">
-      <div>
-    <!-- Banner carousel -->
-    <section class="relative w-full overflow-hidden bg-slate-900" aria-label="首页横幅轮播" style="height: 20vh; min-height: 180px; max-height: 300px;">
-      <div
-        v-for="(banner, idx) in banners" :key="idx"
-        class="absolute inset-0 transition-opacity duration-500"
-        :class="idx === activeBanner ? 'opacity-100' : 'opacity-0 pointer-events-none'"
-      >
-        <img :src="banner.image" :alt="banner.title" class="w-full h-full object-cover" loading="eager" />
-        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30" />
-        <div class="absolute bottom-4 left-6 right-6">
-          <h3 class="text-white font-semibold text-base sm:text-lg">{{ banner.title }}</h3>
-          <p class="text-white/70 text-xs mt-0.5">{{ banner.subtitle }}</p>
-        </div>
-      </div>
-
-      <div class="absolute bottom-3 right-4 flex gap-1.5 z-10">
-        <button
+      <section class="relative w-full overflow-hidden bg-slate-900" aria-label="首页横幅轮播" style="height: 20vh; min-height: 180px; max-height: 300px;">
+        <div
           v-for="(banner, idx) in banners" :key="idx"
-          :aria-label="`切换到第 ${idx + 1} 个首页横幅`"
-          class="w-2 h-2 rounded-full transition-all duration-300 cursor-pointer border-0"
-          :class="idx === activeBanner ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/70'"
-          @click="activeBanner = idx"
-        />
-      </div>
-
-    </section>
-
-    <!-- Hot courses — compact row -->
-    <ClientOnly>
-      <div>
-      <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
-          <NuxtLink to="/course" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
-            查看更多 →
-          </NuxtLink>
+          class="absolute inset-0 transition-opacity duration-500"
+          :class="idx === activeBanner ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+        >
+          <img :src="banner.image" :alt="banner.title" class="w-full h-full object-cover" loading="eager" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30" />
+          <div class="absolute bottom-4 left-6 right-6">
+            <h3 class="text-white font-semibold text-base sm:text-lg">{{ banner.title }}</h3>
+            <p class="text-white/70 text-xs mt-0.5">{{ banner.subtitle }}</p>
+          </div>
         </div>
-        <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
-          <NuxtLink
-            v-for="c in hotCourses.slice(0, 16)" :key="c.id" :to="`/course/${c.id}`"
-            class="px-2.5 py-2 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-200 no-underline cursor-pointer bg-white text-center"
-          >
-            <p class="text-xs font-medium text-slate-700 line-clamp-1">{{ c.name }}</p>
-          </NuxtLink>
+
+        <div class="absolute bottom-3 right-4 flex gap-1.5 z-10">
+          <button
+            v-for="(banner, idx) in banners" :key="idx"
+            :aria-label="`切换到第 ${idx + 1} 个首页横幅`"
+            class="w-2 h-2 rounded-full transition-all duration-300 cursor-pointer border-0"
+            :class="idx === activeBanner ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/70'"
+            @click="activeBanner = idx"
+          />
         </div>
       </section>
 
-    <!-- Calendar recommendations — bento grid with covers -->
-    <section v-if="calendarItems.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
-      <div class="flex items-center gap-2 mb-4">
-        <AppIcon name="Calendar" :size="20" class="text-accent-600" />
-        <h2 class="text-lg font-semibold text-slate-800">
-          <span class="px-2 py-0.5 text-xs font-medium bg-accent-50 text-accent-600 rounded-full mr-2">{{ calendarLabel }}</span>
-          为你推荐
-        </h2>
-        <NuxtLink to="/search?sort=downloads" class="ml-auto text-sm text-primary-600 hover:text-primary-700 no-underline">
-          查看更多 →
-        </NuxtLink>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div
-          v-for="(item, idx) in calendarItems.slice(0, 8)" :key="item.id"
-          :class="[
-            idx === 0 ? 'sm:col-span-2 lg:col-span-3 lg:row-span-2 col-span-1' : '',
-            idx === 1 || idx === 2 ? 'col-span-1' : '',
-            idx === 3 ? 'col-span-1' : '',
-            idx === 4 ? 'lg:col-span-2 col-span-1' : '',
-            idx === 5 ? 'col-span-1' : '',
-            idx === 6 ? 'lg:col-span-2 col-span-1' : '',
-            idx === 7 ? 'lg:col-span-2 col-span-1' : '',
-          ]"
-        >
-          <MaterialCard :item="item" :style="{ height: cardHeight(idx) }" />
+      <ClientOnly>
+        <div>
+          <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
+              <NuxtLink to="/course" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
+                查看更多 →
+              </NuxtLink>
+            </div>
+            <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
+              <NuxtLink
+                v-for="c in hotCourses.slice(0, 16)" :key="c.id" :to="`/course/${c.id}`"
+                class="px-2.5 py-2 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-200 no-underline cursor-pointer bg-white text-center"
+              >
+                <p class="text-xs font-medium text-slate-700 line-clamp-1">{{ c.name }}</p>
+              </NuxtLink>
+            </div>
+          </section>
+
+          <section v-if="calendarItems.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
+            <div class="flex items-center gap-2 mb-4">
+              <AppIcon name="Calendar" :size="20" class="text-accent-600" />
+              <h2 class="text-lg font-semibold text-slate-800">
+                <span class="px-2 py-0.5 text-xs font-medium bg-accent-50 text-accent-600 rounded-full mr-2">{{ calendarLabel }}</span>
+                为你推荐
+              </h2>
+              <NuxtLink to="/search?sort=downloads" class="ml-auto text-sm text-primary-600 hover:text-primary-700 no-underline">
+                查看更多 →
+              </NuxtLink>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div
+                v-for="(item, idx) in calendarItems.slice(0, 8)" :key="item.id"
+                :class="[
+                  idx === 0 ? 'sm:col-span-2 lg:col-span-3 lg:row-span-2 col-span-1' : '',
+                  idx === 1 || idx === 2 ? 'col-span-1' : '',
+                  idx === 3 ? 'col-span-1' : '',
+                  idx === 4 ? 'lg:col-span-2 col-span-1' : '',
+                  idx === 5 ? 'col-span-1' : '',
+                  idx === 6 ? 'lg:col-span-2 col-span-1' : '',
+                  idx === 7 ? 'lg:col-span-2 col-span-1' : '',
+                ]"
+              >
+                <MaterialCard :item="item" :style="{ height: cardHeight(idx) }" />
+              </div>
+            </div>
+          </section>
+
+          <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
+            <h2 class="text-lg font-semibold text-slate-800 mb-4">近期更新</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <MaterialCard v-for="item in visibleRecentItems" :key="item.id" :item="item" />
+              <NuxtLink
+                v-if="recentItems.length > 0"
+                to="/search"
+                class="relative rounded-lg overflow-hidden group cursor-pointer no-underline border-2 border-dashed border-slate-300 hover:border-primary-400 transition-all duration-300 flex flex-col items-center justify-center bg-slate-50 hover:bg-primary-50/30"
+                style="min-height: 168px"
+              >
+                <AppIcon name="Search" :size="32" class="text-slate-300 group-hover:text-primary-400 mb-2 transition-colors duration-300" />
+                <p class="text-sm font-medium text-slate-500 group-hover:text-primary-600 transition-colors duration-300">更多资料</p>
+                <p class="text-xs text-slate-400 mt-1">{{ totalMaterialCount ? `${totalMaterialCount} 份资料` : '浏览所有课程和资料' }}</p>
+              </NuxtLink>
+            </div>
+            <div ref="recentSentinel" class="h-4" />
+            <div v-if="recentLoading" class="py-4">
+              <SkeletonList :count="3" />
+            </div>
+          </section>
+
+          <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6 pb-12">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-slate-800">学院快速入口</h2>
+              <NuxtLink to="/colleges" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
+                查看全部学院 →
+              </NuxtLink>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <NuxtLink
+                v-for="c in colleges" :key="c.id"
+                :to="`/colleges/${c.id}`"
+                class="px-4 py-1.5 text-sm rounded-full no-underline transition-colors duration-150 border"
+                :style="collegeChipStyle(c)"
+              >
+                {{ c.name }}
+              </NuxtLink>
+            </div>
+          </section>
         </div>
-      </div>
-    </section>
-
-    <!-- Recent updates -->
-    <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
-      <h2 class="text-lg font-semibold text-slate-800 mb-4">近期更新</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MaterialCard v-for="item in visibleRecentItems" :key="item.id" :item="item" />
-        <!-- "View all" as the last card in grid -->
-        <NuxtLink
-          v-if="recentItems.length > 0"
-          to="/search"
-          class="relative rounded-lg overflow-hidden group cursor-pointer no-underline border-2 border-dashed border-slate-300 hover:border-primary-400 transition-all duration-300 flex flex-col items-center justify-center bg-slate-50 hover:bg-primary-50/30"
-          style="min-height: 168px"
-        >
-          <AppIcon name="Search" :size="32" class="text-slate-300 group-hover:text-primary-400 mb-2 transition-colors duration-300" />
-          <p class="text-sm font-medium text-slate-500 group-hover:text-primary-600 transition-colors duration-300">更多资料</p>
-          <p class="text-xs text-slate-400 mt-1">{{ totalMaterialCount ? `${totalMaterialCount} 份资料` : '浏览所有课程和资料' }}</p>
-        </NuxtLink>
-      </div>
-      <div ref="recentSentinel" class="h-4" />
-      <div v-if="recentLoading" class="py-4">
-        <SkeletonList :count="3" />
-      </div>
-    </section>
-
-    <!-- College quick entry -->
-    <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6 pb-12">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-slate-800">学院快速入口</h2>
-        <NuxtLink to="/colleges" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
-          查看全部学院 →
-        </NuxtLink>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <NuxtLink
-          v-for="c in colleges" :key="c.id"
-          :to="`/colleges/${c.id}`"
-          class="px-4 py-1.5 text-sm rounded-full no-underline transition-colors duration-150 border"
-          :style="collegeChipStyle(c)"
-        >
-          {{ c.name }}
-        </NuxtLink>
-      </div>
-    </section>
-      </div>
-    </ClientOnly>
-      </div>
+      </ClientOnly>
     </div>
 
-    <!-- Mobile: waterfall feed -->
-    <div v-if="isMobile" class="lg:hidden">
+    <div class="lg:hidden">
       <MobileHomeView />
     </div>
   </div>
@@ -137,8 +126,7 @@
 <script setup lang="ts">
 definePageMeta({ title: '首页' })
 
-const { apiBase } = useRuntimeConfig().public
-const { isMobile } = useDevice()
+const apiBase = useApiBase()
 
 const calendarLabel = ref('')
 const calendarItems = ref<any[]>([])
@@ -168,7 +156,6 @@ let bannerTimer: ReturnType<typeof setInterval> | null = null
 const prefersReducedMotion = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
 
 function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.value.length }
-function prevBanner() { activeBanner.value = (activeBanner.value - 1 + banners.value.length) % banners.value.length }
 
 const { data: homepagePayload } = await useAsyncData('homepage-index', async () => {
   try {
@@ -260,11 +247,4 @@ function collegeChipStyle(c: { id: string; name: string }): Record<string, strin
   }
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days < 1) return '今天'
-  if (days < 30) return `${days} 天前`
-  return new Date(dateStr).toLocaleDateString('zh-CN')
-}
 </script>

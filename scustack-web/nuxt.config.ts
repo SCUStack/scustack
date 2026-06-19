@@ -3,6 +3,10 @@ export default defineNuxtConfig({
 
   devtools: { enabled: false },
 
+  experimental: {
+    appManifest: false,
+  },
+
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
 
   app: {

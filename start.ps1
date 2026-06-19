@@ -73,6 +73,20 @@ function Test-BackendHealth {
     }
 }
 
+function Test-BackendRoute {
+    param(
+        [int]$Port,
+        [string]$Path
+    )
+
+    try {
+        $result = curl.exe -s -o NUL -w "%{http_code}" "http://localhost:${Port}${Path}" 2>$null
+        return $result -eq "200"
+    } catch {
+        return $false
+    }
+}
+
 # ═══════════════════════════════════════════
 # 0. Prerequisites
 # ═══════════════════════════════════════════
@@ -243,8 +257,18 @@ $API_PORT = 8403
 $reuseBackend = $false
 
 if (Test-BackendHealth 8403) {
-    Ok "检测到现有后端正在 8403 运行，将直接复用"
-    $reuseBackend = $true
+    $requiredRoutes = @(
+        "/api/v1/homepage",
+        "/api/v1/homepage/recent-updates?cursor=0&limit=1"
+    )
+    $missingRoute = $requiredRoutes | Where-Object { -not (Test-BackendRoute -Port 8403 -Path $_) } | Select-Object -First 1
+
+    if ($missingRoute) {
+        Warn "检测到现有后端缺少关键接口 ${missingRoute}，将重启以加载当前代码"
+    } else {
+        Ok "检测到现有后端正在 8403 运行且关键接口可用，将直接复用"
+        $reuseBackend = $true
+    }
 } else {
     $portOk = Clear-Port 8403
     if (-not $portOk) {
@@ -264,6 +288,15 @@ $env:SCUSTACK_PUBLIC_API_BASE = "http://localhost:${API_PORT}"
 $env:NUXT_PUBLIC_API_BASE = $env:SCUSTACK_PUBLIC_API_BASE
 Log "后端 PUBLIC_API_BASE: $($env:SCUSTACK_PUBLIC_API_BASE)"
 if (-not $reuseBackend) {
+    $portReady = Clear-Port $API_PORT
+    if (-not $portReady) {
+        Warn "端口 $API_PORT 仍无法释放，正在重新选择 fallback 端口..."
+        $API_PORT = Get-FallbackPort -PreferredPort $API_PORT
+        $env:SCUSTACK_PUBLIC_API_BASE = "http://localhost:${API_PORT}"
+        $env:NUXT_PUBLIC_API_BASE = $env:SCUSTACK_PUBLIC_API_BASE
+        Warn "后端改用端口 $API_PORT"
+    }
+
     Log "Python: $pythonPath"
     Log "启动后端 (uvicorn :${API_PORT})..."
     $apiProc = Start-Process -FilePath $pythonPath -ArgumentList "-m", "uvicorn", "app.main:app", "--reload", "--port", "$API_PORT" -PassThru -WindowStyle Hidden -WorkingDirectory $apiDir
@@ -280,7 +313,7 @@ if (-not $reuseBackend) {
         Start-Sleep -Seconds 1
     }
 
-    if ($backendOk) {
+    if ($backendOk -and (Test-BackendRoute -Port $API_PORT -Path "/api/v1/homepage/recent-updates?cursor=0&limit=1")) {
         Ok "后端已启动 -> http://localhost:${API_PORT}"
         Ok "API 文档    -> http://localhost:${API_PORT}/docs"
     } else {
