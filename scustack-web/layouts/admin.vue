@@ -66,6 +66,7 @@ const navItems: NavItem[] = [
   { label: '用户管理', to: '/admin/users' },
   { label: '校历管理', to: '/admin/calendar' },
   { label: '全站通知', to: '/admin/announcements' },
+  { label: '首页配置', to: '/admin/homepage-presentation' },
   { label: '屏蔽列表', to: '/admin/blocklist' },
   { label: '失效链接', to: '/admin/dead-links' },
   { label: '搜索分析', to: '/admin/search-analytics' },

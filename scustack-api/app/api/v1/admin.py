@@ -12,7 +12,7 @@ from app.schemas.calendar import CalendarCreate, CalendarResponse, CalendarUpdat
 from app.schemas.report import ReportHandle
 from app.schemas.review import ReviewAction, ReviewBatchAction, ReviewLogResponse
 from app.schemas.user import UserResponse
-from app.services import audit_service, calendar_service, report_service, review_service, user_service
+from app.services import audit_service, calendar_service, homepage_presentation_service, report_service, review_service, user_service
 from app.services.homepage_service import get_stats
 
 router = APIRouter(prefix='/admin', tags=['admin'])
@@ -525,6 +525,33 @@ async def list_announcements(
     items = await _list(db)
     data = [{'id': str(a.id), 'title': a.title, 'content': a.content, 'severity': a.severity, 'action_text': a.action_text, 'action_url': a.action_url, 'is_active': a.is_active, 'start_at': a.start_at.isoformat() if a.start_at else None, 'end_at': a.end_at.isoformat() if a.end_at else None, 'created_at': a.created_at.isoformat()} for a in items]
     return {'code': 0, 'data': data, 'message': 'ok'}
+
+
+@router.get('/homepage-presentation')
+async def get_homepage_presentation(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    config = await homepage_presentation_service.get_homepage_presentation(db)
+    return {'code': 0, 'data': config, 'message': 'ok'}
+
+
+@router.patch('/homepage-presentation')
+async def update_homepage_presentation(
+    body: dict,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    config = await homepage_presentation_service.upsert_homepage_presentation(db, body, current_user.id)
+    await audit_service.log_action(
+        db, current_user.id, 'homepage_presentation.update',
+        resource='homepage_presentation',
+        detail={'banner_count': len(config.config_value.get('banners') or [])},
+        ip_address=_get_ip(request), user_agent=_get_ua(request),
+    )
+    await db.commit()
+    return {'code': 0, 'data': config.config_value, 'message': 'homepage presentation updated'}
 
 
 @router.post('/announcements')

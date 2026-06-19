@@ -148,6 +148,11 @@ const totalMaterialCount = ref(0)
 const recentSentinel = ref<HTMLElement | null>(null)
 const hotCourses = ref<any[]>([])
 const colleges = ref<{ id: string; name: string }[]>([])
+const banners = ref([
+  { image: '/banners/b1.jpg', title: '知识川流不息', subtitle: '让每一份笔记都找到需要它的人' },
+  { image: '/banners/b2.jpg', title: '取之学生，用之学生', subtitle: '公益、开源、无广告的学习资料共享平台' },
+  { image: '/banners/b3.jpg', title: '共建学习社区', subtitle: '上传你的资料，帮助学弟学妹少走弯路' },
+])
 
 const visibleRecentItems = computed(() => {
   if (recentItems.value.length <= 2) return recentItems.value
@@ -156,17 +161,12 @@ const visibleRecentItems = computed(() => {
   return recentItems.value.slice(0, count)
 })
 
-const banners = [
-  { image: '/banners/b1.jpg', title: '知识川流不息', subtitle: '让每一份笔记都找到需要它的人' },
-  { image: '/banners/b2.jpg', title: '取之学生，用之学生', subtitle: '公益、开源、无广告的学习资料共享平台' },
-  { image: '/banners/b3.jpg', title: '共建学习社区', subtitle: '上传你的资料，帮助学弟学妹少走弯路' },
-]
 const activeBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
 const prefersReducedMotion = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
 
-function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.length }
-function prevBanner() { activeBanner.value = (activeBanner.value - 1 + banners.length) % banners.length }
+function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.value.length }
+function prevBanner() { activeBanner.value = (activeBanner.value - 1 + banners.value.length) % banners.value.length }
 
 onMounted(async () => {
   if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
@@ -178,6 +178,7 @@ onMounted(async () => {
     ])
     if (homeResp.code === 0) {
       const d = homeResp.data
+      if (Array.isArray(d.banners) && d.banners.length > 0) banners.value = d.banners
       calendarLabel.value = d.calendar_label
       calendarItems.value = d.calendar_recommendations || []
       recentItems.value = d.recent_updates || []

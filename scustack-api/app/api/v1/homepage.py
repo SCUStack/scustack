@@ -8,7 +8,7 @@ from app.core.discovery_protection import enforce_discovery_rate_limit
 from app.dependencies import get_optional_user
 from app.models.user import User
 from app.schemas.material import MaterialResponse
-from app.services import homepage_service
+from app.services import homepage_presentation_service, homepage_service
 
 router = APIRouter(tags=['homepage'])
 
@@ -36,10 +36,12 @@ async def get_homepage(
     recent = await homepage_service.get_recent_updates(db, cursor, limit)
     hot = await homepage_service.get_hot_courses(db, limit=16)
     label = homepage_service.get_calendar_label()
+    presentation = await homepage_presentation_service.get_homepage_presentation(db)
 
     return {
         'code': 0,
         'data': {
+            'banners': presentation['banners'],
             'stats': stats,
             'calendar_label': label,
             'calendar_recommendations': [

@@ -17,6 +17,7 @@ from app.models.material import Material, MaterialVersion
 from app.models.notification import Notification
 from app.models.report import Report
 from app.models.review_log import ReviewLog
+from app.models.site_config import SiteConfig
 from app.models.user import RefreshToken, User
 from app.models.user_badge import UserBadge
 from app.models.user_consent import UserConsent
@@ -28,4 +29,5 @@ __all__ = [
     'ReviewLog', 'Report', 'AuditLog', 'AcademicCalendar',
     'Wish', 'WishVote', 'CopyrightComplaint', 'AccountDeletion',
     'Feedback', 'Collection', 'CollectionItem', 'Comment', 'ContentBlocklist',
+    'SiteConfig',
 ]
