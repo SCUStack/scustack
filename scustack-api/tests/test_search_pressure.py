@@ -36,3 +36,20 @@ async def test_search_pressure_escalates_to_block_for_rapid_high_risk_behavior()
 
     assert decision.level == SearchPressureLevel.BLOCK
     assert decision.score >= 8
+
+
+@pytest.mark.asyncio
+async def test_search_pressure_escalates_to_challenge_for_high_risk_anonymous_search():
+    with patch('app.core.search_pressure.cache_get', new_callable=AsyncMock, return_value='0'), \
+         patch('app.core.search_pressure.cache_set', new_callable=AsyncMock):
+        decision = await apply_search_pressure(
+            identity_key='search:key',
+            query='',
+            page=3,
+            page_size=20,
+            is_authenticated=False,
+            rapid_scroll_detected=True,
+        )
+
+    assert decision.level == SearchPressureLevel.CHALLENGE
+    assert decision.score >= 7

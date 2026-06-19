@@ -5,6 +5,7 @@ import time
 from app.core.anti_scraping_events import log_anti_scraping_event
 from app.core.request_identity import build_request_identity
 from app.core.redis import RateLimiter, cache_get, cache_set
+from app.core.search_challenge import issue_search_challenge, validate_search_challenge
 from app.core.search_pressure import SearchPressureLevel, apply_search_pressure
 from app.dependencies import get_optional_user
 from app.models.user import User
@@ -31,6 +32,7 @@ async def search_endpoint(
 ):
     ip = request.client.host if request and request.client else 'unknown'
     identity = build_request_identity(request, current_user)
+    challenge_token = request.headers.get('X-Search-Challenge')
     max_req = 60 if current_user else 30
     limiter = RateLimiter(
         max_requests=max_req,
@@ -112,6 +114,54 @@ async def search_endpoint(
         is_authenticated=current_user is not None,
         rapid_scroll_detected=rapid_scroll_detected,
     )
+    if pressure.level == SearchPressureLevel.CHALLENGE:
+        challenge_ok = await validate_search_challenge(identity.scoped_key('search'), challenge_token)
+        if not challenge_ok:
+            token = await issue_search_challenge(identity.scoped_key('search'))
+            await log_anti_scraping_event(
+                action='search_challenge_issued',
+                route_id='search_query',
+                detail={
+                    'identity_type': identity.identity_type,
+                    'score': pressure.score,
+                    'reason': pressure.reason,
+                    'page': page,
+                    'page_size': page_size,
+                    'query_empty': not q.strip(),
+                },
+                current_user=current_user,
+                ip_address=ip,
+                user_agent=request.headers.get('user-agent', ''),
+            )
+            return JSONResponse(
+                {
+                    'code': 42920,
+                    'data': {
+                        'level': pressure.level.value,
+                        'score': pressure.score,
+                        'challenge_token': token,
+                        'challenge_type': 'search_retry_token',
+                    },
+                    'message': 'challenge required before continuing search',
+                },
+                status_code=429,
+                headers={
+                    'X-Anti-Scraping-Level': pressure.level.value,
+                    'X-Anti-Scraping-Score': str(pressure.score),
+                },
+            )
+        await log_anti_scraping_event(
+            action='search_challenge_passed',
+            route_id='search_query',
+            detail={
+                'identity_type': identity.identity_type,
+                'score': pressure.score,
+                'reason': pressure.reason,
+            },
+            current_user=current_user,
+            ip_address=ip,
+            user_agent=request.headers.get('user-agent', ''),
+        )
     if pressure.level == SearchPressureLevel.BLOCK:
         await log_anti_scraping_event(
             action='search_pressure_block',
@@ -176,7 +226,7 @@ async def search_endpoint(
             pass
 
     response = JSONResponse({'code': 0, 'data': result, 'message': 'ok'})
-    if pressure.level == SearchPressureLevel.SLOWDOWN:
+    if pressure.level in (SearchPressureLevel.SLOWDOWN, SearchPressureLevel.CHALLENGE):
         await log_anti_scraping_event(
             action='search_pressure_slowdown',
             route_id='search_query',

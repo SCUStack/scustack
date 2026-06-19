@@ -7,6 +7,7 @@ from app.core.redis import cache_get, cache_set
 class SearchPressureLevel(StrEnum):
     NORMAL = 'normal'
     SLOWDOWN = 'slowdown'
+    CHALLENGE = 'challenge'
     BLOCK = 'block'
 
 
@@ -34,11 +35,18 @@ async def apply_search_pressure(
         rapid_scroll_detected=rapid_scroll_detected,
     )
 
-    if score >= 8:
+    if score >= 11:
         return SearchPressureDecision(
             level=SearchPressureLevel.BLOCK,
             score=score,
             reason='suspicious_search_behavior',
+        )
+
+    if score >= 7 and not is_authenticated:
+        return SearchPressureDecision(
+            level=SearchPressureLevel.CHALLENGE,
+            score=score,
+            reason='anonymous_search_challenge_required',
         )
 
     if score >= 4:

@@ -133,6 +133,35 @@ class TestSearchAPI:
             assert resp.headers['X-Anti-Scraping-Level'] == 'block'
             log_event.assert_awaited()
 
+    async def test_search_pressure_challenge_returns_token_for_high_risk_anonymous_search(self, client):
+        challenge_decision = SearchPressureDecision(level=SearchPressureLevel.CHALLENGE, score=7, page_size_cap=None, reason='anonymous_search_challenge_required')
+        with patch('app.api.v1.search.apply_search_pressure', new_callable=AsyncMock, return_value=challenge_decision), \
+             patch('app.api.v1.search.validate_search_challenge', new_callable=AsyncMock, return_value=False), \
+             patch('app.api.v1.search.issue_search_challenge', new_callable=AsyncMock, return_value='challenge-token'), \
+             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True), \
+             patch('app.api.v1.search.cache_get', new_callable=AsyncMock, return_value=None), \
+             patch('app.api.v1.search.cache_set', new_callable=AsyncMock), \
+             patch('app.api.v1.search.log_anti_scraping_event', new_callable=AsyncMock) as log_event:
+            resp = await client.get('/api/v1/search?q=&page=5&page_size=50')
+            assert resp.status_code == 429
+            assert resp.json()['code'] == 42920
+            assert resp.json()['data']['challenge_token'] == 'challenge-token'
+            assert resp.headers['X-Anti-Scraping-Level'] == 'challenge'
+            log_event.assert_awaited()
+
+    async def test_search_pressure_challenge_allows_request_with_valid_token(self, client):
+        challenge_decision = SearchPressureDecision(level=SearchPressureLevel.CHALLENGE, score=7, page_size_cap=None, reason='anonymous_search_challenge_required')
+        with patch('app.api.v1.search.apply_search_pressure', new_callable=AsyncMock, return_value=challenge_decision), \
+             patch('app.api.v1.search.validate_search_challenge', new_callable=AsyncMock, return_value=True), \
+             patch('app.api.v1.search.search', new_callable=AsyncMock, return_value={'items': [], 'total': 0}) as search_mock, \
+             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True), \
+             patch('app.api.v1.search.cache_get', new_callable=AsyncMock, return_value=None), \
+             patch('app.api.v1.search.cache_set', new_callable=AsyncMock), \
+             patch('app.api.v1.search.log_anti_scraping_event', new_callable=AsyncMock):
+            resp = await client.get('/api/v1/search?q=&page=5&page_size=20', headers={'X-Search-Challenge': 'challenge-token'})
+            assert resp.status_code == 200
+            assert search_mock.await_count == 1
+
 
 class TestSearchService:
     @pytest.mark.asyncio
