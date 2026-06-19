@@ -6,10 +6,11 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.discovery_protection import enforce_discovery_rate_limit
 from app.core.request_identity import build_request_identity
 from app.core import oss
 from app.core.redis import RateLimiter
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.material import MaterialVersion
 from app.models.user import User
 from app.core.permissions import Permission
@@ -26,6 +27,7 @@ router = APIRouter(prefix='/materials', tags=['materials'])
 
 @router.get('')
 async def list_materials(
+    request: Request,
     course_id: UUID | None = Query(None),
     category: str | None = Query(None),
     semester: str | None = Query(None),
@@ -36,7 +38,11 @@ async def list_materials(
     limit: int = Query(20, le=50),
     offset: int = Query(0),
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
+    allowed, headers, _ = await enforce_discovery_rate_limit('materials_list', request, current_user)
+    if not allowed:
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
     items = await material_service.list_materials(
         db, course_id=course_id, category=category, semester=semester,
         source_type=source_type, format=format, trust_status=trust_status,
@@ -241,7 +247,15 @@ async def version_diff(material_id: UUID, version_id: UUID, db: AsyncSession = D
 
 
 @router.get('/{material_id}/related')
-async def related_materials(material_id: UUID, db: AsyncSession = Depends(get_db)):
+async def related_materials(
+    material_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
+    allowed, headers, _ = await enforce_discovery_rate_limit('material_related', request, current_user)
+    if not allowed:
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
     m = await material_service.get_material(db, material_id)
     if m is None:
         return {'code': 0, 'data': [], 'message': 'ok'}

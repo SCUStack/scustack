@@ -159,6 +159,8 @@ ANTI_SCRAPING_POLICY_MATRIX: tuple[EndpointProtectionPolicy, ...] = (
     ),
 )
 
+ANTI_SCRAPING_POLICY_BY_ID = {policy.route_id: policy for policy in ANTI_SCRAPING_POLICY_MATRIX}
+
 
 def export_policy_matrix() -> list[dict]:
     return [policy.to_dict() for policy in ANTI_SCRAPING_POLICY_MATRIX]

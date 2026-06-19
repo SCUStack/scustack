@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.discovery_protection import enforce_discovery_rate_limit
 from app.dependencies import get_optional_user
 from app.models.user import User
 from app.schemas.material import MaterialResponse
@@ -12,11 +15,15 @@ router = APIRouter(tags=['homepage'])
 
 @router.get('/homepage')
 async def get_homepage(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     cursor: int = Query(0, ge=0, alias='cursor'),
     limit: int = Query(12, ge=1, le=50, alias='limit'),
     current_user: User | None = Depends(get_optional_user),
 ):
+    allowed, headers, _ = await enforce_discovery_rate_limit('homepage_feed', request, current_user)
+    if not allowed:
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
     stats = await homepage_service.get_stats(db)
 
     if current_user is not None:

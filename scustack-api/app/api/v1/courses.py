@@ -1,10 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.discovery_protection import enforce_discovery_rate_limit
 from app.core.database import get_db
+from app.dependencies import get_optional_user
 from app.core.permissions import Permission
 from app.dependencies import require_permission
 from app.models.college import College
@@ -18,11 +21,16 @@ router = APIRouter(prefix='/courses', tags=['courses'])
 
 @router.get('')
 async def list_courses(
+    request: Request,
     college_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_optional_user),
 ):
+    allowed, headers, _ = await enforce_discovery_rate_limit('courses_list', request, current_user)
+    if not allowed:
+        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
     if college_id:
         courses = await course_service.list_courses(db, college_id)
         return {'code': 0, 'data': [CourseResponse.model_validate(c).model_dump(mode='json') for c in courses], 'message': 'ok'}
