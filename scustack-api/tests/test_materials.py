@@ -221,6 +221,29 @@ class TestMaterialDownload:
         finally:
             app.dependency_overrides.clear()
 
+    async def test_download_uses_unified_request_identity_key(self, client):
+        app.dependency_overrides[get_current_user] = lambda: MagicMock(id='user-1')
+        identity = MagicMock()
+        identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
+        material = MagicMock()
+        material.source_type = 'hosted'
+        material.id = MATERIAL_ID
+        material.contributor_id = None
+        version = MagicMock()
+        version.storage_key = 'materials/demo.pdf'
+        try:
+            with patch('app.api.v1.materials.build_request_identity', return_value=identity), \
+                 patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
+                 patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
+                 patch('app.api.v1.materials.oss.generate_download_url', return_value='https://example.com/file'), \
+                 patch('app.core.redis.incr_download', new_callable=AsyncMock), \
+                 patch('app.api.v1.materials.RateLimiter.is_allowed', new_callable=AsyncMock, side_effect=[True, True]) as is_allowed:
+                resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
+                assert resp.status_code == 302
+                assert is_allowed.await_args_list[1].args[0] == 'download:identity-key'
+        finally:
+            app.dependency_overrides.clear()
+
 
 class TestVersionDiff:
     async def test_diff_non_text_returns_null_diff(self, client):

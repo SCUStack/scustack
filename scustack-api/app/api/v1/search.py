@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 import time
 
+from app.core.request_identity import build_request_identity
 from app.core.redis import RateLimiter, cache_get, cache_set
 from app.dependencies import get_optional_user
 from app.models.user import User
@@ -27,23 +28,24 @@ async def search_endpoint(
     current_user: User | None = Depends(get_optional_user),
 ):
     ip = request.client.host if request and request.client else 'unknown'
+    identity = build_request_identity(request, current_user)
     max_req = 60 if current_user else 30
     limiter = RateLimiter(max_requests=max_req, window_seconds=60)
-    key = f'search:ip:{ip}'
+    key = identity.scoped_key('search')
     if not await limiter.is_allowed(key):
         headers = await limiter.limit_headers(key)
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)
 
     # Rapid-fire page scrolling detection
     if page > 1:
-        last_ts = await cache_get(f'search:ts:{ip}')
+        last_ts = await cache_get(identity.scoped_key('search:ts'))
         now_ts = str(time.time())
-        await cache_set(f'search:ts:{ip}', now_ts, ttl=30)
+        await cache_set(identity.scoped_key('search:ts'), now_ts, ttl=30)
         if last_ts:
             gap = float(now_ts) - float(last_ts)
             if gap < 0.15:
                 rapid = RateLimiter(max_requests=5, window_seconds=10)
-                if not await rapid.is_allowed(f'search:rapid:{ip}'):
+                if not await rapid.is_allowed(identity.scoped_key('search:rapid')):
                     return JSONResponse(
                         {'code': 42900, 'data': None, 'message': 'scrolling too fast, slow down'},
                         status_code=429,
@@ -97,10 +99,14 @@ async def hot_search_endpoint():
 
 
 @router.get('/search/suggest')
-async def suggest_endpoint(q: str = Query('', min_length=1), request: Request = None):
+async def suggest_endpoint(
+    q: str = Query('', min_length=1),
+    request: Request = None,
+    current_user: User | None = Depends(get_optional_user),
+):
     limiter = RateLimiter(max_requests=60, window_seconds=60)
-    ip = request.client.host if request and request.client else 'unknown'
-    key = f'suggest:ip:{ip}'
+    identity = build_request_identity(request, current_user)
+    key = identity.scoped_key('suggest')
     if not await limiter.is_allowed(key):
         headers = await limiter.limit_headers(key)
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many requests'}, status_code=429, headers=headers)

@@ -76,6 +76,26 @@ class TestSearchAPI:
             assert data['sorts'][0]['key'] == 'relevance'
             assert data['filters'][0]['key'] == 'category'
 
+    async def test_search_uses_unified_request_identity_key(self, client):
+        identity = MagicMock()
+        identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
+        with patch('app.api.v1.search.build_request_identity', return_value=identity), \
+             patch('app.api.v1.search.search', new_callable=AsyncMock, return_value={'items': [], 'total': 0}), \
+             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True) as is_allowed:
+            resp = await client.get('/api/v1/search?q=test')
+            assert resp.json()['code'] == 0
+            is_allowed.assert_awaited_with('search:identity-key')
+
+    async def test_suggest_uses_unified_request_identity_key(self, client):
+        identity = MagicMock()
+        identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
+        with patch('app.api.v1.search.build_request_identity', return_value=identity), \
+             patch('app.api.v1.search.suggest', new_callable=AsyncMock, return_value={'courses': [], 'materials': []}), \
+             patch('app.api.v1.search.RateLimiter.is_allowed', new_callable=AsyncMock, return_value=True) as is_allowed:
+            resp = await client.get('/api/v1/search/suggest?q=数据')
+            assert resp.json()['code'] == 0
+            is_allowed.assert_awaited_with('suggest:identity-key')
+
 
 class TestSearchService:
     @pytest.mark.asyncio

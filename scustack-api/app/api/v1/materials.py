@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.request_identity import build_request_identity
 from app.core import oss
 from app.core.redis import RateLimiter
 from app.dependencies import get_current_user
@@ -151,13 +152,14 @@ async def download_material(
     current_user: User = Depends(get_current_user),
 ):
     ip = request.client.host if request.client else 'unknown'
+    identity = build_request_identity(request, current_user)
     user_limiter = RateLimiter(max_requests=50, window_seconds=86400)
     if not await user_limiter.is_allowed(f'download:user:{current_user.id}'):
         headers = await user_limiter.limit_headers(f'download:user:{current_user.id}')
         return JSONResponse({'code': 42900, 'data': None, 'message': 'daily download limit reached'}, status_code=429, headers=headers)
 
     ip_limiter = RateLimiter(max_requests=200, window_seconds=3600)
-    if not await ip_limiter.is_allowed(f'download:ip:{ip}'):
+    if not await ip_limiter.is_allowed(identity.scoped_key('download')):
         return JSONResponse({'code': 42900, 'data': None, 'message': 'download rate limit exceeded'}, status_code=429)
 
     m = await material_service.get_material(db, material_id)
