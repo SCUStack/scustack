@@ -1,0 +1,41 @@
+# Anti-Scraping Protection Matrix
+
+This matrix inventories the highest-value public data-discovery and download paths in the current product and assigns an explicit protection baseline for each one.
+
+It is the policy input for follow-up implementation issues:
+
+- `#240` unified request identity
+- `#241` discovery-path rate limiting
+- `#245` Redis failure strategy
+- `#246` anti-scraping regression coverage
+
+The source of truth for the machine-readable matrix lives in `scustack-api/app/core/anti_scraping.py`.
+
+## Protection levels
+
+| Level | Meaning |
+| --- | --- |
+| `baseline` | Minimal visibility path, generic protection is sufficient. |
+| `guarded` | Public browsing path that must remain usable, but bulk enumeration should be slowed and observable. |
+| `strict` | High-value discovery path where repeated scripted access should hit meaningful limits and escalation. |
+| `critical` | Highest-value extraction path where silent loss of protection is unacceptable. |
+
+## Matrix
+
+| Route | Surface | Level | Current protection | Intended behavior | Redis failure strategy |
+| --- | --- | --- | --- | --- | --- |
+| `GET /api/v1/homepage` | Homepage discovery feed | `guarded` | No dedicated route limiter | Treat as a list-discovery path; add cursor-sensitive discovery limits and observability. | Fail open only with explicit protection-gap signal. |
+| `GET /api/v1/search` | Search results | `strict` | Per-IP limiter + rapid-scroll throttling | Preserve current search throttles and upgrade to identity-aware counters and escalation. | Do not silently drop all protection. |
+| `GET /api/v1/search/suggest` | Search suggestions | `strict` | Per-IP limiter | Share limiter identity with search and cap suggestion harvesting more aggressively. | Do not silently drop all protection. |
+| `GET /api/v1/colleges` | Top-level catalog | `guarded` | No dedicated route limiter | Bring into shared discovery-path limiting so enumeration cannot start here for free. | Fail open only with observability and a documented gap. |
+| `GET /api/v1/courses` | Course catalog | `guarded` | No dedicated route limiter | Protect both global and college-scoped list flows under the same discovery policy. | Fail open only with observability and a documented gap. |
+| `GET /api/v1/materials` | Materials list | `strict` | No dedicated route limiter | Apply discovery limits comparable to search so empty-query enumeration is harder. | Do not silently lose all protection. |
+| `GET /api/v1/materials/{material_id}` | Material detail | `guarded` | No dedicated route limiter | Allow ordinary reading while making deep scripted crawling measurable. | Fail open with observability is acceptable initially. |
+| `GET /api/v1/materials/{material_id}/related` | Related-material traversal | `strict` | No dedicated route limiter | Treat graph expansion as an enumeration vector and limit bursts more tightly than normal detail reads. | Do not silently become unbounded. |
+| `GET /api/v1/materials/{material_id}/download` | Hosted file download | `critical` | Per-user daily limit + per-IP hourly limiter | Keep strict quotas and introduce identity-aware fallback behavior. | Fail closed or explicit deny-on-uncertain. |
+
+## Notes
+
+- This matrix covers public data exposure paths, not account-auth flows such as login, SMS verification, or password refresh.
+- The matrix distinguishes policy from implementation. A route may already have partial protections today while still carrying stricter intended behavior for follow-up issues.
+- Any new public list/detail/download endpoint should be added to the matrix before anti-scraping work is considered complete.
