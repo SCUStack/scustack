@@ -22,8 +22,9 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         path = request.url.path
+        has_explicit_cache_control = 'Cache-Control' in response.headers
 
-        if path.startswith('/api/v1/'):
+        if path.startswith('/api/v1/') and not has_explicit_cache_control:
             response.headers['Cache-Control'] = 'no-store'
         elif any(path.endswith(ext) for ext in ('.js', '.css', '.woff2', '.png', '.jpg', '.webp', '.svg')):
             response.headers['Cache-Control'] = 'public, max-age=2592000, immutable'

@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
+from types import SimpleNamespace
 
 from app.main import app
 
@@ -21,19 +22,23 @@ class TestCollegeList:
             resp = await client.get('/api/v1/colleges')
             assert resp.json()['code'] == 0
             assert resp.json()['data'] == []
+            assert resp.headers['cache-control'] == 'public, max-age=300, s-maxage=300'
 
     async def test_list_with_items(self, client):
-        from unittest.mock import MagicMock
-        c = MagicMock()
-        c.id = '00000000-0000-0000-0000-000000000001'
-        c.name = '计算机学院'
-        c.slug = 'cs'
-        c.sort_order = 0
+        c = SimpleNamespace(
+            id='00000000-0000-0000-0000-000000000001',
+            name='计算机学院',
+            slug='cs',
+            sort_order=0,
+            description=None,
+            website=None,
+        )
         with patch('app.api.v1.colleges.college_service.list_colleges', new_callable=AsyncMock, return_value=[c]):
             resp = await client.get('/api/v1/colleges')
             data = resp.json()['data']
             assert len(data) == 1
             assert data[0]['name'] == '计算机学院'
+            assert resp.headers['cache-control'] == 'public, max-age=300, s-maxage=300'
 
 
 class TestCollegeCreate:

@@ -16,6 +16,8 @@ from app.services import college_service
 
 router = APIRouter(prefix='/colleges', tags=['colleges'])
 
+PUBLIC_CONFIG_CACHE_CONTROL = 'public, max-age=300, s-maxage=300'
+
 
 @router.get('')
 async def list_colleges(
@@ -27,7 +29,14 @@ async def list_colleges(
     if not allowed:
         return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
     colleges = await college_service.list_colleges(db)
-    return {'code': 0, 'data': [CollegeResponse.model_validate(c).model_dump(mode='json') for c in colleges], 'message': 'ok'}
+    return JSONResponse(
+        {
+            'code': 0,
+            'data': [CollegeResponse.model_validate(c).model_dump(mode='json') for c in colleges],
+            'message': 'ok',
+        },
+        headers={'Cache-Control': PUBLIC_CONFIG_CACHE_CONTROL},
+    )
 
 
 @router.get('/{college_id}')

@@ -32,8 +32,25 @@ async def test_get_homepage_presentation_returns_default_when_missing():
   execute_result.scalar_one_or_none.return_value = None
   mock_db.execute = AsyncMock(return_value=execute_result)
 
-  result = await get_homepage_presentation(mock_db)
-  assert result == DEFAULT_HOMEPAGE_PRESENTATION
+  with patch('app.services.homepage_presentation_service.cache_get', new_callable=AsyncMock, return_value=None), \
+       patch('app.services.homepage_presentation_service.cache_set', new_callable=AsyncMock) as cache_set_mock:
+    result = await get_homepage_presentation(mock_db)
+    assert result == DEFAULT_HOMEPAGE_PRESENTATION
+    cache_set_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_homepage_presentation_prefers_cached_payload():
+  mock_db = MagicMock()
+  cached_payload = '{"banners":[{"image":"/banners/cached.jpg","title":"缓存标题","subtitle":"缓存副标题"}]}'
+
+  with patch('app.services.homepage_presentation_service.cache_get', new_callable=AsyncMock, return_value=cached_payload), \
+       patch('app.services.homepage_presentation_service.cache_set', new_callable=AsyncMock) as cache_set_mock:
+    result = await get_homepage_presentation(mock_db)
+
+  assert result['banners'][0]['title'] == '缓存标题'
+  mock_db.execute.assert_not_called()
+  cache_set_mock.assert_not_awaited()
 
 
 class TestHomepagePresentationAdmin:

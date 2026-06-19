@@ -77,6 +77,7 @@ class TestSearchAPI:
             assert resp.json()['code'] == 0
             assert data['sorts'][0]['key'] == 'relevance'
             assert data['filters'][0]['key'] == 'category'
+            assert resp.headers['cache-control'] == 'public, max-age=300, s-maxage=300'
 
     async def test_search_uses_unified_request_identity_key(self, client):
         identity = MagicMock()

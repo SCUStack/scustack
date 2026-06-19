@@ -13,6 +13,8 @@ from app.services.search_service import get_search_filter_config, search, sugges
 
 router = APIRouter(tags=['search'])
 
+PUBLIC_CONFIG_CACHE_CONTROL = 'public, max-age=300, s-maxage=300'
+
 
 @router.get('/search')
 async def search_endpoint(
@@ -308,4 +310,7 @@ async def suggest_endpoint(
 @router.get('/search/filters')
 async def search_filters_endpoint():
     result = await get_search_filter_config()
-    return {'code': 0, 'data': result, 'message': 'ok'}
+    return JSONResponse(
+        {'code': 0, 'data': result, 'message': 'ok'},
+        headers={'Cache-Control': PUBLIC_CONFIG_CACHE_CONTROL},
+    )

@@ -1,9 +1,12 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redis import cache_delete, cache_get, cache_set
 from app.models.site_config import SiteConfig
 
 HOMEPAGE_PRESENTATION_KEY = 'homepage_presentation'
+HOMEPAGE_PRESENTATION_CACHE_KEY = 'config:homepage_presentation'
+HOMEPAGE_PRESENTATION_CACHE_TTL = 300
 
 DEFAULT_HOMEPAGE_PRESENTATION = {
     'banners': [
@@ -15,15 +18,25 @@ DEFAULT_HOMEPAGE_PRESENTATION = {
 
 
 async def get_homepage_presentation(db: AsyncSession) -> dict:
+    cached = await cache_get(HOMEPAGE_PRESENTATION_CACHE_KEY)
+    if cached:
+        import json
+        return json.loads(cached)
+
     result = await db.execute(
         select(SiteConfig).where(SiteConfig.config_key == HOMEPAGE_PRESENTATION_KEY)
     )
     config = result.scalar_one_or_none()
-    if config is None or not config.config_value:
-        return DEFAULT_HOMEPAGE_PRESENTATION
-    return {
+    payload = DEFAULT_HOMEPAGE_PRESENTATION if config is None or not config.config_value else {
         'banners': config.config_value.get('banners') or DEFAULT_HOMEPAGE_PRESENTATION['banners'],
     }
+    import json
+    await cache_set(
+        HOMEPAGE_PRESENTATION_CACHE_KEY,
+        json.dumps(payload, ensure_ascii=False),
+        ttl=HOMEPAGE_PRESENTATION_CACHE_TTL,
+    )
+    return payload
 
 
 async def upsert_homepage_presentation(db: AsyncSession, config_value: dict, updated_by) -> SiteConfig:
@@ -45,4 +58,5 @@ async def upsert_homepage_presentation(db: AsyncSession, config_value: dict, upd
         config.config_value = payload
         config.updated_by = updated_by
     await db.flush()
+    await cache_delete(HOMEPAGE_PRESENTATION_CACHE_KEY)
     return config
