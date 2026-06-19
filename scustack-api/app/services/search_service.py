@@ -13,6 +13,13 @@ SEARCH_SORT_OPTIONS = [
     {'key': 'rating', 'label': '最高评分'},
 ]
 
+SEARCH_FILTER_GROUPS_META = [
+    {'key': 'category', 'label': '资料分类'},
+    {'key': 'semester', 'label': '学期'},
+    {'key': 'trust_status', 'label': '信任状态'},
+    {'key': 'source_type', 'label': '来源'},
+]
+
 SEARCH_FILTER_OPTIONS = {
     'category': [
         {'value': '课堂笔记', 'label': '课堂笔记'},
@@ -40,13 +47,17 @@ SEARCH_FILTER_OPTIONS = {
 
 async def get_search_filter_config() -> dict:
     semester_options = await _get_semester_options()
+    options_by_key = {
+        'category': SEARCH_FILTER_OPTIONS['category'],
+        'semester': semester_options,
+        'trust_status': SEARCH_FILTER_OPTIONS['trust_status'],
+        'source_type': SEARCH_FILTER_OPTIONS['source_type'],
+    }
     return {
         'sorts': SEARCH_SORT_OPTIONS,
         'filters': [
-            {'key': 'category', 'label': '资料分类', 'options': SEARCH_FILTER_OPTIONS['category']},
-            {'key': 'semester', 'label': '学期', 'options': semester_options},
-            {'key': 'trust_status', 'label': '信任状态', 'options': SEARCH_FILTER_OPTIONS['trust_status']},
-            {'key': 'source_type', 'label': '来源', 'options': SEARCH_FILTER_OPTIONS['source_type']},
+            {**meta, 'options': options_by_key[meta['key']]}
+            for meta in SEARCH_FILTER_GROUPS_META
         ],
     }
 
