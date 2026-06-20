@@ -79,19 +79,87 @@
           </section>
 
           <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
+            <div class="flex items-end justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                  <AppIcon name="TrendingUp" :size="20" />
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-900">热门课程</h2>
+                  <p class="text-xs text-slate-500">按资料活跃度和更新频率整理，适合桌面端快速扫课</p>
+                </div>
+              </div>
               <NuxtLink to="/course" class="text-sm text-primary-600 hover:text-primary-700 no-underline">
                 查看更多 →
               </NuxtLink>
             </div>
-            <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
-              <NuxtLink
-                v-for="c in hotCourses.slice(0, 16)" :key="c.id" :to="`/course/${c.id}`"
-                class="px-2.5 py-2 border border-slate-200 rounded-lg hover:shadow-sm hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-200 no-underline cursor-pointer bg-white text-center"
-              >
-                <p class="text-xs font-medium text-slate-700 line-clamp-1">{{ c.name }}</p>
-              </NuxtLink>
+
+            <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(280px,0.95fr)] gap-4 items-stretch">
+              <div class="rounded-[28px] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_14px_32px_rgba(15,23,42,0.05)]">
+                <div class="grid grid-cols-2 gap-3">
+                  <NuxtLink
+                    v-for="(course, idx) in hotCourses.slice(0, 8)"
+                    :key="course.id"
+                    :to="`/course/${course.id}`"
+                    class="group flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+                  >
+                    <div class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold" :class="courseRankClass(idx)">
+                      {{ idx + 1 }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-semibold text-slate-800 line-clamp-1 transition-colors duration-200 group-hover:text-primary-700">{{ course.name }}</p>
+                      <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ course.college_name || '四川大学' }}</p>
+                      <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+                        <span class="inline-flex items-center gap-1">
+                          <AppIcon name="Files" :size="12" />
+                          {{ course.material_count ?? 0 }} 份资料
+                        </span>
+                        <span v-if="course.latest_updated" class="inline-flex items-center gap-1">
+                          <AppIcon name="Clock3" :size="12" />
+                          {{ formatHotCourseDate(course.latest_updated) }}
+                        </span>
+                      </div>
+                    </div>
+                  </NuxtLink>
+                </div>
+              </div>
+
+              <div class="rounded-[28px] border border-slate-200/80 bg-[linear-gradient(180deg,#f8fbff_0%,#eef4ff_100%)] px-4 py-4 shadow-[0_14px_32px_rgba(59,130,246,0.08)]">
+                <div class="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 class="text-sm font-semibold text-slate-800">桌面快捷筛选</h3>
+                    <p class="text-[11px] text-slate-500 mt-1">按学习阶段和活跃热度切换</p>
+                  </div>
+                  <span class="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-primary-600 border border-primary-100">频道推荐</span>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                  <NuxtLink
+                    v-for="filter in hotCourseFilters"
+                    :key="filter.label"
+                    :to="filter.to"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/88 px-3 py-2 text-xs font-medium text-slate-600 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+                  >
+                    <AppIcon :name="filter.icon" :size="14" class="text-slate-400" />
+                    {{ filter.label }}
+                  </NuxtLink>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 gap-2.5">
+                  <NuxtLink
+                    v-for="course in hotCourses.slice(8, 12)"
+                    :key="course.id"
+                    :to="`/course/${course.id}`"
+                    class="group flex items-center justify-between gap-3 rounded-2xl border border-transparent bg-white/75 px-3 py-3 no-underline transition-colors duration-200 hover:border-primary-100 hover:bg-white"
+                  >
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-slate-700 line-clamp-1 transition-colors duration-200 group-hover:text-primary-700">{{ course.name }}</p>
+                      <p class="text-[11px] text-slate-400 mt-1">{{ course.material_count ?? 0 }} 份资料{{ course.college_name ? ` · ${course.college_name}` : '' }}</p>
+                    </div>
+                    <AppIcon name="ChevronRight" :size="16" class="shrink-0 text-slate-300 transition-colors duration-200 group-hover:text-primary-400" />
+                  </NuxtLink>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -211,6 +279,13 @@ const desktopQuickLinks = [
   { label: '最近学期', meta: materialSemesters[0], to: `/search?semester=${encodeURIComponent(materialSemesters[0])}&sort=newest`, icon: 'GraduationCap', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
   { label: '上传资料', meta: '帮助更多同学', to: '/upload', icon: 'Upload', iconBg: 'bg-sky-50', iconColor: 'text-sky-600' },
 ]
+const hotCourseFilters = [
+  { label: '期末冲刺', to: '/search?category=考试资料&sort=downloads', icon: 'Rocket' },
+  { label: '高分笔记', to: '/search?category=课堂笔记&sort=rating', icon: 'NotebookPen' },
+  { label: '真题汇总', to: '/search?category=历年真题&sort=downloads', icon: 'FileStack' },
+  { label: '最新上传', to: '/search?sort=newest', icon: 'Sparkles' },
+  { label: '按学院找课', to: '/colleges', icon: 'Building2' },
+]
 
 const visibleRecentItems = computed(() => {
   if (recentItems.value.length <= 2) return recentItems.value
@@ -288,6 +363,20 @@ onUnmounted(() => {
 function cardHeight(idx: number): string {
   const heights = ['348px', '168px', '168px', '168px', '168px', '168px', '168px', '168px']
   return heights[idx] || '168px'
+}
+
+function courseRankClass(idx: number): string {
+  if (idx === 0) return 'bg-amber-100 text-amber-700'
+  if (idx === 1) return 'bg-slate-200 text-slate-700'
+  if (idx === 2) return 'bg-orange-100 text-orange-700'
+  return 'bg-slate-100 text-slate-500'
+}
+
+function formatHotCourseDate(value?: string | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getMonth() + 1}/${date.getDate()} 更新`
 }
 
 const academicColors = [
