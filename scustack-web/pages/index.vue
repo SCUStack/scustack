@@ -28,6 +28,56 @@
 
       <ClientOnly>
         <div>
+          <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-5">
+            <div class="rounded-[28px] border border-slate-200/80 bg-white/92 px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur">
+              <div class="grid grid-cols-[minmax(0,1fr)_260px] gap-6 items-start">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                      <AppIcon name="Sparkles" :size="20" />
+                    </div>
+                    <div>
+                      <h2 class="text-base font-semibold text-slate-900">资料分区</h2>
+                      <p class="text-xs text-slate-500">像逛内容首页一样，先看频道，再进资料流</p>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-5 gap-2.5">
+                    <NuxtLink
+                      v-for="channel in desktopChannels"
+                      :key="channel.label"
+                      :to="channel.to"
+                      class="group flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50/85 px-3 py-2.5 text-sm no-underline transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/80 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+                    >
+                      <span class="font-medium text-slate-700 transition-colors duration-200 group-hover:text-primary-700">{{ channel.label }}</span>
+                      <AppIcon :name="channel.icon" :size="16" class="text-slate-400 transition-colors duration-200 group-hover:text-primary-500" />
+                    </NuxtLink>
+                  </div>
+                </div>
+
+                <div class="shrink-0 border-l border-slate-200 pl-6">
+                  <h3 class="text-sm font-semibold text-slate-800 mb-3">快捷入口</h3>
+                  <div class="grid grid-cols-2 gap-2">
+                    <NuxtLink
+                      v-for="entry in desktopQuickLinks"
+                      :key="entry.label"
+                      :to="entry.to"
+                      class="group flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm no-underline transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+                    >
+                      <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl" :class="entry.iconBg">
+                        <AppIcon :name="entry.icon" :size="16" :class="entry.iconColor" />
+                      </span>
+                      <div class="min-w-0">
+                        <p class="font-medium text-slate-700 transition-colors duration-200 group-hover:text-primary-700">{{ entry.label }}</p>
+                        <p class="text-[11px] leading-4 text-slate-400">{{ entry.meta }}</p>
+                      </div>
+                    </NuxtLink>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
@@ -124,6 +174,8 @@
 </template>
 
 <script setup lang="ts">
+import { materialCategories, materialSemesters } from '~/data/business'
+
 definePageMeta({ title: '首页' })
 
 const apiBase = useApiBase()
@@ -143,6 +195,22 @@ const banners = ref([
   { image: '/banners/b2.jpg', title: '取之学生，用之学生', subtitle: '公益、开源、无广告的学习资料共享平台' },
   { image: '/banners/b3.jpg', title: '共建学习社区', subtitle: '上传你的资料，帮助学弟学妹少走弯路' },
 ])
+const desktopChannels = [
+  { label: '热门', to: '/search?sort=downloads', icon: 'Flame' },
+  { label: '最新', to: '/search?sort=newest', icon: 'Clock3' },
+  { label: '高分', to: '/search?sort=rating', icon: 'Star' },
+  ...materialCategories.slice(0, 7).map(category => ({
+    label: category,
+    to: `/search?category=${encodeURIComponent(category)}`,
+    icon: 'ChevronRight',
+  })),
+]
+const desktopQuickLinks = [
+  { label: '期末速冲', meta: '复习提纲 + 考试资料', to: '/search?category=复习提纲', icon: 'CalendarClock', iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+  { label: '真题专区', meta: '近年题库与回忆版', to: '/search?category=历年真题', icon: 'FileStack', iconBg: 'bg-rose-50', iconColor: 'text-rose-600' },
+  { label: '最近学期', meta: materialSemesters[0], to: `/search?semester=${encodeURIComponent(materialSemesters[0])}&sort=newest`, icon: 'GraduationCap', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+  { label: '上传资料', meta: '帮助更多同学', to: '/upload', icon: 'Upload', iconBg: 'bg-sky-50', iconColor: 'text-sky-600' },
+]
 
 const visibleRecentItems = computed(() => {
   if (recentItems.value.length <= 2) return recentItems.value
