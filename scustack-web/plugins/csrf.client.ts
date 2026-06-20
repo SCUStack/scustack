@@ -1,4 +1,6 @@
 export default defineNuxtPlugin(() => {
+  const config = useRuntimeConfig()
+  const apiBase = config.public.apiBase as string
   const csrfToken = useCookie<string | null>('csrf_token')
   let inflightCsrfFetch: Promise<void> | null = null
 
@@ -8,7 +10,7 @@ export default defineNuxtPlugin(() => {
   async function ensureCsrfToken() {
     if (csrfToken.value) return
     if (!inflightCsrfFetch) {
-      inflightCsrfFetch = originalFetch('/api/v1/auth/csrf', {
+      inflightCsrfFetch = originalFetch(`${apiBase}/api/v1/auth/csrf`, {
         credentials: 'include',
       }).then(() => undefined).finally(() => {
         inflightCsrfFetch = null

@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const csrfCookie = { value: null as string | null }
+const runtimeConfigMock = vi.hoisted(() => ({
+  public: { apiBase: 'http://api.test' },
+}))
 
 vi.stubGlobal('defineNuxtPlugin', (plugin: unknown) => plugin)
 vi.stubGlobal('useCookie', () => csrfCookie)
+vi.stubGlobal('useRuntimeConfig', () => runtimeConfigMock)
 
 describe('csrf plugin', () => {
   beforeEach(() => {
@@ -15,7 +19,7 @@ describe('csrf plugin', () => {
     const requests: Array<[string, RequestInit | undefined]> = []
     const originalFetch = vi.fn(async (request: string, options?: RequestInit) => {
       requests.push([request, options])
-      if (request === '/api/v1/auth/csrf') {
+      if (request === 'http://api.test/api/v1/auth/csrf') {
         csrfCookie.value = 'csrf-cookie'
         return { code: 0 }
       }
@@ -33,7 +37,7 @@ describe('csrf plugin', () => {
       body: JSON.stringify({ title: 'Test' }),
     })
 
-    expect(requests[0]?.[0]).toBe('/api/v1/auth/csrf')
+    expect(requests[0]?.[0]).toBe('http://api.test/api/v1/auth/csrf')
     expect(requests[1]?.[1]?.headers).toBeTruthy()
     const headers = requests[1]?.[1]?.headers as Headers
     expect(headers.get('X-CSRF-Token')).toBe('csrf-cookie')
