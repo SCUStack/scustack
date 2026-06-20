@@ -193,18 +193,63 @@
           </section>
 
           <section class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
-            <h2 class="text-lg font-semibold text-slate-800 mb-4">近期更新</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <MaterialCard v-for="item in visibleRecentItems" :key="item.id" :item="item" />
+            <div class="flex items-end justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-500">
+                  <AppIcon name="Orbit" :size="20" />
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-900">近期更新</h2>
+                  <p class="text-xs text-slate-500">保持内容流连续感，像刷首页一样快速看新资料</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+                  @click="rotateRecentFeed"
+                >
+                  <AppIcon name="RefreshCcw" :size="14" />
+                  换一换
+                </button>
+                <NuxtLink to="/search?sort=newest" class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-primary-600 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200">
+                  <AppIcon name="ArrowUpRight" :size="14" />
+                  查看更多
+                </NuxtLink>
+              </div>
+            </div>
+
+            <div class="mb-4 flex flex-wrap gap-2">
+              <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-500">
+                当前展示 {{ visibleRecentCards.length }} 条
+              </span>
+              <span class="inline-flex items-center rounded-full bg-sky-50 px-3 py-1.5 text-[11px] font-medium text-sky-600">
+                默认按最新上传排序
+              </span>
+              <span v-if="totalMaterialCount" class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-600">
+                全站 {{ totalMaterialCount }} 份资料
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MaterialCard v-for="item in visibleRecentCards" :key="item.id" :item="item" />
               <NuxtLink
                 v-if="recentItems.length > 0"
-                to="/search"
-                class="relative rounded-lg overflow-hidden group cursor-pointer no-underline border-2 border-dashed border-slate-300 hover:border-primary-400 transition-all duration-300 flex flex-col items-center justify-center bg-slate-50 hover:bg-primary-50/30"
-                style="min-height: 168px"
+                to="/search?sort=newest"
+                class="relative overflow-hidden rounded-[24px] group cursor-pointer no-underline border border-slate-200 bg-[linear-gradient(180deg,#f8fbff_0%,#f1f6ff_100%)] transition-all duration-300 flex flex-col justify-between min-h-[168px] px-5 py-5 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_30px_rgba(59,130,246,0.10)]"
               >
-                <AppIcon name="Search" :size="32" class="text-slate-300 group-hover:text-primary-400 mb-2 transition-colors duration-300" />
-                <p class="text-sm font-medium text-slate-500 group-hover:text-primary-600 transition-colors duration-300">更多资料</p>
-                <p class="text-xs text-slate-400 mt-1">{{ totalMaterialCount ? `${totalMaterialCount} 份资料` : '浏览所有课程和资料' }}</p>
+                <div class="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white/90 text-primary-500 shadow-sm">
+                  <AppIcon name="ArrowUpRight" :size="16" />
+                </div>
+                <div>
+                  <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-primary-500/80">Browse More</p>
+                  <h3 class="mt-2 text-base font-semibold text-slate-800">继续浏览最新资料</h3>
+                  <p class="mt-2 text-xs leading-5 text-slate-500">打开完整资料流，按时间、评分或分类继续筛选。</p>
+                </div>
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                  <span>{{ totalMaterialCount ? `${totalMaterialCount} 份资料可浏览` : '浏览所有课程和资料' }}</span>
+                  <span class="text-primary-600 font-medium">进入搜索</span>
+                </div>
               </NuxtLink>
             </div>
             <div ref="recentSentinel" class="h-4" />
@@ -286,12 +331,17 @@ const hotCourseFilters = [
   { label: '最新上传', to: '/search?sort=newest', icon: 'Sparkles' },
   { label: '按学院找课', to: '/colleges', icon: 'Building2' },
 ]
+const recentFeedPage = ref(0)
 
-const visibleRecentItems = computed(() => {
-  if (recentItems.value.length <= 2) return recentItems.value
-  const overflow = (recentItems.value.length + 1) % 3
-  const count = overflow === 0 ? recentItems.value.length : recentItems.value.length - overflow
-  return recentItems.value.slice(0, count)
+const visibleRecentCards = computed(() => {
+  const chunkSize = 7
+  if (recentItems.value.length <= chunkSize) return recentItems.value
+  const totalPages = Math.ceil(recentItems.value.length / chunkSize)
+  const page = recentFeedPage.value % totalPages
+  const start = page * chunkSize
+  const chunk = recentItems.value.slice(start, start + chunkSize)
+  if (chunk.length === chunkSize) return chunk
+  return [...chunk, ...recentItems.value.slice(0, chunkSize - chunk.length)]
 })
 
 const activeBanner = ref(0)
@@ -377,6 +427,12 @@ function formatHotCourseDate(value?: string | null): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return `${date.getMonth() + 1}/${date.getDate()} 更新`
+}
+
+function rotateRecentFeed() {
+  if (recentItems.value.length <= 7) return
+  const totalPages = Math.ceil(recentItems.value.length / 7)
+  recentFeedPage.value = (recentFeedPage.value + 1) % totalPages
 }
 
 const academicColors = [
