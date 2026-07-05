@@ -121,3 +121,11 @@ class VersionResponse(BaseModel):
     change_note: str | None
     uploaded_by: UUID | None
     created_at: datetime
+
+
+class MaterialDetailResponse(BaseModel):
+    material: MaterialResponse
+    versions_preview: list[VersionResponse]
+    related: list[MaterialResponse]
+    course_name: str
+    first_screen_request_count: int = 1

@@ -18,7 +18,7 @@ from app.core.permissions import Permission
 from app.dependencies import require_permission
 from app.schemas.material import (
     MaterialCreate, MaterialResponse, MaterialUpdate,
-    RatingRequest, VersionCreate, VersionResponse,
+    MaterialDetailResponse, RatingRequest, VersionCreate, VersionResponse,
 )
 from app.schemas.report import ReportCreate
 from app.services import copyright_service, material_service, report_service, review_service, upload_service, user_service
@@ -63,6 +63,18 @@ async def get_material(material_id: UUID, db: AsyncSession = Depends(get_db)):
     if m is None or m.review_status == 'removed':
         return {'code': 40400, 'data': None, 'message': 'material not found'}
     return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'ok'}
+
+
+@router.get('/{material_id}/detail')
+async def get_material_detail(material_id: UUID, db: AsyncSession = Depends(get_db)):
+    detail = await material_service.get_material_detail_first_screen(db, material_id)
+    if detail is None:
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
+    return {
+        'code': 0,
+        'data': MaterialDetailResponse.model_validate(detail).model_dump(mode='json'),
+        'message': 'ok',
+    }
 
 
 @router.post('')

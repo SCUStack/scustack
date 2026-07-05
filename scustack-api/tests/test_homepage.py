@@ -14,6 +14,7 @@ from app.services.homepage_service import (
     _calendar_score,
     _pick_from,
     _personalize_scores,
+    get_cached_anonymous_recommendations,
     get_calendar_recommendations,
     get_personalized_recommendations,
     get_stats,
@@ -203,6 +204,19 @@ class TestFullPipeline:
             with patch('app.services.homepage_service.bump_exposure', new=AsyncMock()):
                 result = await get_calendar_recommendations(mock_db)
                 assert result == []
+
+    @pytest.mark.asyncio
+    async def test_anonymous_recommendations_use_cached_ids(self):
+        cached = make_material(cid='a' * 32)
+        cached.id = uuid.UUID('00000000-0000-0000-0000-000000000001')
+        mock_db = _mock_db_query(([cached], True))
+
+        with patch('app.services.homepage_service.cache_get', new=AsyncMock(return_value='["00000000-0000-0000-0000-000000000001"]')), \
+             patch('app.services.homepage_service.get_calendar_recommendations', new=AsyncMock()) as recompute:
+            result, source = await get_cached_anonymous_recommendations(mock_db)
+            assert source == 'hit'
+            assert result == [cached]
+            recompute.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_returns_correct_slot_count(self):

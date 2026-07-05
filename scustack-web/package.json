@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nuxt dev --port 3000",
     "build": "nuxt build",
+    "build:guard": "nuxt build && node scripts/check-bundle-size.mjs",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "lint": "eslint . --ext .vue,.ts --fix",

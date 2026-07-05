@@ -27,6 +27,16 @@ class TestContentExtract:
         text = await extract_content_text('materials/huge.pdf', 60 * 1024 * 1024)
         assert text == ''
 
+    @pytest.mark.asyncio
+    async def test_extract_skips_oversized_pdf_before_download(self):
+        from app.tasks.content_extract import MAX_PDF_EXTRACT_SIZE, extract_content_text
+
+        with patch('app.tasks.content_extract.oss.generate_download_url') as signed_url:
+            text = await extract_content_text('materials/huge.pdf', MAX_PDF_EXTRACT_SIZE + 1)
+
+        assert text == ''
+        signed_url.assert_not_called()
+
 
 class TestElasticsearchMapping:
     def test_mapping_includes_content_text(self):

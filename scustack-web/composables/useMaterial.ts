@@ -1,6 +1,14 @@
 import { saveRecentView as persistRecentView, type RecentItem } from '~/composables/useLocalExperienceState'
 import type { MaterialItem, MaterialVersion, CollectionItem } from '~/types/api'
 
+interface MaterialDetailPayload {
+  material: MaterialItem
+  versions_preview: MaterialVersion[]
+  related: MaterialItem[]
+  course_name: string
+  first_screen_request_count: number
+}
+
 /**
  * Composable for material detail page — encapsulates data fetching, rating,
  * bookmark, collection, report, correction, and version upload logic.
@@ -104,14 +112,25 @@ export function useMaterial(materialId: Ref<string>) {
     }
 
     try {
+      const detailResp = await $fetch<{ code: number; data: MaterialDetailPayload | null }>(`${apiBase}/api/v1/materials/${id}/detail`).catch(() => null)
+      if (detailResp?.code === 0 && detailResp.data) {
+        material.value = detailResp.data.material
+        versions.value = detailResp.data.versions_preview
+        related.value = detailResp.data.related
+        courseName.value = detailResp.data.course_name
+        saveRecentView()
+        loading.value = false
+        return
+      } else if (detailResp?.code === 42900 && retryAttempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
+        loading.value = false
+        return fetchMaterial(retryAttempt + 1)
+      }
+
       const resp = await $fetch<{ code: number; data: MaterialItem | null }>(`${apiBase}/api/v1/materials/${id}`)
       if (resp.code === 0) {
         material.value = resp.data
         saveRecentView()
-      } else if (resp.code === 42900 && retryAttempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
-        loading.value = false
-        return fetchMaterial(retryAttempt + 1)
       }
 
       const [versionResp, relatedResp, courseResp] = await Promise.all([

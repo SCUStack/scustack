@@ -1,4 +1,5 @@
 """Homepage service — stats, recommendations, recent updates, hot courses."""
+import json
 import math
 import uuid
 from collections import Counter
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.redis import bump_exposure, get_exposures
+from app.core.redis import bump_exposure, cache_get, cache_set, get_exposures
 from app.models.bookmark import Bookmark
 from app.models.college import College
 from app.models.course import Course
@@ -53,6 +54,8 @@ SLOT_PLAN = {
     'best_remaining': 4,
 }
 TOTAL_SLOTS = sum(SLOT_PLAN.values())
+ANONYMOUS_RECOMMENDATION_CACHE_KEY = 'homepage:anonymous_recommendations:v1'
+ANONYMOUS_RECOMMENDATION_CACHE_TTL = 600
 
 PERSONALIZED_SLOT_PLAN = {
     'calendar_quality': 2,
@@ -326,6 +329,43 @@ async def get_calendar_recommendations(db: AsyncSession) -> list[Material]:
             await bump_exposure(str(m.contributor_id))
 
     return result_mats
+
+
+async def _get_materials_by_cached_ids(db: AsyncSession, ids: list[str]) -> list[Material]:
+    material_ids = [uuid.UUID(mid) for mid in ids]
+    result = await db.execute(
+        select(Material).where(
+            Material.id.in_(material_ids),
+            Material.review_status == 'approved',
+            Material.trust_status != 'doubtful',
+        )
+    )
+    by_id = {str(m.id): m for m in result.scalars().all()}
+    return [by_id[mid] for mid in ids if mid in by_id]
+
+
+async def get_cached_anonymous_recommendations(db: AsyncSession) -> tuple[list[Material], str]:
+    try:
+        cached = await cache_get(ANONYMOUS_RECOMMENDATION_CACHE_KEY)
+        if cached:
+            ids = json.loads(cached)
+            if isinstance(ids, list) and ids:
+                materials = await _get_materials_by_cached_ids(db, ids)
+                if materials:
+                    return materials, 'hit'
+    except Exception:
+        pass
+
+    materials = await get_calendar_recommendations(db)
+    try:
+        await cache_set(
+            ANONYMOUS_RECOMMENDATION_CACHE_KEY,
+            json.dumps([str(m.id) for m in materials]),
+            ttl=ANONYMOUS_RECOMMENDATION_CACHE_TTL,
+        )
+    except Exception:
+        return materials, 'bypass'
+    return materials, 'miss'
 
 
 # ── Personalized recommendation ──────────────────────────────────────

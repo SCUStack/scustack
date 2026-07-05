@@ -20,9 +20,14 @@ TEXT_EXTENSIONS = {
     'kt', 'rb', 'php', 'pl', 'lua', 'vue', 'svelte', 'jsx', 'tsx',
     'csv', 'log', 'tex', 'sty',
 }
+PDF_EXTENSIONS = {'pdf'}
+EXTRACTABLE_EXTENSIONS = TEXT_EXTENSIONS | PDF_EXTENSIONS
 
-MAX_EXTRACT_SIZE = 50 * 1024 * 1024
+MAX_EXTRACT_SIZE = 12 * 1024 * 1024
+MAX_PDF_EXTRACT_SIZE = 8 * 1024 * 1024
+MAX_PDF_EXTRACT_PAGES = 30
 MAX_EXTRACT_CHARS = 200_000
+EXTRACT_TIMEOUT_SECONDS = 15
 
 
 async def build_index_document(db, material: Material, content_text: str | None = None) -> dict:
@@ -54,14 +59,23 @@ async def build_index_document(db, material: Material, content_text: str | None 
 
 async def extract_content_text(storage_key: str, file_size: int | None = None) -> str:
     ext = storage_key.rsplit('.', 1)[-1].lower() if '.' in storage_key else ''
-    if file_size and file_size > MAX_EXTRACT_SIZE:
+    if ext not in EXTRACTABLE_EXTENSIONS:
+        return ''
+    if ext == 'pdf' and file_size and file_size > MAX_PDF_EXTRACT_SIZE:
+        return ''
+    if ext != 'pdf' and file_size and file_size > MAX_EXTRACT_SIZE:
         return ''
 
     url = oss.generate_download_url(storage_key, expires=600)
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=EXTRACT_TIMEOUT_SECONDS) as client:
         resp = await client.get(url)
         resp.raise_for_status()
         content = resp.content
+
+    if ext == 'pdf' and len(content) > MAX_PDF_EXTRACT_SIZE:
+        return ''
+    if ext != 'pdf' and len(content) > MAX_EXTRACT_SIZE:
+        return ''
 
     if ext in TEXT_EXTENSIONS:
         return content.decode('utf-8', errors='ignore')[:MAX_EXTRACT_CHARS]
@@ -75,7 +89,9 @@ async def extract_content_text(storage_key: str, file_size: int | None = None) -
         text_parts: list[str] = []
         doc = fitz.open(stream=content, filetype='pdf')
         try:
-            for page in doc:
+            for page_index, page in enumerate(doc):
+                if page_index >= MAX_PDF_EXTRACT_PAGES:
+                    break
                 text_parts.append(page.get_text('text'))
                 if sum(len(p) for p in text_parts) >= MAX_EXTRACT_CHARS:
                     break

@@ -30,8 +30,9 @@ async def get_homepage(
         calendar = await homepage_service.get_personalized_recommendations(
             db, current_user.id
         )
+        recommendation_cache = 'personalized'
     else:
-        calendar = await homepage_service.get_calendar_recommendations(db)
+        calendar, recommendation_cache = await homepage_service.get_cached_anonymous_recommendations(db)
 
     recent = await homepage_service.get_recent_updates(db, cursor, limit)
     hot = await homepage_service.get_hot_courses(db, limit=16)
@@ -54,6 +55,7 @@ async def get_homepage(
             ],
             'hot_courses': hot,
             'personalized': current_user is not None,
+            'recommendation_cache': recommendation_cache,
         },
         'message': 'ok',
         '_debug': {'cursor': cursor, 'limit': limit, 'recent_count': len(recent)},

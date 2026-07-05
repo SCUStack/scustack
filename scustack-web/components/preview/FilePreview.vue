@@ -29,8 +29,8 @@
       <!-- Unsupported -->
       <div v-else class="text-center py-12">
         <AppIcon name="File" :size="48" class="text-slate-300 mx-auto mb-3" />
-        <p class="text-slate-500 font-medium mb-1">暂不支持预览此格式</p>
-        <p class="text-sm text-slate-400 mb-4">{{ format ? `.${format}` : '未知格式' }}</p>
+        <p class="text-slate-500 font-medium mb-1">{{ fallbackTitle }}</p>
+        <p class="text-sm text-slate-400 mb-4">{{ fallbackSubtitle }}</p>
         <a v-if="downloadUrl" :href="downloadUrl" class="inline-block px-4 py-2 text-sm font-medium bg-primary-700 text-white rounded-md no-underline hover:bg-primary-800">
           直接下载
         </a>
@@ -45,6 +45,7 @@ const props = defineProps<{
   downloadUrl: string
   format: string
   sourceType: string
+  fileSize?: number
 }>()
 
 const engine = ref('')
@@ -56,11 +57,19 @@ const codeFormats = ['py', 'js', 'ts', 'jsx', 'tsx', 'java', 'c', 'cpp', 'cs', '
 const textFormats = ['txt', 'log', 'csv', 'ini', 'cfg', 'conf', 'env']
 const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']
 const officeFormats = ['docx', 'pptx', 'xlsx', 'doc', 'ppt', 'xls']
+const maxInlinePdfBytes = 25 * 1024 * 1024
 
 const fmt = computed(() => props.format?.toLowerCase() || '')
+const fallbackTitle = computed(() => engine.value === 'download' ? '文件较大，已关闭在线预览' : '暂不支持预览此格式')
+const fallbackSubtitle = computed(() => {
+  if (engine.value === 'download') return '为节省流量和渲染成本，请直接下载查看'
+  return props.format ? `.${props.format}` : '未知格式'
+})
 
 onMounted(async () => {
-  if (fmt.value === 'pdf') {
+  if (fmt.value === 'pdf' && (props.fileSize || 0) > maxInlinePdfBytes) {
+    engine.value = 'download'
+  } else if (fmt.value === 'pdf') {
     engine.value = 'pdf'
   } else if (officeFormats.includes(fmt.value)) {
     engine.value = 'office'

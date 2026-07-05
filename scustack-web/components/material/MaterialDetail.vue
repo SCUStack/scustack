@@ -29,7 +29,13 @@
 
         <div v-if="material.source_type === 'hosted' && material.format" class="mb-8">
           <h2 class="text-base font-medium text-slate-800 mb-3">在线预览</h2>
-          <FilePreview :file-url="previewUrl" :download-url="downloadUrl" :format="material.format" :source-type="material.source_type" />
+          <FilePreview
+            :file-url="previewUrl"
+            :download-url="downloadUrl"
+            :format="material.format"
+            :source-type="material.source_type"
+            :file-size="material.file_size"
+          />
         </div>
         <div v-else-if="material.source_type === 'external' && material.external_url" class="mb-8">
           <h2 class="text-base font-medium text-slate-800 mb-3">外部链接</h2>

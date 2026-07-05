@@ -90,3 +90,13 @@ async def readiness():
     if issues:
         return {'status': 'not_ready', 'issues': issues}
     return {'status': 'ready'}
+
+
+@router.get('/health/cost-baseline')
+async def cost_baseline():
+    from app.core.observability import get_observability_snapshot
+    return {
+        'status': 'ok',
+        'window': 'in_memory_since_process_start',
+        'paths': get_observability_snapshot(),
+    }

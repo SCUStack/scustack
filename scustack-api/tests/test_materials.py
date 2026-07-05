@@ -1,6 +1,8 @@
 """Tests for material service — CRUD, versions, ratings, download, pin/unpin."""
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timezone
+from uuid import UUID
 from httpx import ASGITransport, AsyncClient
 
 from app.core.redis import RateLimiter
@@ -33,6 +35,61 @@ class TestMaterialListAPI:
         with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
             resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}')
             assert resp.json()['code'] == 40400
+
+    async def test_get_material_detail_consolidates_first_screen(self, client):
+        material = MagicMock()
+        material.id = UUID(MATERIAL_ID)
+        material.course_id = UUID(COURSE_ID)
+        material.title = '线性代数笔记'
+        material.description = '重点章节'
+        material.category = '课堂笔记'
+        material.semester = '2024-2025-1'
+        material.teacher = None
+        material.source_type = 'hosted'
+        material.external_url = None
+        material.format = 'pdf'
+        material.file_size = 1024
+        material.file_hash = 'a' * 64
+        material.trust_status = 'community_verified'
+        material.review_status = 'approved'
+        material.average_rating = 4.5
+        material.rating_count = 2
+        material.download_count = 10
+        material.rating_distribution = {'1': 0, '2': 0, '3': 0, '4': 1, '5': 1}
+        material.is_pinned = False
+        material.link_checked_at = None
+        material.link_status = None
+        material.link_failure_count = 0
+        material.virus_scan_status = None
+        material.parts = None
+        material.contributor_id = None
+        material.contributor = None
+        material.thumbnail_url = None
+        material.created_at = datetime.now(timezone.utc)
+        material.updated_at = datetime.now(timezone.utc)
+
+        version = MagicMock()
+        version.id = UUID('00000000-0000-0000-0000-000000000002')
+        version.material_id = UUID(MATERIAL_ID)
+        version.version_number = 1
+        version.file_hash = 'a' * 64
+        version.file_size = 1024
+        version.change_note = 'init'
+        version.uploaded_by = UUID(USER_ID)
+        version.created_at = datetime.now(timezone.utc)
+
+        with patch('app.api.v1.materials.material_service.get_material_detail_first_screen', new_callable=AsyncMock, return_value={
+            'material': material,
+            'versions_preview': [version],
+            'related': [],
+            'course_name': '线性代数',
+            'first_screen_request_count': 1,
+        }):
+            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/detail')
+            data = resp.json()['data']
+            assert data['material']['title'] == '线性代数笔记'
+            assert data['course_name'] == '线性代数'
+            assert data['first_screen_request_count'] == 1
 
     async def test_list_versions(self, client):
         v = MagicMock()

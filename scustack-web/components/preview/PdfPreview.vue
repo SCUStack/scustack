@@ -50,6 +50,8 @@
 </template>
 
 <script setup lang="ts">
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
 const props = defineProps<{ url: string; downloadUrl: string }>()
 
 const canvasRef = ref<HTMLCanvasElement>()
@@ -69,7 +71,7 @@ const fs = useFullscreen()
 onMounted(async () => {
   try {
     const pdfjsLib = await import('pdfjs-dist')
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
     const loadingTask = pdfjsLib.getDocument({ url: props.url })
     pdfDoc = await loadingTask.promise
     totalPages.value = pdfDoc.numPages

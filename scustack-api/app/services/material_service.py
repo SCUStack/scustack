@@ -8,6 +8,7 @@ import httpx
 
 from app.core import oss
 from app.core.redis import get_download_delta
+from app.models.course import Course
 from app.models.material import Material, MaterialVersion
 
 TEXT_EXTENSIONS = {
@@ -312,3 +313,21 @@ async def get_related(db: AsyncSession, course_id: UUID, exclude_id: UUID, limit
         ).order_by(Material.download_count.desc()).limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def get_material_detail_first_screen(db: AsyncSession, material_id: UUID) -> dict | None:
+    material = await get_material(db, material_id)
+    if material is None or material.review_status == 'removed':
+        return None
+
+    versions = await list_versions(db, material_id)
+    related = await get_related(db, material.course_id, material_id, limit=3)
+    course_name = await db.scalar(select(Course.name).where(Course.id == material.course_id)) or ''
+
+    return {
+        'material': material,
+        'versions_preview': versions[:3],
+        'related': related,
+        'course_name': course_name,
+        'first_screen_request_count': 1,
+    }

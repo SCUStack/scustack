@@ -59,7 +59,7 @@ const copied = ref(false)
 
 onMounted(async () => {
   try {
-    const { codeToHtml } = await import('shiki')
+    const { codeToHtml } = await import('shiki/bundle/web')
     if (props.markdown) {
       renderedMarkdown.value = stripHtml(props.content)
     } else {

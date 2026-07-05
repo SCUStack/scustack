@@ -49,4 +49,20 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: true,
   },
+
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const normalized = id.replaceAll('\\', '/')
+            if (normalized.includes('node_modules/element-plus') || normalized.includes('node_modules/@element-plus')) return 'vendor-element-plus'
+            if (normalized.includes('node_modules/pdfjs-dist')) return 'vendor-pdf'
+            if (normalized.includes('node_modules/shiki')) return 'vendor-shiki'
+          },
+        },
+      },
+    },
+  },
 });
