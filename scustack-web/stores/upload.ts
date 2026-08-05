@@ -3,6 +3,7 @@
  * Centralizes upload state previously scattered across upload.vue.
  */
 import { materialCategories } from '~/data/business'
+import { uploadHostedFile } from '~/composables/useStorageUpload'
 
 export interface BatchFileEntry {
   id: string
@@ -72,26 +73,8 @@ export const useUploadStore = defineStore('upload', () => {
     fileEntry.errorMsg = ''
 
     try {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', await fileEntry.file.arrayBuffer())
-      const fileHash = Array.from(new Uint8Array(hashBuffer))
-        .map(b => b.toString(16).padStart(2, '0')).join('')
-
-      const tokenResp = await $fetch<{ code: number; data: { upload_url: string; storage_key: string }; message: string }>(
-        `${apiBase}/api/v1/upload/token`,
-        {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            file_name: fileEntry.file.name,
-            content_type: fileEntry.file.type || 'application/octet-stream',
-            file_size: fileEntry.file.size,
-          }),
-        },
-      )
-      if (tokenResp.code !== 0) throw new Error(tokenResp.message || '获取上传凭证失败')
-
       fileEntry.progress = 50
-      await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: fileEntry.file })
+      const uploadId = await uploadHostedFile(apiBase, fileEntry.file)
       fileEntry.progress = 80
 
       const resp = await $fetch<{ code: number; data: { id: string }; message: string }>(
@@ -105,9 +88,7 @@ export const useUploadStore = defineStore('upload', () => {
             category: fileEntry.category,
             semester: sharedMeta.semester,
             teacher: sharedMeta.teacher || undefined,
-            storage_key: tokenResp.data.storage_key,
-            file_hash: fileHash,
-            file_size: fileEntry.file.size,
+            upload_id: uploadId,
             format: fileEntry.file.name.split('.').pop()?.toLowerCase(),
           }),
         },

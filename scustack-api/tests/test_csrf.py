@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.dependencies import get_current_user
 from app.main import app
+from app.core.storage import StoredObject
 
 
 @pytest.fixture(autouse=True)
@@ -77,16 +78,34 @@ class TestCsrfProtection:
         material.link_checked_at = None
         material.link_status = None
         material.link_failure_count = 0
+        material.virus_scan_status = 'queued'
         material.parts = None
         material.contributor_id = None
         material.contributor = None
         material.thumbnail_url = None
         material.created_at = __import__('datetime').datetime.now()
         material.updated_at = __import__('datetime').datetime.now()
+        version = MagicMock(id=uuid4())
+        stored = StoredObject(
+            provider_type='lfs',
+            provider_instance='lfs-cacode',
+            locator='/uploads/test.pdf',
+            access_url='https://lfs.cacode.qzz.io/uploads/test.pdf',
+            file_size=1024,
+            content_type='application/pdf',
+        )
 
-        with patch('app.api.v1.materials.material_service.create_material', new_callable=AsyncMock, return_value=material), \
+        with patch(
+            'app.api.v1.materials.consume_uploaded_object',
+            new_callable=AsyncMock,
+            return_value=(stored, 'a' * 64),
+        ), \
+             patch('app.api.v1.materials.material_service.create_material', new_callable=AsyncMock, return_value=material), \
+             patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
+             patch('app.api.v1.materials.add_primary_replica', new_callable=AsyncMock), \
              patch('app.api.v1.materials.user_service.notify_course_followers', new_callable=AsyncMock), \
              patch('app.api.v1.materials.copyright_service.check_title_blocklist', new_callable=AsyncMock, return_value=False), \
+             patch('app.tasks.material_tasks.virus_scan.delay', create=True), \
              patch('app.tasks.material_tasks.pre_screen_content.delay', create=True):
             resp = await client.post(
                 '/api/v1/materials',
@@ -95,6 +114,7 @@ class TestCsrfProtection:
                     'course_id': str(uuid4()),
                     'category': 'notes',
                     'semester': '2025-2026-1',
+                    'upload_id': 'a' * 43,
                 },
                 headers={'X-CSRF-Token': 'cookie-token'},
             )

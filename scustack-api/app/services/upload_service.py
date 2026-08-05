@@ -295,7 +295,10 @@ def security_scan(file_name: str, file_content: bytes) -> tuple[bool, list[str]]
     """Run all security scans on uploaded file. Returns (passed, warnings)."""
     ext = _get_extension(file_name)
     head = file_content[:512]
-    warnings: list[str] = []
+    try:
+        validate_magic_bytes(ext, head)
+    except UploadError as exc:
+        return False, [str(exc)]
 
     # Check executable disguise
     exec_warn = detect_executable_disguise(head, ext)

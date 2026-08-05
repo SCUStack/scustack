@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
@@ -47,8 +48,13 @@ app = FastAPI(
     description='SCU Course Stack — 公益课程资料共享平台',
     version='0.1.0',
     lifespan=lifespan,
+    docs_url='/docs' if settings.is_dev else None,
+    redoc_url='/redoc' if settings.is_dev else None,
+    openapi_url='/openapi.json' if settings.is_dev else None,
 )
 
+if settings.TRUSTED_HOSTS:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.TRUSTED_HOSTS)
 app.add_middleware(DDoSProtectionMiddleware)
 app.add_middleware(AntiProxyMiddleware)
 app.add_middleware(CSRFMiddleware)
@@ -58,7 +64,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=['GET', 'POST', 'PATCH', 'DELETE'],
-    allow_headers=['Content-Type', 'X-Requested-With'],
+    allow_headers=['Content-Type', 'X-Requested-With', 'X-CSRF-Token'],
 )
 app.add_middleware(CacheControlMiddleware)
 app.add_middleware(CostObservabilityMiddleware)

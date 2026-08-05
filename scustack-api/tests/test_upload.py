@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
 
 from app.dependencies import get_current_user
+from app.core.redis import RateLimiter
 from app.main import app
 
 
@@ -27,15 +28,19 @@ class TestUploadAPI:
         mock_user.role = 'student'
         app.dependency_overrides[get_current_user] = lambda: mock_user
         try:
-            with patch('app.services.upload_service.validate_file_request', return_value='pdf'), \
-                 patch('app.core.oss.generate_upload_token', return_value={
-                     'storage_key': 'materials/abc.pdf', 'presigned_url': 'http://fake.url/upload',
+            allow_decision = RateLimiter.Decision(
+                allowed=True, source='redis', remaining=19, retry_after=0, degraded=False,
+            )
+            with patch('app.api.v1.upload.RateLimiter.check', new_callable=AsyncMock, return_value=allow_decision), \
+                 patch('app.api.v1.upload.create_upload_ticket', new_callable=AsyncMock, return_value={
+                     'upload_id': 'a' * 43, 'upload_url': '/api/v1/upload/a/file', 'method': 'POST',
                  }):
                 resp = await client.post('/api/v1/upload/token', json={
                     'file_name': 'test.pdf', 'content_type': 'application/pdf', 'file_size': 1024,
                 })
                 data = resp.json()['data']
-                assert data['storage_key'] == 'materials/abc.pdf'
+                assert data['upload_id'] == 'a' * 43
+                assert data['upload_url'] == '/api/v1/upload/a/file'
         finally:
             app.dependency_overrides.clear()
 

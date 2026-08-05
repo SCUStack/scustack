@@ -1,68 +1,16 @@
-import logging
+from fastapi import APIRouter, Depends
 
-from fastapi import APIRouter
-
-from app.core import elasticsearch as es
-from app.core.config import settings
+from app.core.permissions import Permission
+from app.dependencies import require_permission
+from app.models.user import User
 
 router = APIRouter()
-
-logger = logging.getLogger(__name__)
+audit_reader = Depends(require_permission(Permission.AUDIT_READ))
 
 
 @router.get('/health')
 async def health_check():
-    status = {'status': 'ok', 'version': '1.0', 'env': settings.APP_ENV}
-
-    # Elasticsearch
-    if es.es is not None:
-        try:
-            ping = await es.es.ping()
-            status['elasticsearch'] = 'connected' if ping else 'unreachable'
-        except Exception:
-            status['elasticsearch'] = 'error'
-    else:
-        status['elasticsearch'] = 'not_configured'
-
-    # ClamAV
-    try:
-        import subprocess
-        result = subprocess.run(
-            ['clamdscan', '--version'], capture_output=True, timeout=5,
-        )
-        status['clamav'] = 'available' if result.returncode == 0 else 'error'
-    except FileNotFoundError:
-        status['clamav'] = 'not_installed'
-    except Exception as e:
-        status['clamav'] = 'error'
-        logger.warning('ClamAV health check failed: %s', e)
-
-    # Redis
-    try:
-        from app.core.redis import redis_client
-        await redis_client.ping()
-        status['redis'] = 'connected'
-    except Exception:
-        status['redis'] = 'error'
-
-    # DB
-    try:
-        from app.core.database import async_session
-        async with async_session() as db:
-            from sqlalchemy import text
-            await db.execute(text('SELECT 1'))
-        status['database'] = 'connected'
-    except Exception:
-        status['database'] = 'error'
-
-    # OSS
-    try:
-        from app.core import oss
-        status['oss'] = 'configured' if oss._has_oss else 'not_configured'
-    except Exception:
-        status['oss'] = 'error'
-
-    return status
+    return {'status': 'ok'}
 
 
 @router.get('/health/live')
@@ -82,18 +30,20 @@ async def readiness():
         issues.append('database')
 
     try:
-        from app.core.redis import redis_client
-        await redis_client.ping()
+        from app.core.redis import redis
+        await redis.ping()
     except Exception:
         issues.append('redis')
 
     if issues:
-        return {'status': 'not_ready', 'issues': issues}
+        return {'status': 'not_ready'}
     return {'status': 'ready'}
 
 
 @router.get('/health/cost-baseline')
-async def cost_baseline():
+async def cost_baseline(
+    _current_user: User = audit_reader,
+):
     from app.core.observability import get_observability_snapshot
     return {
         'status': 'ok',

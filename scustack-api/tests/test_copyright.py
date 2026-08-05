@@ -6,21 +6,29 @@ import pytest
 
 
 class TestTitleBlocklist:
-    def test_blocked_title_matches(self):
+    @pytest.mark.asyncio
+    async def test_blocked_title_matches(self):
         from app.services.copyright_service import check_title_blocklist
-        assert check_title_blocklist('高等数学第七版课后答案完整版') is True
+        with patch('app.services.blocklist_service.check_title_blocklist', new_callable=AsyncMock, return_value=True):
+            assert await check_title_blocklist('高等数学第七版课后答案完整版', MagicMock()) is True
 
-    def test_blocked_title_case_insensitive(self):
+    @pytest.mark.asyncio
+    async def test_blocked_title_case_insensitive(self):
         from app.services.copyright_service import check_title_blocklist
-        assert check_title_blocklist('同济高数第七版答案') is True
+        with patch('app.services.blocklist_service.check_title_blocklist', new_callable=AsyncMock, return_value=True):
+            assert await check_title_blocklist('同济高数第七版答案', MagicMock()) is True
 
-    def test_clean_title_passes(self):
+    @pytest.mark.asyncio
+    async def test_clean_title_passes(self):
         from app.services.copyright_service import check_title_blocklist
-        assert check_title_blocklist('数据结构与算法笔记') is False
+        with patch('app.services.blocklist_service.check_title_blocklist', new_callable=AsyncMock, return_value=False):
+            assert await check_title_blocklist('数据结构与算法笔记', MagicMock()) is False
 
-    def test_empty_title_passes(self):
+    @pytest.mark.asyncio
+    async def test_empty_title_passes(self):
         from app.services.copyright_service import check_title_blocklist
-        assert check_title_blocklist('') is False
+        with patch('app.services.blocklist_service.check_title_blocklist', new_callable=AsyncMock, return_value=False):
+            assert await check_title_blocklist('', MagicMock()) is False
 
 
 class TestTicketNumber:

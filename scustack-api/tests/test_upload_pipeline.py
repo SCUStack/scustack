@@ -7,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.dependencies import get_current_user
 from app.main import app
+from app.core.storage import StorageError, StoredObject
 
 
 @pytest.fixture(autouse=True)
@@ -73,11 +74,18 @@ class TestUploadPipeline:
 
         material = _material()
         version = MagicMock()
-        version.storage_key = 'materials/test.pdf'
+        version.id = uuid4()
+        version.storage_key = '/uploads/test.pdf'
+        stored = StoredObject(
+            provider_type='lfs', provider_instance='lfs-cacode', locator='/uploads/test.pdf',
+            access_url='https://lfs.cacode.qzz.io/uploads/test.pdf', file_size=1024,
+            content_type='application/pdf',
+        )
 
-        with patch('app.api.v1.materials.upload_service.verify_uploaded_object', return_value=None), \
+        with patch('app.api.v1.materials.consume_uploaded_object', new_callable=AsyncMock, return_value=(stored, 'a' * 64)), \
              patch('app.api.v1.materials.material_service.create_material', new_callable=AsyncMock, return_value=material), \
              patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
+             patch('app.api.v1.materials.add_primary_replica', new_callable=AsyncMock), \
              patch('app.api.v1.materials.user_service.notify_course_followers', new_callable=AsyncMock), \
              patch('app.api.v1.materials.copyright_service.check_title_blocklist', new_callable=AsyncMock, return_value=False), \
              patch('app.tasks.material_tasks.virus_scan.delay', create=True), \
@@ -90,9 +98,7 @@ class TestUploadPipeline:
                     'category': 'notes',
                     'semester': '2025-2026-1',
                     'source_type': 'hosted',
-                    'storage_key': 'materials/test.pdf',
-                    'file_hash': 'a' * 64,
-                    'file_size': 1024,
+                    'upload_id': 'a' * 43,
                     'format': 'pdf',
                 },
                 headers={'X-CSRF-Token': 'csrf-token'},
@@ -108,7 +114,11 @@ class TestUploadPipeline:
         client.cookies.set('access_token', 'fake-access')
         client.cookies.set('csrf_token', 'csrf-token')
 
-        with patch('app.api.v1.materials.upload_service.verify_uploaded_object', return_value='uploaded object size does not match declared file size'):
+        with patch(
+            'app.api.v1.materials.consume_uploaded_object',
+            new_callable=AsyncMock,
+            side_effect=StorageError('upload ticket expired or invalid'),
+        ):
             resp = await client.post(
                 '/api/v1/materials',
                 json={
@@ -117,9 +127,7 @@ class TestUploadPipeline:
                     'category': 'notes',
                     'semester': '2025-2026-1',
                     'source_type': 'hosted',
-                    'storage_key': 'materials/test.pdf',
-                    'file_hash': 'a' * 64,
-                    'file_size': 1024,
+                    'upload_id': 'a' * 43,
                     'format': 'pdf',
                 },
                 headers={'X-CSRF-Token': 'csrf-token'},
@@ -127,7 +135,7 @@ class TestUploadPipeline:
 
         assert resp.status_code == 200
         assert resp.json()['code'] == 40000
-        assert 'uploaded object size does not match declared file size' in resp.json()['message']
+        assert 'upload ticket expired or invalid' in resp.json()['message']
 
 
 class TestPreScreenContent:

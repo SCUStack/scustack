@@ -3,10 +3,10 @@ from app.core.config import Settings
 
 class TestSettings:
     def test_defaults(self):
-        s = Settings()
+        s = Settings(_env_file=None)
         assert s.APP_NAME == 'scustack-api'
         assert s.APP_ENV == 'dev'
-        assert s.DEBUG is True
+        assert s.DEBUG is False
         assert s.DB_POOL_SIZE == 20
 
     def test_database_url(self):
@@ -35,6 +35,8 @@ class TestSettings:
             JWT_SECRET_KEY='prod-secret-32chars-minimum!!',
             ENCRYPTION_KEY='prod-encrypt-32chars-minimum!',
             DB_PASSWORD='strong-db-password',
+            LFS_API_TOKEN='configured-lfs-token',
+            TRUSTED_HOSTS=['api.example.com'],
         )
         issues = s.validate_secrets()
         assert len(issues) == 0
@@ -46,4 +48,35 @@ class TestSettings:
             DB_PASSWORD='scustack',
         )
         issues = s.validate_secrets()
-        assert len(issues) == 3
+        assert len(issues) == 4
+
+    def test_validate_secrets_requires_default_lfs_token(self):
+        s = Settings(
+            JWT_SECRET_KEY='prod-secret-32chars-minimum!!',
+            ENCRYPTION_KEY='prod-encrypt-32chars-minimum!',
+            DB_PASSWORD='strong-db-password',
+        )
+        issues = s.validate_secrets()
+        assert any('LFS_API_TOKEN' in issue for issue in issues)
+
+    def test_validate_secrets_rejects_debug_in_production(self):
+        s = Settings(
+            APP_ENV='prod',
+            DEBUG=True,
+            JWT_SECRET_KEY='prod-secret-32chars-minimum!!',
+            ENCRYPTION_KEY='prod-encrypt-32chars-minimum!',
+            DB_PASSWORD='strong-db-password',
+            LFS_API_TOKEN='configured-lfs-token',
+            TRUSTED_HOSTS=['api.example.com'],
+        )
+        assert 'DEBUG must be disabled in production' in s.validate_secrets()
+
+    def test_validate_secrets_requires_trusted_hosts_in_production(self):
+        s = Settings(
+            APP_ENV='prod',
+            JWT_SECRET_KEY='prod-secret-32chars-minimum!!',
+            ENCRYPTION_KEY='prod-encrypt-32chars-minimum!',
+            DB_PASSWORD='strong-db-password',
+            LFS_API_TOKEN='configured-lfs-token',
+        )
+        assert 'TRUSTED_HOSTS must be configured in production' in s.validate_secrets()

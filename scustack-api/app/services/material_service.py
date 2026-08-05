@@ -6,7 +6,7 @@ from difflib import unified_diff
 
 import httpx
 
-from app.core import oss
+from app.core.storage import resolve_access_url
 from app.core.redis import get_download_delta
 from app.models.course import Course
 from app.models.material import Material, MaterialVersion
@@ -190,6 +190,8 @@ async def add_version(db: AsyncSession, material_id: UUID, user_id: UUID,
     material.file_hash = file_hash
     material.file_size = file_size
     material.trust_status = 'unverified'
+    material.review_status = 'pending'
+    material.virus_scan_status = 'queued'
     db.add(v)
     await db.flush()
     return v
@@ -269,11 +271,11 @@ async def get_version_diff(db: AsyncSession, material_id: UUID, version_id: UUID
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             if prev_v:
-                old_url = oss.generate_download_url(prev_v.storage_key)
+                old_url = await resolve_access_url(db, prev_v)
                 resp = await client.get(old_url)
                 if resp.status_code == 200:
                     old_content = resp.text
-            new_url = oss.generate_download_url(target_v.storage_key)
+            new_url = await resolve_access_url(db, target_v)
             resp = await client.get(new_url)
             if resp.status_code == 200:
                 new_content = resp.text

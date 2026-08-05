@@ -6,7 +6,12 @@ from redis.asyncio import ConnectionPool, Redis
 
 from app.core.config import settings
 
-pool = ConnectionPool.from_url(settings.REDIS_URL, max_connections=20)
+pool = ConnectionPool.from_url(
+    settings.REDIS_URL,
+    max_connections=20,
+    socket_connect_timeout=settings.REDIS_CONNECT_TIMEOUT_SECONDS,
+    socket_timeout=settings.REDIS_CONNECT_TIMEOUT_SECONDS,
+)
 
 redis = Redis(connection_pool=pool)
 _memory_windows: dict[str, tuple[int, float]] = {}
@@ -23,6 +28,11 @@ async def cache_set(key: str, value: str, ttl: int = 3600) -> None:
 
 async def cache_delete(key: str) -> None:
     await redis.delete(key)
+
+
+async def cache_getdel(key: str) -> str | None:
+    value = await redis.getdel(key)
+    return value.decode('utf-8') if value else None
 
 
 # ── Recommendation exposure tracking ──────────────────────────────
@@ -48,7 +58,7 @@ async def get_exposures(contributor_ids: list[str]) -> dict[str, int]:
     for key in keys:
         pipe.get(key)
     results = await pipe.execute()
-    return {cid: int(r or 0) for cid, r in zip(contributor_ids, results)}
+    return {cid: int(r or 0) for cid, r in zip(contributor_ids, results, strict=False)}
 
 
 # ── Download counter buffer ─────────────────────────────────────────
@@ -84,7 +94,7 @@ async def get_all_download_deltas() -> dict[str, int]:
             for key in keys:
                 pipe.get(key)
             values = await pipe.execute()
-            for key, val in zip(keys, values):
+            for key, val in zip(keys, values, strict=False):
                 if val:
                     mid = key.decode().removeprefix(prefix)
                     result[mid] = int(val)

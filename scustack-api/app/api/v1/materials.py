@@ -1,4 +1,3 @@
-import hashlib
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -8,14 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.anti_scraping_events import log_anti_scraping_event
 from app.core.database import get_db
 from app.core.discovery_protection import enforce_discovery_rate_limit
-from app.core.request_identity import build_request_identity
-from app.core import oss
 from app.core.redis import RateLimiter
-from app.dependencies import get_current_user, get_optional_user
-from app.models.material import MaterialVersion
-from app.models.user import User
+from app.core.request_identity import build_request_identity
+from app.core.storage import (
+    StorageError,
+    add_primary_replica,
+    consume_uploaded_object,
+    resolve_download_url,
+)
 from app.core.permissions import Permission
-from app.dependencies import require_permission
+from app.dependencies import get_current_user, get_optional_user, require_permission
+from app.models.user import User
 from app.schemas.material import (
     MaterialCreate, MaterialResponse, MaterialUpdate,
     MaterialDetailResponse, RatingRequest, VersionCreate, VersionResponse,
@@ -24,6 +26,17 @@ from app.schemas.report import ReportCreate
 from app.services import copyright_service, material_service, report_service, review_service, upload_service, user_service
 
 router = APIRouter(prefix='/materials', tags=['materials'])
+
+
+def _can_access_material(material, current_user: User | None) -> bool:
+    if material.review_status == 'approved':
+        return True
+    if current_user is None:
+        return False
+    return (
+        str(material.contributor_id) == str(current_user.id)
+        or current_user.role in ('maintainer', 'admin')
+    )
 
 
 @router.get('')
@@ -58,17 +71,25 @@ async def list_materials(
 
 
 @router.get('/{material_id}')
-async def get_material(material_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_material(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
     m = await material_service.get_material(db, material_id)
-    if m is None or m.review_status == 'removed':
+    if m is None or m.review_status == 'removed' or not _can_access_material(m, current_user):
         return {'code': 40400, 'data': None, 'message': 'material not found'}
     return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'ok'}
 
 
 @router.get('/{material_id}/detail')
-async def get_material_detail(material_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_material_detail(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
     detail = await material_service.get_material_detail_first_screen(db, material_id)
-    if detail is None:
+    if detail is None or not _can_access_material(detail['material'], current_user):
         return {'code': 40400, 'data': None, 'message': 'material not found'}
     return {
         'code': 0,
@@ -91,25 +112,29 @@ async def create_material(
     else:
         is_new = False
 
-    kwargs = body.model_dump(exclude_none=True)
+    kwargs = body.model_dump(exclude_none=True, exclude={'upload_id'})
     if is_new:
         kwargs['review_status'] = 'pending'
-    elif await copyright_service.check_title_blocklist(body.title):
+    elif await copyright_service.check_title_blocklist(body.title, db):
         kwargs['review_status'] = 'pending'
 
     if body.source_type == 'hosted':
-        verify_error = upload_service.verify_uploaded_object(
-            body.storage_key or '',
-            body.file_size,
-            body.format,
-        )
-        if verify_error:
-            return {'code': 40000, 'data': None, 'message': verify_error}
+        if not body.upload_id:
+            return {'code': 40000, 'data': None, 'message': 'hosted materials require an uploaded file'}
+        try:
+            stored, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
+        except StorageError as e:
+            return {'code': 40000, 'data': None, 'message': str(e)}
+        kwargs.update(storage_key=stored.locator, file_hash=checksum, file_size=stored.file_size)
         kwargs['review_status'] = 'pending'
         kwargs['virus_scan_status'] = 'queued'
 
     m = await material_service.create_material(db, current_user.id, **kwargs)
     await db.flush()
+    if m.source_type == 'hosted':
+        latest_version = await material_service.get_latest_version(db, m.id)
+        if latest_version is not None:
+            await add_primary_replica(db, latest_version.id, stored, checksum)
     try:
         await user_service.notify_course_followers(db, m.course_id, m.title, m.id)
     except Exception:
@@ -121,7 +146,7 @@ async def create_material(
         if m.source_type == 'hosted':
             latest_version = await material_service.get_latest_version(db, m.id)
             if latest_version is not None:
-                virus_scan.delay(str(m.id), latest_version.storage_key)
+                virus_scan.delay(str(m.id), str(latest_version.id))
         pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:
         pass
@@ -220,14 +245,17 @@ async def download_material(
         return JSONResponse({'code': 42900, 'data': None, 'message': 'download rate limit exceeded'}, status_code=429)
 
     m = await material_service.get_material(db, material_id)
-    if m is None or m.source_type != 'hosted':
+    if m is None or m.source_type != 'hosted' or not _can_access_material(m, current_user):
         return JSONResponse({'code': 40400, 'data': None, 'message': 'file not available for download'}, status_code=404)
 
     version = await material_service.get_latest_version(db, material_id)
     if version is None:
         return JSONResponse({'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404)
 
-    url = oss.generate_download_url(version.storage_key)
+    try:
+        url = await resolve_download_url(db, version)
+    except StorageError:
+        return JSONResponse({'code': 50300, 'data': None, 'message': 'storage temporarily unavailable'}, status_code=503)
 
     from app.core.redis import incr_download
     await incr_download(str(m.id))
@@ -277,19 +305,38 @@ async def create_version(
         return {'code': 40400, 'data': None, 'message': 'material not found'}
     if str(m.contributor_id) != str(current_user.id) and current_user.role not in ('maintainer', 'admin'):
         return {'code': 40300, 'data': None, 'message': 'forbidden'}
+    try:
+        stored, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
+    except StorageError as e:
+        return {'code': 40000, 'data': None, 'message': str(e)}
     v = await material_service.add_version(
         db, material_id, current_user.id,
-        storage_key=body.storage_key,
-        file_hash=body.file_hash,
-        file_size=body.file_size,
+        storage_key=stored.locator,
+        file_hash=checksum,
+        file_size=stored.file_size,
         change_note=body.change_note,
     )
+    await add_primary_replica(db, v.id, stored, checksum)
     await db.commit()
+    try:
+        from app.tasks.material_tasks import pre_screen_content, virus_scan
+        virus_scan.delay(str(m.id), str(v.id))
+        pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
+    except Exception:
+        pass
     return {'code': 0, 'data': VersionResponse.model_validate(v).model_dump(mode='json'), 'message': 'version created'}
 
 
 @router.get('/{material_id}/versions/{version_id}/diff')
-async def version_diff(material_id: UUID, version_id: UUID, db: AsyncSession = Depends(get_db)):
+async def version_diff(
+    material_id: UUID,
+    version_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
+    material = await material_service.get_material(db, material_id)
+    if material is None or not _can_access_material(material, current_user):
+        return {'code': 40400, 'data': None, 'message': 'material not found'}
     try:
         result = await material_service.get_version_diff(db, material_id, version_id)
     except ValueError as e:

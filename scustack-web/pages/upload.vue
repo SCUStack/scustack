@@ -172,6 +172,7 @@
 </template>
 
 <script setup lang="ts">
+import { uploadHostedFile } from '~/composables/useStorageUpload'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { clearUploadDraft, loadUploadDraft, saveUploadDraft, type UploadDraft } from '~/composables/useLocalExperienceState'
 import { materialCategories, materialSemesters, sourceTypeOptions } from '~/data/business'
@@ -324,14 +325,8 @@ async function submitSingle() {
         return
       }
 
-      const tokenResp = await $fetch<{ code: number; message: string; data: { upload_url: string; storage_key: string } }>(`${apiBase}/api/v1/upload/token`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_name: f.name, content_type: f.type || 'application/octet-stream', file_size: f.size }),
-      })
-      if (tokenResp.code !== 0) { errorMsg.value = tokenResp.message; submitting.value = false; return }
-
       dropZoneRef.value?.setUploading(true, 0)
-      await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: f })
+      const uploadId = await uploadHostedFile(apiBase, f)
       dropZoneRef.value?.setUploading(true, 100)
 
       const ext = f.name.split('.').pop()?.toLowerCase() || ''
@@ -341,8 +336,7 @@ async function submitSingle() {
           title: form.title, course_id: form.courseId, category: form.category,
           semester: form.semester, teacher: form.teacher || undefined,
           source_type: 'hosted', description: form.description || undefined,
-          storage_key: tokenResp.data.storage_key, file_hash: fileHash,
-          file_size: f.size, format: ext,
+          upload_id: uploadId, format: ext,
         }),
       })
       if (materialResp.code !== 0) { errorMsg.value = materialResp.message; submitting.value = false; return }
@@ -410,14 +404,8 @@ async function submitBatch() {
         throw new Error(`该文件已存在：${dupResp.data.existing_title || '未知资料'}`)
       }
 
-      const tokenResp = await $fetch<{ code: number; message: string; data: { upload_url: string; storage_key: string } }>(`${apiBase}/api/v1/upload/token`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_name: f.name, content_type: f.type || 'application/octet-stream', file_size: f.size }),
-      })
-      if (tokenResp.code !== 0) throw new Error(tokenResp.message)
-
       bf.progress = 30
-      await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: f })
+      const uploadId = await uploadHostedFile(apiBase, f)
       bf.progress = 80
 
       const ext = f.name.split('.').pop()?.toLowerCase() || ''
@@ -427,8 +415,7 @@ async function submitBatch() {
           title: bf.title, course_id: form.courseId, category: bf.category,
           semester: form.semester, teacher: form.teacher || undefined,
           source_type: 'hosted', description: undefined,
-          storage_key: tokenResp.data.storage_key, file_hash: fileHash,
-          file_size: f.size, format: ext,
+          upload_id: uploadId, format: ext,
         }),
       })
       if (materialResp.code !== 0) throw new Error(materialResp.message)

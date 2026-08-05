@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -7,22 +7,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.copyright_complaint import CopyrightComplaint
 
+FALLBACK_TITLE_BLOCKLIST = frozenset({"高等数学第七版课后答案", "同济高数第七版", "考研英语历年真题详解"})
+
+
 def generate_ticket_number() -> str:
-    return f'DMCA-{datetime.now(timezone.utc).strftime("%Y%m%d")}-{secrets.token_hex(4).upper()}'
+    return f'DMCA-{datetime.now(UTC).strftime("%Y%m%d")}-{secrets.token_hex(4).upper()}'
 
 
-async def check_title_blocklist(title: str) -> bool:
+async def check_title_blocklist(title: str, db: AsyncSession | None = None) -> bool:
     """Return True if the title matches a known copyrighted title from DB."""
     try:
         from app.core.database import async_session
         from app.services.blocklist_service import check_title_blocklist as _check
+
+        if db is not None:
+            return await _check(db, title)
         async with async_session() as db:
             return await _check(db, title)
     except Exception:
         # Fallback to hardcoded check if DB unavailable
-        _FALLBACK = frozenset({'高等数学第七版课后答案', '同济高数第七版', '考研英语历年真题详解'})
         title_lower = title.lower().strip()
-        for b in _FALLBACK:
+        for b in FALLBACK_TITLE_BLOCKLIST:
             if b.lower() in title_lower:
                 return True
         return False
@@ -88,6 +93,6 @@ async def resolve_complaint(
     complaint.status = status
     complaint.resolution_note = resolution_note
     complaint.resolved_by = resolved_by
-    complaint.resolved_at = datetime.now(timezone.utc)
+    complaint.resolved_at = datetime.now(UTC)
     await db.flush()
     return complaint

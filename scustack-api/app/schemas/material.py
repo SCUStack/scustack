@@ -18,6 +18,7 @@ class MaterialCreate(BaseModel):
     file_size: int | None = None
     format: str | None = None
     parts: list[dict] | None = None
+    upload_id: str | None = Field(None, min_length=32, max_length=64)
 
 
 class MaterialUpdate(BaseModel):
@@ -104,9 +105,7 @@ class RatingRequest(BaseModel):
 
 
 class VersionCreate(BaseModel):
-    storage_key: str
-    file_hash: str
-    file_size: int
+    upload_id: str = Field(min_length=32, max_length=64)
     change_note: str | None = None
 
 

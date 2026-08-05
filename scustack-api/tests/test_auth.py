@@ -206,7 +206,8 @@ class TestPermissions:
         assert Permission.MATERIALS_READ in ROLE_PERMISSIONS['visitor']
         assert Permission.MATERIALS_CREATE not in ROLE_PERMISSIONS['visitor']
         assert Permission.MATERIALS_MODERATE in ROLE_PERMISSIONS['maintainer']
-        assert Permission.USERS_MANAGE in ROLE_PERMISSIONS['maintainer']
+        assert Permission.USERS_MANAGE not in ROLE_PERMISSIONS['maintainer']
+        assert Permission.USERS_MANAGE in ROLE_PERMISSIONS['admin']
         assert Permission.USERS_MANAGE in ROLE_PERMISSIONS['admin']
 
     def test_admin_has_all_permissions(self):

@@ -244,7 +244,7 @@ class TestMaterialService:
         mock_result.scalar_one_or_none.side_effect = [target, prev]
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        with patch('app.services.material_service.oss.generate_download_url', return_value='http://fake.url/file'):
+        with patch('app.services.material_service.resolve_access_url', new_callable=AsyncMock, return_value='http://fake.url/file'):
             with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
                 mock_resp = MagicMock()
                 mock_resp.status_code = 200
@@ -287,6 +287,7 @@ class TestMaterialDownload:
         identity.scoped_key.side_effect = lambda prefix: f'{prefix}:identity-key'
         material = MagicMock()
         material.source_type = 'hosted'
+        material.review_status = 'approved'
         material.id = MATERIAL_ID
         material.contributor_id = None
         version = MagicMock()
@@ -296,7 +297,7 @@ class TestMaterialDownload:
             with patch('app.api.v1.materials.build_request_identity', return_value=identity), \
                  patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
                  patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
-                 patch('app.api.v1.materials.oss.generate_download_url', return_value='https://example.com/file'), \
+                 patch('app.api.v1.materials.resolve_download_url', new_callable=AsyncMock, return_value='https://example.com/file'), \
                  patch('app.core.redis.incr_download', new_callable=AsyncMock), \
                  patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[allow_decision, allow_decision]) as check_mock:
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
@@ -320,9 +321,23 @@ class TestMaterialDownload:
 
 class TestVersionDiff:
     async def test_diff_non_text_returns_null_diff(self, client):
-        with patch('app.api.v1.materials.material_service.get_version_diff', new_callable=AsyncMock, return_value={
+        material = MagicMock()
+        material.review_status = 'approved'
+        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
+             patch('app.api.v1.materials.material_service.get_version_diff', new_callable=AsyncMock, return_value={
             'diff': None, 'version_number': 1, 'message': 'diff available for text files only',
         }):
             resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/versions/00000000-0000-0000-0000-000000000002/diff')
             data = resp.json()['data']
             assert data['diff'] is None
+
+    async def test_pending_material_diff_is_not_public(self, client):
+        material = MagicMock()
+        material.review_status = 'pending'
+        material.contributor_id = 'owner-id'
+        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material):
+            resp = await client.get(
+                f'/api/v1/materials/{MATERIAL_ID}/versions/00000000-0000-0000-0000-000000000002/diff',
+            )
+
+        assert resp.json()['code'] == 40400

@@ -1,4 +1,5 @@
 import { saveRecentView as persistRecentView, type RecentItem } from '~/composables/useLocalExperienceState'
+import { uploadHostedFile } from '~/composables/useStorageUpload'
 import type { MaterialItem, MaterialVersion, CollectionItem } from '~/types/api'
 
 interface MaterialDetailPayload {
@@ -214,21 +215,7 @@ export function useMaterial(materialId: Ref<string>) {
   }
 
   async function submitNewVersion(file: File, changeNote: string): Promise<void> {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
-    const fileHash = Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, '0')).join('')
-
-    const tokenResp = await $fetch<{ code: number; message: string; data: { upload_url: string; storage_key: string } }>(
-      `${apiBase}/api/v1/upload/token`,
-      {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_name: file.name, content_type: file.type || 'application/octet-stream', file_size: file.size }),
-      },
-    )
-    if (tokenResp.code !== 0) throw new Error(tokenResp.message || '获取上传凭证失败')
-
-    await $fetch(tokenResp.data.upload_url, { method: 'PUT', body: file })
+    const uploadId = await uploadHostedFile(apiBase, file)
 
     const resp = await $fetch<{ code: number; data: MaterialVersion | null; message: string }>(
       `${apiBase}/api/v1/materials/${materialId.value}/versions`,
@@ -236,8 +223,7 @@ export function useMaterial(materialId: Ref<string>) {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          storage_key: tokenResp.data.storage_key,
-          file_hash: fileHash, file_size: file.size,
+          upload_id: uploadId,
           change_note: changeNote || undefined,
         }),
       },

@@ -183,7 +183,7 @@ export interface HomepageData {
 
 // ── Upload ──
 export interface UploadToken {
-  storage_key: string
-  presigned_url: string
-  expires_in: number
+  upload_id: string
+  upload_url: string
+  method: 'POST'
 }

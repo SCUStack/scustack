@@ -90,8 +90,8 @@ describe('upload page', () => {
   it('shows pending-review success feedback after hosted upload succeeds', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ code: 0, data: { is_duplicate: false } })
-      .mockResolvedValueOnce({ code: 0, data: { upload_url: 'http://upload.test', storage_key: 'materials/test.pdf' }, message: 'ok' })
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ code: 0, data: { upload_id: 'ticket-id', upload_url: '/api/v1/upload/ticket-id/file', method: 'POST' }, message: 'ok' })
+      .mockResolvedValueOnce({ code: 0, data: { upload_id: 'ticket-id' }, message: 'file uploaded' })
       .mockResolvedValueOnce({ code: 0, data: { id: 'material-id' }, message: 'material submitted for review' })
     vi.stubGlobal('$fetch', fetchMock)
 

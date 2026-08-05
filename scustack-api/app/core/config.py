@@ -6,9 +6,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     APP_NAME: str = 'scustack-api'
     APP_ENV: Literal['dev', 'staging', 'prod'] = 'dev'
-    DEBUG: bool = True
+    DEBUG: bool = False
     SENTRY_DSN: str = ''
     PUBLIC_API_BASE: str = 'http://localhost:8403'
+    TRUSTED_HOSTS: list[str] = []
 
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
         'JWT_SECRET_KEY', 'ENCRYPTION_KEY', 'DB_PASSWORD',
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = 'redis://localhost:6379/0'
+    REDIS_CONNECT_TIMEOUT_SECONDS: float = 0.2
 
     # Elasticsearch
     ES_HOST: str = 'http://localhost:9200'
@@ -35,6 +37,17 @@ class Settings(BaseSettings):
     OSS_ACCESS_KEY_SECRET: str = ''
     OSS_ENDPOINT: str = ''
     OSS_BUCKET: str = ''
+
+    STORAGE_DEFAULT_PROVIDER: Literal['lfs', 'oss'] = 'lfs'
+    STORAGE_TARGET_REPLICA_COUNT: int = 1
+    STORAGE_DOWNLOAD_GATEWAY: str = 'https://download.cacode.qzz.io'
+
+    LFS_UPLOAD_URL: str = 'https://lfs.cacode.qzz.io/upload'
+    LFS_PUBLIC_BASE: str = 'https://lfs.cacode.qzz.io'
+    LFS_API_TOKEN: str = ''
+    LFS_AUTH_HEADER: str = 'Authorization'
+    LFS_AUTH_PREFIX: str = 'Bearer'
+    LFS_UPLOAD_FIELD: str = 'file'
 
     # Encryption (AES-256-GCM for PII fields)
     ENCRYPTION_KEY: str = 'change-me-in-production'
@@ -70,6 +83,12 @@ class Settings(BaseSettings):
             default = defaults.get(name)
             if current == default:
                 issues.append(f'{name} is still set to default value')
+        if self.STORAGE_DEFAULT_PROVIDER == 'lfs' and not self.LFS_API_TOKEN:
+            issues.append('LFS_API_TOKEN is required when LFS is the default storage provider')
+        if self.APP_ENV == 'prod' and self.DEBUG:
+            issues.append('DEBUG must be disabled in production')
+        if self.APP_ENV == 'prod' and not self.TRUSTED_HOSTS:
+            issues.append('TRUSTED_HOSTS must be configured in production')
         return issues
 
     @property

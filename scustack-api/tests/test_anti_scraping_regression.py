@@ -43,11 +43,20 @@ async def test_regression_search_pressure_keeps_normal_challenge_and_block_disti
     with patch('app.core.search_pressure.cache_get', new_callable=AsyncMock, return_value='0'), \
          patch('app.core.search_pressure.cache_set', new_callable=AsyncMock):
         normal = await apply_search_pressure('key', query='关键词', page=1, page_size=20, is_authenticated=False, rapid_scroll_detected=False)
-        challenge = await apply_search_pressure('key', query='', page=3, page_size=20, is_authenticated=False, rapid_scroll_detected=True)
 
-    with patch('app.core.search_pressure.cache_get', new_callable=AsyncMock, return_value='6'), \
+    async def challenge_cache_get(key):
+        return '5' if 'max-page' in key else '6'
+
+    with patch('app.core.search_pressure.cache_get', new_callable=AsyncMock, side_effect=challenge_cache_get), \
          patch('app.core.search_pressure.cache_set', new_callable=AsyncMock):
-        block = await apply_search_pressure('key', query='', page=5, page_size=20, is_authenticated=False, rapid_scroll_detected=True)
+        challenge = await apply_search_pressure('key', query='', page=10, page_size=20, is_authenticated=False, rapid_scroll_detected=True)
+
+    async def block_cache_get(key):
+        return '10' if 'max-page' in key else '14'
+
+    with patch('app.core.search_pressure.cache_get', new_callable=AsyncMock, side_effect=block_cache_get), \
+         patch('app.core.search_pressure.cache_set', new_callable=AsyncMock):
+        block = await apply_search_pressure('key', query='', page=20, page_size=20, is_authenticated=False, rapid_scroll_detected=True)
 
     assert normal.level == SearchPressureLevel.NORMAL
     assert challenge.level == SearchPressureLevel.CHALLENGE

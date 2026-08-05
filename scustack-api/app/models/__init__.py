@@ -13,7 +13,7 @@ from app.models.content_blocklist import ContentBlocklist
 from app.models.copyright_complaint import CopyrightComplaint
 from app.models.correction import CorrectionSuggestion
 from app.models.course import Course
-from app.models.material import Material, MaterialVersion
+from app.models.material import Material, MaterialFileReplica, MaterialVersion
 from app.models.notification import Notification
 from app.models.report import Report
 from app.models.review_log import ReviewLog
@@ -25,7 +25,7 @@ from app.models.wish import Wish, WishVote
 
 __all__ = [
     'Base', 'User', 'RefreshToken', 'UserBadge', 'College', 'Course',
-    'Material', 'MaterialVersion', 'Bookmark', 'CorrectionSuggestion', 'Notification',
+    'Material', 'MaterialVersion', 'MaterialFileReplica', 'Bookmark', 'CorrectionSuggestion', 'Notification',
     'ReviewLog', 'Report', 'AuditLog', 'AcademicCalendar',
     'Wish', 'WishVote', 'CopyrightComplaint', 'AccountDeletion',
     'Feedback', 'Collection', 'CollectionItem', 'Comment', 'ContentBlocklist',

@@ -1,14 +1,13 @@
 """Celery task: extract searchable text from hosted materials and sync to ES."""
 import asyncio
-from pathlib import Path
 
 import httpx
 from sqlalchemy import select
 
 from app.core import elasticsearch as es
-from app.core import oss
 from app.core.celery_app import app
 from app.core.database import async_session
+from app.core.storage import resolve_access_url
 from app.models.college import College
 from app.models.course import Course
 from app.models.material import Material
@@ -57,8 +56,8 @@ async def build_index_document(db, material: Material, content_text: str | None 
     }
 
 
-async def extract_content_text(storage_key: str, file_size: int | None = None) -> str:
-    ext = storage_key.rsplit('.', 1)[-1].lower() if '.' in storage_key else ''
+async def extract_content_text(access_url: str, file_size: int | None = None, file_format: str | None = None) -> str:
+    ext = (file_format or access_url.rsplit('.', 1)[-1]).lower() if '.' in access_url else (file_format or '').lower()
     if ext not in EXTRACTABLE_EXTENSIONS:
         return ''
     if ext == 'pdf' and file_size and file_size > MAX_PDF_EXTRACT_SIZE:
@@ -66,9 +65,8 @@ async def extract_content_text(storage_key: str, file_size: int | None = None) -
     if ext != 'pdf' and file_size and file_size > MAX_EXTRACT_SIZE:
         return ''
 
-    url = oss.generate_download_url(storage_key, expires=600)
-    async with httpx.AsyncClient(timeout=EXTRACT_TIMEOUT_SECONDS) as client:
-        resp = await client.get(url)
+    async with httpx.AsyncClient(timeout=EXTRACT_TIMEOUT_SECONDS, follow_redirects=False) as client:
+        resp = await client.get(access_url)
         resp.raise_for_status()
         content = resp.content
 
@@ -121,7 +119,8 @@ def extract_material_content_to_es(material_id: str):
                 return
 
             try:
-                content_text = await extract_content_text(latest_version.storage_key, latest_version.file_size)
+                access_url = await resolve_access_url(db, latest_version)
+                content_text = await extract_content_text(access_url, latest_version.file_size, material.format)
             except Exception:
                 content_text = ''
 
