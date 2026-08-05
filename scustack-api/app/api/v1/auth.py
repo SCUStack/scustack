@@ -35,7 +35,7 @@ router = APIRouter(prefix='/auth', tags=['auth'])
 ACCESS_COOKIE = 'access_token'
 REFRESH_COOKIE = 'refresh_token'
 CSRF_COOKIE = 'csrf_token'
-SECURE = not settings.is_dev
+SECURE = settings.session_cookie_secure
 
 
 def _get_ip(request: Request) -> str:

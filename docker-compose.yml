@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16
-    container_name: scustack-postgres
     environment:
       POSTGRES_USER: scustack
       POSTGRES_PASSWORD: scustack
@@ -18,7 +17,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: scustack-redis
     ports:
       - '26379:6379'
     volumes:
@@ -31,7 +29,7 @@ services:
 
   elasticsearch:
     build: ./docker/elasticsearch
-    container_name: scustack-elasticsearch
+    profiles: ['development']
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -55,7 +53,7 @@ services:
 
   onlyoffice:
     image: onlyoffice/documentserver:8.2
-    container_name: scustack-onlyoffice
+    profiles: ['development']
     environment:
       JWT_ENABLED: 'false'
     ports:

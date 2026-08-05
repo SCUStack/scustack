@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ''
     PUBLIC_API_BASE: str = 'http://localhost:8403'
     TRUSTED_HOSTS: list[str] = []
+    COOKIE_SECURE: bool | None = None
 
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
         'JWT_SECRET_KEY', 'ENCRYPTION_KEY', 'DB_PASSWORD',
@@ -101,6 +102,10 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.APP_ENV == 'dev'
+
+    @property
+    def session_cookie_secure(self) -> bool:
+        return not self.is_dev if self.COOKIE_SECURE is None else self.COOKIE_SECURE
 
 
 settings = Settings()

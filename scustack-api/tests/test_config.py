@@ -19,6 +19,11 @@ class TestSettings:
         s = Settings()
         assert s.is_dev is True
 
+    def test_session_cookie_secure_defaults_and_explicit_override(self):
+        assert Settings(APP_ENV='dev').session_cookie_secure is False
+        assert Settings(APP_ENV='prod').session_cookie_secure is True
+        assert Settings(APP_ENV='prod', COOKIE_SECURE=False).session_cookie_secure is False
+
     def test_validate_secrets_reports_default_keys(self):
         s = Settings(
             JWT_SECRET_KEY='change-me-in-production',
