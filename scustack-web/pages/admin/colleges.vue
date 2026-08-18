@@ -9,6 +9,10 @@
         <button class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer" @click="openCreate">新建学院</button>
       </div>
 
+      <div v-if="errorMessage" class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+        {{ errorMessage }}
+      </div>
+
       <div v-if="loading" class="flex justify-center py-16">
         <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
       </div>
@@ -80,17 +84,23 @@ const editingId = ref('')
 const deleteTarget = ref<any>(null)
 const saving = ref(false)
 const deleting = ref(false)
+const errorMessage = ref('')
 const form = reactive({ name: '', slug: '', sort_order: 0 })
 
 async function loadColleges() {
   loading.value = true
+  errorMessage.value = ''
   try {
-    const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/colleges`)
-    if (resp.code === 0) {
-      colleges.value = resp.data
-      total.value = resp.data.length
-    }
-  } catch { /* noop */ }
+    const resp = await $fetch<{ code: number; data: any[]; message?: string }>(
+      `${apiBase}/api/v1/colleges?admin_refresh=${Date.now()}`,
+      { credentials: 'include', cache: 'no-store' },
+    )
+    if (resp.code !== 0) throw new Error(resp.message || '学院列表加载失败')
+    colleges.value = resp.data
+    total.value = resp.data.length
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '学院列表加载失败，请刷新重试'
+  }
   loading.value = false
 }
 
@@ -112,23 +122,28 @@ function openEdit(c: any) {
 
 async function saveCollege() {
   saving.value = true
+  errorMessage.value = ''
   try {
+    let resp: { code: number; message?: string }
     if (editingId.value) {
-      await $fetch(`${apiBase}/api/v1/colleges/${editingId.value}`, {
+      resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/colleges/${editingId.value}`, {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: form.name, slug: form.slug, sort_order: form.sort_order }),
       })
     } else {
-      await $fetch(`${apiBase}/api/v1/colleges`, {
+      resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/colleges`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: form.name, slug: form.slug, sort_order: form.sort_order }),
       })
     }
+    if (resp.code !== 0) throw new Error(resp.message || '保存学院失败')
     showForm.value = false
     await loadColleges()
-  } catch { /* noop */ }
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '保存学院失败，请重试'
+  }
   saving.value = false
 }
 
@@ -139,14 +154,18 @@ function openDelete(c: any) {
 
 async function confirmDelete() {
   deleting.value = true
+  errorMessage.value = ''
   try {
-    await $fetch(`${apiBase}/api/v1/colleges/${deleteTarget.value.id}`, {
+    const resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/colleges/${deleteTarget.value.id}`, {
       method: 'DELETE', credentials: 'include',
     })
+    if (resp.code !== 0) throw new Error(resp.message || '删除学院失败')
     showDelete.value = false
     deleteTarget.value = null
     await loadColleges()
-  } catch { /* noop */ }
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '删除学院失败，请重试'
+  }
   deleting.value = false
 }
 

@@ -154,6 +154,16 @@ const prefersReducedMotion = typeof window !== 'undefined' ? window.matchMedia('
 
 function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.value.length }
 
+async function refreshCollegeLinks() {
+  try {
+    const resp = await $fetch<{ code: number; data: { id: string; name: string }[] }>(
+      `${apiBase}/api/v1/colleges?homepage_refresh=${Date.now()}`,
+      { cache: 'no-store' },
+    )
+    if (resp.code === 0) colleges.value = resp.data
+  } catch { /* keep the SSR/SWR payload when the refresh is unavailable */ }
+}
+
 const { data: homepagePayload } = await useAsyncData('homepage-index', async () => {
   try {
     const [homeResp, collegeResp] = await Promise.all([
@@ -183,6 +193,7 @@ if (initialPayload?.collegeResp?.code === 0) {
 
 onMounted(async () => {
   if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
+  await refreshCollegeLinks()
 })
 
 const MAX_RECENT = 89
