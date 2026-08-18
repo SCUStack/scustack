@@ -177,6 +177,9 @@ async function saveCourse() {
   saving.value = true
   errorMessage.value = ''
   try {
+    if (!form.value.college_id) throw new Error('请先选择所属学院')
+    if (!form.value.name.trim()) throw new Error('请输入课程名称')
+    if (!form.value.slug.trim()) throw new Error('请输入课程 Slug')
     let resp: { code: number; message?: string }
     if (editingId.value) {
       resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/courses/${editingId.value}`, {
