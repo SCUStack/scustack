@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.services.search_service import (
+from app.core.search_contract import (
     SEARCH_FILTER_GROUPS_META,
     SEARCH_FILTER_OPTIONS,
     SEARCH_SORT_OPTIONS,

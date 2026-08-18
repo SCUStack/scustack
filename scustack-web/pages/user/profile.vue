@@ -343,6 +343,7 @@ onUnmounted(clearAvatarPreview)
 
 function formatDate(createdAt: string) {
   return new Date(createdAt).toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
