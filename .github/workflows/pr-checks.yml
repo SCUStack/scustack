@@ -64,7 +64,7 @@ jobs:
       - run: pip install -e "scustack-api/[dev]"
       - run: cd scustack-api && alembic upgrade head
       - run: cd scustack-api && pytest --cov --cov-report=xml -q
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: backend-coverage
