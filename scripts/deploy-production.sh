@@ -42,6 +42,7 @@ docker compose "${compose_files[@]}" pull
 docker compose "${compose_files[@]}" up -d postgres redis elasticsearch
 docker compose "${compose_files[@]}" run --rm api alembic upgrade head
 docker compose "${compose_files[@]}" up -d --remove-orphans
+docker compose "${compose_files[@]}" up -d --force-recreate ingress
 
 for attempt in $(seq 1 30); do
   if curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/health/ready >/dev/null; then
