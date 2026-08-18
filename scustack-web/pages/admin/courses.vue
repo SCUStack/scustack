@@ -18,6 +18,10 @@
         </select>
       </div>
 
+      <div v-if="errorMessage" class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+        {{ errorMessage }}
+      </div>
+
       <div v-if="loading" class="flex justify-center py-16">
         <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
       </div>
@@ -58,6 +62,10 @@
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">课程名称</label>
               <input v-model="form.name" maxlength="200" class="w-full h-9 px-3 border border-slate-200 rounded-md text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Slug</label>
+              <input v-model="form.slug" maxlength="100" placeholder="英文标识，如 data-structures" class="w-full h-9 px-3 border border-slate-200 rounded-md text-sm" />
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">分类</label>
@@ -116,70 +124,95 @@ const mergeSource = ref<any>(null)
 const mergeTargetId = ref('')
 const saving = ref(false)
 const merging = ref(false)
-const form = ref({ college_id: '', name: '', category: '', credit: 0 })
+const errorMessage = ref('')
+const form = ref({ college_id: '', name: '', slug: '', category: '', credit: 0 })
 
 async function loadCourses() {
   loading.value = true
+  errorMessage.value = ''
   const params = new URLSearchParams()
   if (collegeFilter.value) params.set('college_id', collegeFilter.value)
+  params.set('admin_refresh', String(Date.now()))
   try {
-    const resp = await $fetch<{ code: number; data: any[] | { items: any[]; total: number } }>(`${apiBase}/api/v1/courses?${params.toString()}`)
-    if (resp.code === 0) {
-      let items = Array.isArray(resp.data) ? resp.data : ((resp.data as any).courses || (resp.data as any).items || [])
-      if (searchQuery.value) items = items.filter((c: any) => c.name.includes(searchQuery.value))
-      courses.value = items
-      total.value = items.length
-    }
-  } catch { /* noop */ }
+    const resp = await $fetch<{ code: number; data: any[]; message?: string }>(
+      `${apiBase}/api/v1/courses/manage?${params.toString()}`,
+      { credentials: 'include', cache: 'no-store' },
+    )
+    if (resp.code !== 0) throw new Error(resp.message || '课程列表加载失败')
+    let items = resp.data
+    if (searchQuery.value) items = items.filter((c: any) => c.name.includes(searchQuery.value))
+    courses.value = items
+    total.value = items.length
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '课程列表加载失败，请刷新重试'
+  }
   loading.value = false
 }
 
 async function loadColleges() {
-  const resp = await $fetch<{ code: number; data: any[] }>(`${apiBase}/api/v1/colleges`)
-  if (resp.code === 0) colleges.value = resp.data
+  try {
+    const resp = await $fetch<{ code: number; data: any[] }>(
+      `${apiBase}/api/v1/colleges?admin_refresh=${Date.now()}`,
+      { credentials: 'include', cache: 'no-store' },
+    )
+    if (resp.code === 0) colleges.value = resp.data
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '学院列表加载失败，请刷新重试'
+  }
 }
 
 function openCreate() {
   editingId.value = ''
-  form.value = { college_id: colleges.value[0]?.id || '', name: '', category: '', credit: 0 }
+  form.value = { college_id: colleges.value[0]?.id || '', name: '', slug: '', category: '', credit: 0 }
   showForm.value = true
 }
 
 function openEdit(c: any) {
   editingId.value = c.id
-  form.value = { college_id: c.college_id, name: c.name, category: c.category || '', credit: c.credit || 0 }
+  form.value = { college_id: c.college_id, name: c.name, slug: c.slug, category: c.category || '', credit: c.credit || 0 }
   showForm.value = true
 }
 
 async function saveCourse() {
   saving.value = true
+  errorMessage.value = ''
   try {
+    let resp: { code: number; message?: string }
     if (editingId.value) {
-      await $fetch(`${apiBase}/api/v1/courses/${editingId.value}`, {
+      resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/courses/${editingId.value}`, {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form.value),
       })
     } else {
-      await $fetch(`${apiBase}/api/v1/courses`, {
+      resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/courses`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form.value),
       })
     }
+    if (resp.code !== 0) throw new Error(resp.message || '保存课程失败')
     showForm.value = false
     await loadCourses()
-  } catch { /* noop */ }
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '保存课程失败，请重试'
+  }
   saving.value = false
 }
 
 async function toggleActive(c: any) {
-  await $fetch(`${apiBase}/api/v1/courses/${c.id}`, {
-    method: 'PATCH', credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ is_active: !c.is_active }),
-  })
-  await loadCourses()
+  errorMessage.value = ''
+  try {
+    const resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/courses/${c.id}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !c.is_active }),
+    })
+    if (resp.code !== 0) throw new Error(resp.message || '课程状态更新失败')
+    await loadCourses()
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '课程状态更新失败，请重试'
+  }
 }
 
 function openMerge(c: any) {
@@ -190,13 +223,17 @@ function openMerge(c: any) {
 
 async function doMerge() {
   merging.value = true
+  errorMessage.value = ''
   try {
-    await $fetch(`${apiBase}/api/v1/courses/${mergeSource.value.id}/merge?target_id=${mergeTargetId.value}`, {
+    const resp = await $fetch<{ code: number; message?: string }>(`${apiBase}/api/v1/courses/${mergeSource.value.id}/merge?target_id=${mergeTargetId.value}`, {
       method: 'POST', credentials: 'include',
     })
+    if (resp.code !== 0) throw new Error(resp.message || '合并课程失败')
     showMerge.value = false
     await loadCourses()
-  } catch { /* noop */ }
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '合并课程失败，请重试'
+  }
   merging.value = false
 }
 

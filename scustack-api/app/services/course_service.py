@@ -7,8 +7,14 @@ from sqlalchemy.orm import joinedload
 from app.models.course import Course
 
 
-async def list_courses(db: AsyncSession, college_id: UUID | None = None) -> list[Course]:
-    stmt = select(Course).options(joinedload(Course.college)).where(Course.is_active == True)
+async def list_courses(
+    db: AsyncSession,
+    college_id: UUID | None = None,
+    include_inactive: bool = False,
+) -> list[Course]:
+    stmt = select(Course).options(joinedload(Course.college))
+    if not include_inactive:
+        stmt = stmt.where(Course.is_active == True)
     if college_id:
         stmt = stmt.where(Course.college_id == college_id)
     stmt = stmt.order_by(Course.name)
@@ -27,6 +33,7 @@ async def create_course(db: AsyncSession, **kwargs) -> Course:
     course = Course(**kwargs)
     db.add(course)
     await db.flush()
+    await db.refresh(course, attribute_names=['college'])
     return course
 
 

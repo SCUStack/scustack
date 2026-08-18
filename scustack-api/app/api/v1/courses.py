@@ -78,6 +78,20 @@ async def list_courses(
     }
 
 
+@router.get('/manage')
+async def list_courses_for_management(
+    college_id: UUID | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    courses = await course_service.list_courses(db, college_id, include_inactive=True)
+    return {
+        'code': 0,
+        'data': [CourseResponse.model_validate(course).model_dump(mode='json') for course in courses],
+        'message': 'ok',
+    }
+
+
 @router.get('/{course_id}')
 async def get_course(course_id: UUID, db: AsyncSession = Depends(get_db)):
     course = await course_service.get_course(db, course_id)

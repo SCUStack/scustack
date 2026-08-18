@@ -43,6 +43,10 @@ class TestCourseListAPI:
             resp = await client.get(f'/api/v1/courses/{COURSE_ID}')
             assert resp.json()['code'] == 40400
 
+    async def test_management_list_requires_authentication(self, client):
+        resp = await client.get('/api/v1/courses/manage')
+        assert resp.status_code == 401
+
 
 class TestCourseService:
     @pytest.mark.asyncio
@@ -66,15 +70,29 @@ class TestCourseService:
         assert result == []
 
     @pytest.mark.asyncio
+    async def test_management_list_includes_inactive_courses(self):
+        from app.services.course_service import list_courses
+        mock_db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        result = await list_courses(mock_db, include_inactive=True)
+        assert result == []
+        statement = str(mock_db.execute.await_args.args[0])
+        assert 'WHERE courses.is_active' not in statement
+
+    @pytest.mark.asyncio
     async def test_create_course(self):
         from app.services.course_service import create_course
         mock_db = MagicMock()
         mock_db.add = MagicMock()
         mock_db.flush = AsyncMock()
+        mock_db.refresh = AsyncMock()
         c = await create_course(mock_db, college_id=COLLEGE_ID, name='数据结构', slug='ds')
         assert c.name == '数据结构'
         assert c.slug == 'ds'
         mock_db.add.assert_called_once()
+        mock_db.refresh.assert_awaited_once_with(c, attribute_names=['college'])
 
     @pytest.mark.asyncio
     async def test_find_by_alias(self):
