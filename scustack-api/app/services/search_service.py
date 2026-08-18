@@ -78,7 +78,14 @@ async def search(
         )
         hits = result['hits']
         return {
-            'items': [{'id': h['_id'], **h['_source']} for h in hits['hits']],
+            'items': [
+                {
+                    'id': h['_id'],
+                    'thumbnail_url': f'/api/v1/materials/{h["_id"]}/thumbnail',
+                    **h['_source'],
+                }
+                for h in hits['hits']
+            ],
             'total': hits['total']['value'],
             'page': page,
             'page_size': page_size,
@@ -188,6 +195,7 @@ async def _fallback_search(
         for material, course_name, course_aliases, college_name in rows:
             item = {
                 'id': str(material.id),
+                'thumbnail_url': f'/api/v1/materials/{material.id}/thumbnail',
                 'course_id': str(material.course_id),
                 'title': material.title,
                 'description': material.description,
