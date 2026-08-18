@@ -45,6 +45,7 @@ async def update_course(db: AsyncSession, course_id: UUID, **kwargs) -> Course |
         if v is not None:
             setattr(course, k, v)
     await db.flush()
+    await db.refresh(course, attribute_names=['updated_at'])
     return course
 
 

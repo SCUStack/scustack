@@ -95,6 +95,26 @@ class TestCourseService:
         mock_db.refresh.assert_awaited_once_with(c, attribute_names=['college'])
 
     @pytest.mark.asyncio
+    async def test_update_course_refreshes_database_generated_timestamp(self):
+        from app.services.course_service import update_course
+
+        mock_db = MagicMock()
+        mock_db.flush = AsyncMock()
+        mock_db.refresh = AsyncMock()
+        course = MagicMock()
+
+        with patch(
+            'app.services.course_service.get_course',
+            new_callable=AsyncMock,
+            return_value=course,
+        ):
+            result = await update_course(mock_db, COURSE_ID, name='操作系统')
+
+        assert result is course
+        assert course.name == '操作系统'
+        mock_db.refresh.assert_awaited_once_with(course, attribute_names=['updated_at'])
+
+    @pytest.mark.asyncio
     async def test_find_by_alias(self):
         from app.services.course_service import find_by_alias
         mock_db = MagicMock()
