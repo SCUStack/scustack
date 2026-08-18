@@ -5,6 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.middleware.anti_proxy import _is_allowed_host
 from app.middleware.security import SecurityHeadersMiddleware
 
 
@@ -128,6 +129,16 @@ class TestXssEscape:
 
 
 class TestCorsRestriction:
+    def test_anti_proxy_uses_configured_trusted_hosts(self):
+        with patch(
+            'app.middleware.anti_proxy.settings.TRUSTED_HOSTS',
+            ['scustack.top', 'www.scustack.top', '43.155.210.93'],
+        ):
+            assert _is_allowed_host('scustack.top') is True
+            assert _is_allowed_host('www.scustack.top') is True
+            assert _is_allowed_host('43.155.210.93') is True
+            assert _is_allowed_host('mirror.example.com') is False
+
     async def test_cors_no_star_methods(self):
         # Verify CORS is restricted (not wildcard methods)
         from app.main import app

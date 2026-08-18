@@ -4,8 +4,6 @@ from starlette.responses import JSONResponse
 
 from app.core.config import settings
 
-ALLOWED_HOSTS = {'scustack.com', 'www.scustack.com', 'localhost', '127.0.0.1'}
-
 
 class AntiProxyMiddleware(BaseHTTPMiddleware):
     """Block cross-origin API requests to prevent unauthorized proxy/mirroring."""
@@ -59,7 +57,7 @@ class AntiProxyMiddleware(BaseHTTPMiddleware):
 
 
 def _is_allowed_host(host: str) -> bool:
-    if host in ALLOWED_HOSTS:
+    if host in settings.TRUSTED_HOSTS:
         return True
     if settings.is_dev and host in ('localhost', '127.0.0.1', '0.0.0.0'):
         return True
