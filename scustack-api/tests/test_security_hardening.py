@@ -85,13 +85,16 @@ class TestRateLimiterResilience:
 
         async def _test():
             limiter = RateLimiter(max_requests=5, window_seconds=60)
-            # Redis is not running, but is_allowed should return True
-            allowed = await limiter.is_allowed('test:key')
-            assert allowed is True
-            remaining = await limiter.remaining('test:key')
-            assert remaining == 5
-            headers = await limiter.limit_headers('test:key')
-            assert headers['X-RateLimit-Limit'] == '5'
+            unavailable_redis = AsyncMock()
+            unavailable_redis.incr.side_effect = ConnectionError
+            unavailable_redis.get.side_effect = ConnectionError
+            with patch('app.core.redis.redis', unavailable_redis):
+                allowed = await limiter.is_allowed('test:key')
+                assert allowed is True
+                remaining = await limiter.remaining('test:key')
+                assert remaining == 5
+                headers = await limiter.limit_headers('test:key')
+                assert headers['X-RateLimit-Limit'] == '5'
 
         asyncio.run(_test())
 

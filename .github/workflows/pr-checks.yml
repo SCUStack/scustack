@@ -94,6 +94,7 @@ jobs:
           cache: npm
           cache-dependency-path: scustack-web/package-lock.json
       - run: cd scustack-web && npm ci
+      - run: cd scustack-web && npx nuxt prepare
       - run: cd scustack-web && npx vue-tsc --noEmit
 
   frontend-test:
@@ -107,6 +108,7 @@ jobs:
           cache: npm
           cache-dependency-path: scustack-web/package-lock.json
       - run: cd scustack-web && npm ci
+      - run: cd scustack-web && npx nuxt prepare
       - run: cd scustack-web && npx vitest run --coverage
 
   e2e:
