@@ -214,6 +214,19 @@ onMounted(() => {
     showVersionUpload.value = false
   })
   fetchMaterial()
+
+  // Prompt guests once after the shared auth check completes, while keeping
+  // the material itself publicly readable.
+  let stopAuthWatch: (() => void) | null = null
+  stopAuthWatch = watch(
+    () => auth.authChecked,
+    (checked) => {
+      if (!checked) return
+      stopAuthWatch?.()
+      if (!auth.isLoggedIn) auth.openLogin()
+    },
+    { immediate: true },
+  )
 })
 
 // ── External link ──────────────────────────────────────────────────────
