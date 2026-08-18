@@ -39,7 +39,14 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.core.sentry import init_sentry
+    import logging
+
     init_sentry()
+    try:
+        from app.core.elasticsearch import ensure_materials_index
+        await ensure_materials_index()
+    except Exception as exc:
+        logging.getLogger('scustack').warning('Elasticsearch index initialization skipped: %s', exc)
     yield
 
 
