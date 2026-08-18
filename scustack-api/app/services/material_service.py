@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
 from difflib import unified_diff
 
 import httpx
@@ -84,7 +85,7 @@ async def get_material(db: AsyncSession, material_id: UUID) -> Material | None:
     if m is not None:
         delta = await get_download_delta(str(m.id))
         if delta:
-            m.download_count = (m.download_count or 0) + delta
+            set_committed_value(m, 'download_count', (m.download_count or 0) + delta)
         if m.contributor_id:
             from app.models.user import User
             user_result = await db.execute(select(User).where(User.id == m.contributor_id))

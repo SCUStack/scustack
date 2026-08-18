@@ -132,10 +132,7 @@ const calendarLabel = ref('')
 const calendarItems = ref<any[]>([])
 const recentItems = ref<any[]>([])
 const recentCursor = ref(0)
-const recentLoading = ref(false)
-const allRecentLoaded = ref(false)
 const totalMaterialCount = ref(0)
-const recentSentinel = ref<HTMLElement | null>(null)
 const hotCourses = ref<any[]>([])
 const colleges = ref<{ id: string; name: string }[]>([])
 const banners = ref([
@@ -165,7 +162,7 @@ const { data: homepagePayload } = await useAsyncData('homepage-index', async () 
     ])
     return { homeResp, collegeResp }
   } catch {
-    return null
+    return { homeResp: null, collegeResp: null }
   }
 })
 
@@ -186,32 +183,31 @@ if (initialPayload?.collegeResp?.code === 0) {
 
 onMounted(async () => {
   if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
-
-  if (recentSentinel.value) {
-    const MAX_RECENT = 89
-    const recentObserver = new IntersectionObserver(async (entries) => {
-      if (allRecentLoaded.value || !entries[0]?.isIntersecting || recentLoading.value) return
-      recentLoading.value = true
-      try {
-        const resp = await $fetch<{ code: number; data: any }>(
-          `${apiBase}/api/v1/homepage/recent-updates?cursor=${recentCursor.value}&limit=15`,
-        )
-        if (resp.code === 0 && resp.data?.recent_updates?.length) {
-          recentItems.value.push(...resp.data.recent_updates)
-          recentCursor.value += resp.data.recent_updates.length
-          if (recentItems.value.length >= MAX_RECENT) {
-            allRecentLoaded.value = true
-            recentObserver.disconnect()
-          }
-        } else {
-          allRecentLoaded.value = true
-        }
-      } catch { /* noop */ }
-      recentLoading.value = false
-    }, { rootMargin: '200px' })
-    recentObserver.observe(recentSentinel.value)
-  }
 })
+
+const MAX_RECENT = 89
+const RECENT_PAGE_SIZE = 15
+const { sentinel: recentSentinel, loading: recentLoading, hasMore: hasMoreRecent } = useInfiniteScroll(loadMoreRecent)
+
+async function loadMoreRecent() {
+  try {
+    const resp = await $fetch<{ code: number; data: { recent_updates?: any[] } }>(
+      `${apiBase}/api/v1/homepage/recent-updates?cursor=${recentCursor.value}&limit=${RECENT_PAGE_SIZE}`,
+    )
+    const newItems = resp.code === 0 ? (resp.data?.recent_updates || []) : []
+    if (newItems.length === 0) {
+      hasMoreRecent.value = false
+      return
+    }
+
+    const existingIds = new Set(recentItems.value.map(item => item.id))
+    recentItems.value.push(...newItems.filter(item => !existingIds.has(item.id)))
+    recentCursor.value += newItems.length
+    if (newItems.length < RECENT_PAGE_SIZE || recentItems.value.length >= MAX_RECENT) {
+      hasMoreRecent.value = false
+    }
+  } catch { /* retry after the sentinel leaves and re-enters */ }
+}
 
 onUnmounted(() => {
   if (bannerTimer) clearInterval(bannerTimer)

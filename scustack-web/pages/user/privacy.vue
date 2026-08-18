@@ -92,7 +92,7 @@
 definePageMeta({ middleware: ['auth'] })
 
 const auth = useAuthStore()
-const displayMode = ref<'anonymous' | 'nickname'>('anonymous')
+const displayMode = ref<'anonymous' | 'nickname'>('nickname')
 const loading = ref(true)
 const saving = ref(false)
 const deactivating = ref(false)

@@ -1,7 +1,8 @@
 """Tests for Epic 8: User Center — profile, contributions, bookmarks, notifications, privacy."""
+
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -18,6 +19,8 @@ def _make_user(**overrides):
         'role': 'student',
         'trust_score': 0,
         'public_display_name': None,
+        'university_id': None,
+        'university_id_masked': None,
         'is_active': True,
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
@@ -46,6 +49,50 @@ class TestUserProfile:
             assert body['code'] == 0
             assert body['data'] is None
 
+    async def test_upload_avatar_stores_image_and_updates_profile(self):
+        from app.core.storage import StoredObject
+
+        user = _make_user()
+        app.dependency_overrides[get_current_user] = lambda: user
+        stored = StoredObject(
+            provider_type='lfs',
+            provider_instance='test',
+            locator='avatars/avatar.png',
+            access_url='https://cdn.example/avatar.png',
+            file_size=12,
+            content_type='image/png',
+        )
+        with (
+            patch('app.api.v1.users.store_bytes', new_callable=AsyncMock, return_value=stored) as upload,
+            patch('app.api.v1.users.user_service.update_profile', new_callable=AsyncMock) as update,
+        ):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url='http://test') as client:
+                response = await client.post(
+                    '/api/v1/me/avatar',
+                    files={'file': ('avatar.png', b'\x89PNG\r\n\x1a\nDATA', 'image/png')},
+                )
+
+        assert response.status_code == 200
+        assert response.json()['data']['avatar_url'] == 'https://cdn.example/avatar.png'
+        upload.assert_awaited_once()
+        update.assert_awaited_once_with(
+            ANY, user.id, avatar_url='https://cdn.example/avatar.png'
+        )
+
+    async def test_upload_avatar_rejects_invalid_image_signature(self):
+        user = _make_user()
+        app.dependency_overrides[get_current_user] = lambda: user
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url='http://test') as client:
+            response = await client.post(
+                '/api/v1/me/avatar',
+                files={'file': ('avatar.png', b'not-an-image', 'image/png')},
+            )
+
+        assert response.status_code == 400
+        assert response.json()['message'] == '头像文件格式无效'
+
     async def test_get_me_ok(self):
         user = _make_user()
         app.dependency_overrides[get_optional_user] = lambda: user
@@ -62,7 +109,11 @@ class TestUserProfile:
         updated = _make_user(nickname='newname')
         app.dependency_overrides[get_current_user] = lambda: user
 
-        with patch('app.api.v1.users.user_service.update_profile', new_callable=AsyncMock, return_value=updated):
+        with patch(
+            'app.api.v1.users.user_service.update_profile',
+            new_callable=AsyncMock,
+            return_value=updated,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.patch('/api/v1/me', json={'nickname': 'newname'})
@@ -82,8 +133,18 @@ class TestContributions:
     async def test_list_contributions_empty(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
-        with patch('app.api.v1.users.user_service.get_user_contributions', new_callable=AsyncMock, return_value=[]), \
-             patch('app.api.v1.users.user_service.get_contribution_count', new_callable=AsyncMock, return_value=0):
+        with (
+            patch(
+                'app.api.v1.users.user_service.get_user_contributions',
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                'app.api.v1.users.user_service.get_contribution_count',
+                new_callable=AsyncMock,
+                return_value=0,
+            ),
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.get('/api/v1/me/contributions')
@@ -108,8 +169,18 @@ class TestContributions:
         mat.average_rating = 4.0
         mat.created_at = datetime.now(timezone.utc)
 
-        with patch('app.api.v1.users.user_service.get_user_contributions', new_callable=AsyncMock, return_value=[mat]), \
-             patch('app.api.v1.users.user_service.get_contribution_count', new_callable=AsyncMock, return_value=1):
+        with (
+            patch(
+                'app.api.v1.users.user_service.get_user_contributions',
+                new_callable=AsyncMock,
+                return_value=[mat],
+            ),
+            patch(
+                'app.api.v1.users.user_service.get_contribution_count',
+                new_callable=AsyncMock,
+                return_value=1,
+            ),
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.get('/api/v1/me/contributions')
@@ -139,7 +210,11 @@ class TestBookmarks:
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
         result = {'action': 'created', 'bookmark_id': str(uuid.uuid4())}
-        with patch('app.api.v1.bookmarks.user_service.toggle_bookmark', new_callable=AsyncMock, return_value=result):
+        with patch(
+            'app.api.v1.bookmarks.user_service.toggle_bookmark',
+            new_callable=AsyncMock,
+            return_value=result,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.post('/api/v1/bookmarks', json={'course_id': str(uuid.uuid4())})
@@ -150,7 +225,11 @@ class TestBookmarks:
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
         result = {'action': 'removed', 'bookmark_id': str(uuid.uuid4())}
-        with patch('app.api.v1.bookmarks.user_service.toggle_bookmark', new_callable=AsyncMock, return_value=result):
+        with patch(
+            'app.api.v1.bookmarks.user_service.toggle_bookmark',
+            new_callable=AsyncMock,
+            return_value=result,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.post('/api/v1/bookmarks', json={'course_id': str(uuid.uuid4())})
@@ -160,10 +239,21 @@ class TestBookmarks:
     async def test_list_bookmarks_courses(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
-        items = [{'bookmark_id': str(uuid.uuid4()), 'course_id': str(uuid.uuid4()),
-                   'course_name': '高等数学', 'college_name': '数学学院',
-                   'material_count': 3, 'created_at': '2026-06-15'}]
-        with patch('app.api.v1.bookmarks.user_service.list_bookmarked_courses', new_callable=AsyncMock, return_value=items):
+        items = [
+            {
+                'bookmark_id': str(uuid.uuid4()),
+                'course_id': str(uuid.uuid4()),
+                'course_name': '高等数学',
+                'college_name': '数学学院',
+                'material_count': 3,
+                'created_at': '2026-06-15',
+            }
+        ]
+        with patch(
+            'app.api.v1.bookmarks.user_service.list_bookmarked_courses',
+            new_callable=AsyncMock,
+            return_value=items,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.get('/api/v1/bookmarks?type=course')
@@ -181,8 +271,18 @@ class TestNotifications:
     async def test_list_notifications_empty(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
-        with patch('app.api.v1.users.user_service.get_notifications', new_callable=AsyncMock, return_value=[]), \
-             patch('app.api.v1.users.user_service.get_unread_notification_count', new_callable=AsyncMock, return_value=0):
+        with (
+            patch(
+                'app.api.v1.users.user_service.get_notifications',
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                'app.api.v1.users.user_service.get_unread_notification_count',
+                new_callable=AsyncMock,
+                return_value=0,
+            ),
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.get('/api/v1/me/notifications')
@@ -195,7 +295,11 @@ class TestNotifications:
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
         nid = uuid.uuid4()
-        with patch('app.api.v1.users.user_service.mark_notification_read', new_callable=AsyncMock, return_value=True):
+        with patch(
+            'app.api.v1.users.user_service.mark_notification_read',
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.patch(f'/api/v1/me/notifications/{nid}/read')
@@ -205,7 +309,11 @@ class TestNotifications:
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
         nid = uuid.uuid4()
-        with patch('app.api.v1.users.user_service.mark_notification_read', new_callable=AsyncMock, return_value=False):
+        with patch(
+            'app.api.v1.users.user_service.mark_notification_read',
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.patch(f'/api/v1/me/notifications/{nid}/read')
@@ -214,7 +322,9 @@ class TestNotifications:
     async def test_mark_all_read(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
-        with patch('app.api.v1.users.user_service.mark_all_notifications_read', new_callable=AsyncMock):
+        with patch(
+            'app.api.v1.users.user_service.mark_all_notifications_read', new_callable=AsyncMock
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.patch('/api/v1/me/notifications/read-all')
@@ -223,7 +333,11 @@ class TestNotifications:
     async def test_unread_count(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
-        with patch('app.api.v1.users.user_service.get_unread_notification_count', new_callable=AsyncMock, return_value=3):
+        with patch(
+            'app.api.v1.users.user_service.get_unread_notification_count',
+            new_callable=AsyncMock,
+            return_value=3,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.get('/api/v1/me/unread-count')
@@ -239,7 +353,7 @@ class TestPrivacy:
         async with AsyncClient(transport=transport, base_url='http://test') as client:
             resp = await client.get('/api/v1/me/privacy')
             assert resp.status_code == 200
-            assert resp.json()['data']['public_display_name'] == '匿名用户'
+            assert resp.json()['data']['public_display_name'] == user.nickname
 
     async def test_get_privacy_custom(self):
         user = _make_user(public_display_name='我的昵称')
@@ -256,7 +370,9 @@ class TestPrivacy:
         with patch('app.api.v1.users.user_service.update_profile', new_callable=AsyncMock):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
-                resp = await client.patch('/api/v1/me/privacy', json={'public_display_name': '匿名用户'})
+                resp = await client.patch(
+                    '/api/v1/me/privacy', json={'public_display_name': '匿名用户'}
+                )
                 assert resp.status_code == 200
 
 
@@ -270,7 +386,11 @@ class TestDeactivation:
     async def test_deactivate_ok(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
-        with patch('app.api.v1.users.user_service.deactivate_account', new_callable=AsyncMock, return_value=True):
+        with patch(
+            'app.api.v1.users.user_service.deactivate_account',
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url='http://test') as client:
                 resp = await client.post('/api/v1/me/deactivate', json={'confirm': True})
@@ -282,14 +402,17 @@ class TestUserService:
     """Unit tests for user_service functions."""
 
     def test_toggle_bookmark_value_error(self):
-        from app.services.user_service import toggle_bookmark
         import asyncio
+
+        from app.services.user_service import toggle_bookmark
+
         with pytest.raises(ValueError, match='course_id or material_id required'):
             asyncio.run(toggle_bookmark(MagicMock(), uuid.uuid4(), None, None))
 
     @pytest.mark.asyncio
     async def test_update_profile_none_fields(self):
         from app.services.user_service import update_profile
+
         mock_db = MagicMock()
         user = _make_user()
         mock_db.flush = AsyncMock()

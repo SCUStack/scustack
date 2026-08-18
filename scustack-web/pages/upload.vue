@@ -27,7 +27,7 @@
           <AppIcon name="Heart" :size="14" class="inline text-rose-500 mr-1" />
           满足心愿（可选）
         </label>
-        <select v-model="form.fulfillWishId" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
+        <select v-model="form.fulfillWishId" aria-label="关联心愿" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
           <option value="">不关联心愿</option>
           <option v-for="w in openWishes" :key="w.id" :value="w.id">{{ w.title }}（{{ w.vote_count }} 人需要）</option>
         </select>
@@ -46,7 +46,7 @@
 
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">适用学期 *</label>
-        <select v-model="form.semester" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
+        <select v-model="form.semester" aria-label="适用学期" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
           <option value="">选择学期</option>
           <option v-for="s in semesters" :key="s" :value="s">{{ s }}</option>
         </select>
@@ -89,7 +89,7 @@
           <div v-if="batchFiles.length" class="mt-3">
             <div class="flex items-center gap-2 mb-2">
               <label class="text-xs text-slate-500">批量设置分类：</label>
-              <select v-model="batchDefaultCategory" @change="applyCategoryToAll" class="h-8 px-2 border border-slate-200 rounded text-sm outline-none focus:border-primary-500">
+              <select v-model="batchDefaultCategory" aria-label="批量设置分类" @change="applyCategoryToAll" class="h-8 px-2 border border-slate-200 rounded text-sm outline-none focus:border-primary-500">
                 <option value="">手动设置</option>
                 <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
               </select>
@@ -115,7 +115,7 @@
                 </div>
                 <div>
                   <label class="text-xs text-slate-500">分类</label>
-                  <select v-model="bf.category" :disabled="bf.status === 'success'"
+                  <select v-model="bf.category" :aria-label="`${bf.file.name} 分类`" :disabled="bf.status === 'success'"
                           class="w-full h-9 px-2 border border-slate-200 rounded text-sm outline-none focus:border-primary-500 disabled:bg-slate-50 disabled:text-slate-400">
                     <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
                   </select>

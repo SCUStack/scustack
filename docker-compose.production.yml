@@ -28,21 +28,41 @@ services:
           memory: 256M
 
   elasticsearch:
-    profiles: ['development']
+    image: ghcr.io/scustack/scustack-elasticsearch:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
+    profiles: !reset []
     ports: !reset []
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - bootstrap.memory_lock=false
+    ulimits: !reset {}
+    networks: [backend]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 1G
 
   onlyoffice:
     profiles: ['development']
     ports: !reset []
 
   api:
-    image: scustack-api:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
-    build: ./scustack-api
+    image: ghcr.io/scustack/scustack-api:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
     env_file: ${SCUSTACK_ENV_FILE:-/srv/apps/scustack/shared/.env}
+    tmpfs:
+      - /dev/shm:rw,noexec,nosuid,size=16m
+      - /tmp/scustack-scu-cli:rw,noexec,nosuid,size=16m,mode=0700
+    volumes:
+      - thumbnail_data:/app/data/thumbnails
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks: [backend]
     restart: unless-stopped
@@ -59,8 +79,7 @@ services:
           memory: 384M
 
   web:
-    image: scustack-web:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
-    build: ./scustack-web
+    image: ghcr.io/scustack/scustack-web:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
     env_file: ${SCUSTACK_ENV_FILE:-/srv/apps/scustack/shared/.env}
     networks: [frontend]
     restart: unless-stopped
@@ -77,14 +96,19 @@ services:
           memory: 256M
 
   worker:
-    image: scustack-api:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
-    build: ./scustack-api
+    image: ghcr.io/scustack/scustack-api:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
     env_file: ${SCUSTACK_ENV_FILE:-/srv/apps/scustack/shared/.env}
-    command: celery -A app.core.celery_app worker -l info -Q default,scan,thumbnail
+    command: celery -A app.core.celery_app worker -l info -Q default,scan,thumbnail --concurrency=1
+    tmpfs:
+      - /tmp/scustack-scu-cli:rw,noexec,nosuid,size=16m,mode=0700
+    volumes:
+      - thumbnail_data:/app/data/thumbnails
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks: [backend]
     restart: unless-stopped
@@ -95,8 +119,7 @@ services:
           memory: 512M
 
   beat:
-    image: scustack-api:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
-    build: ./scustack-api
+    image: ghcr.io/scustack/scustack-api:${SCUSTACK_RELEASE_SHA:?SCUSTACK_RELEASE_SHA is required}
     env_file: ${SCUSTACK_ENV_FILE:-/srv/apps/scustack/shared/.env}
     command: celery -A app.core.celery_app beat -l info
     depends_on:
@@ -118,7 +141,7 @@ services:
       web:
         condition: service_healthy
     ports:
-      - ${SCUSTACK_INGRESS_PORT:?SCUSTACK_INGRESS_PORT is required}:80
+      - 127.0.0.1:${SCUSTACK_INGRESS_PORT:-8080}:80
     volumes:
       - ./docker/nginx/scustack.conf:/etc/nginx/nginx.conf:ro
     networks: [frontend, backend]
@@ -139,3 +162,6 @@ networks:
   frontend:
   backend:
     internal: true
+
+volumes:
+  thumbnail_data:

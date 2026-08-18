@@ -89,6 +89,7 @@ class TestUploadPipeline:
              patch('app.api.v1.materials.user_service.notify_course_followers', new_callable=AsyncMock), \
              patch('app.api.v1.materials.copyright_service.check_title_blocklist', new_callable=AsyncMock, return_value=False), \
              patch('app.tasks.material_tasks.virus_scan.delay', create=True), \
+             patch('app.tasks.material_tasks.generate_thumbnail.delay', create=True) as generate_thumbnail, \
              patch('app.tasks.material_tasks.pre_screen_content.delay', create=True):
             resp = await client.post(
                 '/api/v1/materials',
@@ -108,6 +109,7 @@ class TestUploadPipeline:
         assert resp.json()['data']['review_status'] == 'pending'
         assert resp.json()['data']['virus_scan_status'] == 'queued'
         assert resp.json()['message'] == 'material submitted for review'
+        generate_thumbnail.assert_called_once_with(str(material.id), str(version.id), 'pdf')
 
     async def test_hosted_material_rejects_mismatched_object_metadata(self, client):
         app.dependency_overrides[get_current_user] = lambda: _user()

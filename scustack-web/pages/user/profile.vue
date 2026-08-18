@@ -10,13 +10,18 @@
       <!-- Profile card -->
       <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex items-start gap-4 mb-6">
-          <div class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-            <AppIcon name="User" :size="28" class="text-primary-600" />
-          </div>
+          <img
+            :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
+            :alt="`${auth.user.nickname}的头像`"
+            class="w-16 h-16 rounded-full bg-primary-100 object-cover shrink-0"
+          />
           <div class="flex-1 min-w-0">
             <h2 class="text-lg font-medium text-slate-900">{{ auth.user.nickname }}</h2>
             <p class="text-sm text-slate-500 mt-0.5">
               {{ roleLabel }} · 信任分 {{ auth.user.trustScore }}
+            </p>
+            <p v-if="auth.user.universityIdMasked" class="text-xs text-slate-400 mt-0.5">
+              学号 {{ auth.user.universityIdMasked }}
             </p>
             <p class="text-xs text-slate-400 mt-0.5">
               注册于 {{ formatDate(auth.user.createdAt) }}
@@ -24,7 +29,7 @@
           </div>
           <button
             class="text-sm text-primary-600 hover:text-primary-700 font-medium cursor-pointer"
-            @click="showEdit = true"
+            @click="openEdit"
           >
             编辑资料
           </button>
@@ -96,37 +101,6 @@
       </button>
     </div>
 
-    <!-- Edit modal -->
-    <div v-if="showEdit" role="dialog" aria-modal="true" aria-label="编辑个人资料" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showEdit = false">
-      <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
-        <h3 class="text-base font-medium text-slate-900 mb-4">编辑资料</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">昵称</label>
-            <input
-              v-model="editForm.nickname"
-              maxlength="64"
-              class="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-          <div class="flex justify-end gap-3">
-            <button
-              class="h-9 px-4 rounded-md text-sm text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors duration-150"
-              @click="showEdit = false"
-            >
-              取消
-            </button>
-            <button
-              class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer transition-colors duration-150"
-              :disabled="saving"
-              @click="handleSave"
-            >
-              {{ saving ? '保存中...' : '保存' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
     </div>
     </div>
 
@@ -137,14 +111,17 @@
       <div v-if="auth.user" class="space-y-4">
         <div class="bg-white border border-slate-200 rounded-xl p-4">
           <div class="flex items-start gap-3 mb-4">
-            <div class="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-              <AppIcon name="User" :size="24" class="text-primary-600" />
-            </div>
+            <img
+              :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
+              :alt="`${auth.user.nickname}的头像`"
+              class="w-14 h-14 rounded-full bg-primary-100 object-cover shrink-0"
+            />
             <div class="flex-1 min-w-0">
               <h2 class="text-base font-medium text-slate-900">{{ auth.user.nickname }}</h2>
               <p class="text-xs text-slate-500 mt-0.5">{{ roleLabel }} · 信任分 {{ auth.user.trustScore }}</p>
+              <p v-if="auth.user.universityIdMasked" class="text-xs text-slate-400 mt-0.5">学号 {{ auth.user.universityIdMasked }}</p>
             </div>
-            <button class="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer" @click="showEdit = true">编辑</button>
+            <button class="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer" @click="openEdit">编辑</button>
           </div>
           <div class="grid grid-cols-1 gap-2">
             <NuxtLink to="/user/contributions" class="flex items-center gap-3 border border-slate-200 rounded-lg p-3 hover:bg-slate-50 no-underline transition-colors duration-150 active:scale-[0.98]">
@@ -175,20 +152,107 @@
         </button>
       </div>
     </div>
+
+    <div v-if="showEdit" role="dialog" aria-modal="true" aria-label="编辑个人资料" class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" @click.self="closeEdit">
+      <div class="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-lg bg-white p-6">
+        <h3 class="text-base font-medium text-slate-900 mb-4">编辑资料</h3>
+        <div class="space-y-4">
+          <div>
+            <span class="mb-2 block text-sm font-medium text-slate-700">头像</span>
+            <div class="mb-3 flex items-center gap-3">
+              <img
+                :src="avatarPreviewUrl || editForm.avatarUrl"
+                alt="头像预览"
+                class="h-16 w-16 shrink-0 rounded-full bg-slate-100 object-cover"
+              />
+              <div>
+                <input
+                  ref="avatarInputRef"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  class="hidden"
+                  @change="handleAvatarFile"
+                />
+                <button
+                  type="button"
+                  class="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-50 sm:h-9"
+                  @click="avatarInputRef?.click()"
+                >
+                  <AppIcon name="Upload" :size="16" />
+                  上传图片
+                </button>
+                <p class="mt-1 text-xs text-slate-400">PNG、JPEG 或 WebP，不超过 2 MB</p>
+              </div>
+            </div>
+            <span class="mb-2 block text-xs text-slate-500">或选择默认头像</span>
+            <div class="grid grid-cols-6 gap-2">
+              <button
+                v-for="avatar in DEFAULT_AVATARS"
+                :key="avatar"
+                type="button"
+                :aria-label="`选择头像 ${avatar.split('-').at(-1)?.replace('.png', '')}`"
+                :aria-pressed="editForm.avatarUrl === avatar"
+                class="relative aspect-square cursor-pointer overflow-hidden rounded-full border-2 bg-slate-50 transition-colors"
+                :class="editForm.avatarUrl === avatar ? 'border-primary-600' : 'border-transparent hover:border-slate-300'"
+                @click="selectPresetAvatar(avatar)"
+              >
+                <img :src="avatar" alt="" class="h-full w-full object-cover" />
+                <span
+                  v-if="editForm.avatarUrl === avatar"
+                  class="absolute inset-0 flex items-center justify-center bg-black/20 text-white"
+                >
+                  <AppIcon name="Check" :size="18" />
+                </span>
+              </button>
+            </div>
+            <p v-if="avatarError" role="alert" class="mt-2 text-xs text-red-500">{{ avatarError }}</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">昵称</label>
+            <input
+              v-model="editForm.nickname"
+              maxlength="64"
+              class="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            />
+          </div>
+          <div class="flex justify-end gap-3">
+            <button
+              class="h-11 cursor-pointer rounded-md px-4 text-sm text-slate-600 transition-colors duration-150 hover:bg-slate-100 sm:h-9"
+              @click="closeEdit"
+            >
+              取消
+            </button>
+            <button
+              class="h-11 cursor-pointer rounded-md bg-primary-700 px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-primary-800 sm:h-9"
+              :disabled="saving"
+              @click="handleSave"
+            >
+              {{ saving ? '保存中...' : '保存' }}
+            </button>
+          </div>
+          <p v-if="saveError" role="alert" class="text-sm text-red-500">{{ saveError }}</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { loadRecentViews, type RecentItem } from '~/composables/useLocalExperienceState'
+import { DEFAULT_AVATARS, getDefaultAvatar } from '~/utils/defaultAvatar'
 import { useAuthStore } from '../../stores/auth'
-import { useAuth } from '../../composables/useAuth'
 
 const auth = useAuthStore()
 
 const showEdit = ref(false)
 const saving = ref(false)
-const editForm = ref({ nickname: '' })
+const editForm = ref({ nickname: '', avatarUrl: '' })
+const avatarInputRef = ref<HTMLInputElement | null>(null)
+const avatarFile = ref<File | null>(null)
+const avatarPreviewUrl = ref('')
+const avatarError = ref('')
+const saveError = ref('')
 
 const recentItems = ref<RecentItem[]>([])
 
@@ -203,21 +267,79 @@ const roleLabel = computed(() => {
 })
 
 onMounted(() => {
-  if (auth.isLoggedIn) editForm.value.nickname = auth.user?.nickname || ''
   recentItems.value = loadRecentViews()
 })
 
+function openEdit() {
+  if (!auth.user) return
+  clearAvatarPreview()
+  editForm.value = {
+    nickname: auth.user.nickname,
+    avatarUrl: auth.user.avatarUrl || getDefaultAvatar(auth.user.id),
+  }
+  avatarError.value = ''
+  saveError.value = ''
+  showEdit.value = true
+}
+
+function clearAvatarPreview() {
+  if (avatarPreviewUrl.value) URL.revokeObjectURL(avatarPreviewUrl.value)
+  avatarPreviewUrl.value = ''
+  avatarFile.value = null
+}
+
+function closeEdit() {
+  clearAvatarPreview()
+  showEdit.value = false
+}
+
+function selectPresetAvatar(avatar: string) {
+  clearAvatarPreview()
+  editForm.value.avatarUrl = avatar
+  avatarError.value = ''
+}
+
+function handleAvatarFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    avatarError.value = '请选择 PNG、JPEG 或 WebP 图片'
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    avatarError.value = '头像不能超过 2 MB'
+    return
+  }
+  clearAvatarPreview()
+  avatarFile.value = file
+  avatarPreviewUrl.value = URL.createObjectURL(file)
+  avatarError.value = ''
+}
+
 async function handleSave() {
+  if (!editForm.value.nickname.trim()) {
+    saveError.value = '昵称不能为空'
+    return
+  }
   saving.value = true
+  saveError.value = ''
   try {
-    await auth.updateProfile({ nickname: editForm.value.nickname })
-    // Also update via direct call for immediate feedback
-    const { updateProfile } = useAuth()
-    await updateProfile({ nickname: editForm.value.nickname })
-    showEdit.value = false
-  } catch { /* noop */ }
+    if (avatarFile.value) await auth.uploadAvatar(avatarFile.value)
+    await auth.updateProfile({
+      nickname: editForm.value.nickname.trim(),
+      avatarUrl: avatarFile.value ? undefined : editForm.value.avatarUrl,
+    })
+    closeEdit()
+  } catch (error: unknown) {
+    const fetchError = error as { data?: { message?: string }; message?: string }
+    saveError.value = fetchError.data?.message || fetchError.message || '资料保存失败'
+  }
   saving.value = false
 }
+
+onUnmounted(clearAvatarPreview)
 
 function formatDate(createdAt: string) {
   return new Date(createdAt).toLocaleDateString('zh-CN', {

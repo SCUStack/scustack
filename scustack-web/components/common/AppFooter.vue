@@ -54,16 +54,11 @@
       </div>
 
       <!-- Bottom bar -->
-      <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="pt-6 border-t border-slate-200 flex items-center justify-center">
         <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-400">
           <span>&copy; {{ currentYear }} 川流课栈</span>
           <span class="hidden sm:inline">·</span>
           <span>公益 · 无广告 · 开源</span>
-        </div>
-        <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-400">
-          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="text-slate-400 hover:text-slate-600 no-underline transition-colors">蜀ICP备XXXXXXXX号</a>
-          <span class="hidden sm:inline">·</span>
-          <a href="http://www.beian.gov.cn/" target="_blank" rel="noopener" class="text-slate-400 hover:text-slate-600 no-underline transition-colors">川公网安备 XXXXXXXXXXXXXX号</a>
         </div>
       </div>
     </div>

@@ -98,74 +98,53 @@ def pre_screen_content(material_id: str, title: str, description: str | None = N
 
 @app.task(queue='thumbnail')
 def generate_thumbnail(material_id: str, version_id: str, file_format: str):
-    """Generate thumbnail and upload to OSS thumbs/ directory.
-
-    PDF: PyMuPDF (fitz) render first page
-    Office: LibreOffice headless → PDF → PyMuPDF
-    Image: Pillow resize to 256px width WebP
-    Code/MD: skip (no thumbnail needed)
-    """
+    """Generate the latest material version's thumbnail on shared server storage."""
     import asyncio
+    import logging
+    import re
     import tempfile
     from pathlib import Path
 
+    from sqlalchemy import select
+
     from app.core.database import async_session
     from app.core.storage import StorageError, download_version_to_path
-    from app.models.material import MaterialVersion
-    from sqlalchemy import select
+    from app.core.thumbnails import render_thumbnail, save_thumbnail
+    from app.models.material import Material, MaterialVersion
+    from app.services.material_service import get_latest_version
+
+    logger = logging.getLogger(__name__)
 
     async def _run():
         async with async_session() as db:
-            version = await db.scalar(select(MaterialVersion).where(MaterialVersion.id == version_id))
+            version = await db.scalar(
+                select(MaterialVersion).where(MaterialVersion.id == version_id)
+            )
             if version is None or str(version.material_id) != material_id:
                 return
+            latest_version = await get_latest_version(db, version.material_id)
+            material = await db.scalar(select(Material).where(Material.id == version.material_id))
+            if (
+                latest_version is None
+                or str(latest_version.id) != version_id
+                or material is None
+                or material.review_status == 'removed'
+            ):
+                return
             with tempfile.TemporaryDirectory(prefix='scustack-thumbnail-') as directory:
-                path = Path(directory) / 'upload.bin'
+                normalized_format = re.sub(r'[^a-z0-9]+', '', (file_format or '').lower())[:12]
+                path = Path(directory) / f'source.{normalized_format or "bin"}'
                 try:
                     await download_version_to_path(db, version, path)
-                except StorageError:
+                    data = await asyncio.to_thread(render_thumbnail, path, normalized_format)
+                    await asyncio.to_thread(save_thumbnail, material_id, data)
+                except (StorageError, OSError, ValueError) as exc:
+                    logger.error(
+                        'Thumbnail generation failed for material %s: %s', material_id, exc
+                    )
                     return
-                fmt = file_format.lower() if file_format else ''
-                if fmt == 'pdf':
-                    try:
-                        import fitz
-                    except ImportError:
-                        return
-                    doc = fitz.open(path)
-                    try:
-                        pix = doc[0].get_pixmap(dpi=72)
-                        _upload_thumbnail(material_id, pix.tobytes('webp'), 'image/webp')
-                    finally:
-                        doc.close()
-                elif fmt in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
-                    try:
-                        from PIL import Image
-                    except ImportError:
-                        return
-                    import io
-                    with Image.open(path) as image:
-                        image.thumbnail((256, 256))
-                        buffer = io.BytesIO()
-                        image.save(buffer, 'WEBP')
-                    _upload_thumbnail(material_id, buffer.getvalue(), 'image/webp')
 
     asyncio.run(_run())
-
-
-def _upload_thumbnail(material_id: str, data: bytes, content_type: str):
-    """Upload thumbnail to OSS thumbs/ directory."""
-    import logging
-
-    from app.core import oss
-
-    logger = logging.getLogger(__name__)
-    key = f'thumbs/{material_id}.webp'
-    try:
-        success = oss.upload_bytes(key, data, content_type)
-        if not success:
-            logger.warning('Thumbnail upload failed for material %s: OSS unavailable', material_id)
-    except Exception as e:
-        logger.error('Thumbnail upload failed for material %s: %s', material_id, e)
 
 
 async def _set_scan_status(db, material_id: str, version_id: str, status: str):

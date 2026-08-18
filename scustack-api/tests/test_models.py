@@ -3,14 +3,14 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from app.models.material import Material
-from app.models.user import User, RefreshToken
+from app.models.user import RefreshToken, User
 
 
 class TestUserModel:
     def test_create_user(self):
         user = User(
-            phone='encrypted_phone_hex',
-            phone_lookup='lookup_hash',
+            university_id='encrypted_university_id',
+            university_id_lookup='lookup_hash',
             nickname='测试用户',
             role='student',
             trust_score=0,
@@ -21,13 +21,14 @@ class TestUserModel:
         assert user.trust_score == 0
         assert user.is_active is True
         assert user.wechat_openid is None
-        assert user.university_id is None
+        assert user.university_id == 'encrypted_university_id'
+        assert user.university_id_lookup == 'lookup_hash'
         assert user.avatar_url is None
 
     def test_user_defaults(self):
         user = User(
-            phone='encrypted_phone_hex',
-            phone_lookup='lookup_hash',
+            university_id='encrypted_university_id',
+            university_id_lookup='lookup_hash',
             nickname='test',
             role='student',
             trust_score=0,
@@ -62,5 +63,5 @@ class TestMaterialModel:
         )
         material.id = uuid.uuid4()
 
-        with patch('app.core.oss.thumbnail_exists', return_value=False):
+        with patch('app.core.thumbnails.thumbnail_url', return_value=None):
             assert material.thumbnail_url is None

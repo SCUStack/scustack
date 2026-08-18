@@ -92,7 +92,8 @@ onMounted(async () => {
 
 async function fetchText() {
   try {
-    const resp = await fetch(props.fileUrl)
+    const resp = await fetch(props.fileUrl, { credentials: 'include' })
+    if (!resp.ok) throw new Error(`preview request failed: ${resp.status}`)
     textContent.value = await resp.text()
   } catch {
     error.value = '文件内容加载失败'

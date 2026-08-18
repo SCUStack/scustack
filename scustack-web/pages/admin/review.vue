@@ -189,8 +189,9 @@ async function loadQueue() {
       await loadComplaints()
       return
     }
+    const statusQuery = activeTab.value === 'pending' ? '' : `?status=${activeTab.value}`
     const resp = await $fetch<{ code: number; data: { items: any[]; total: number } }>(
-      `${apiBase}/api/v1/admin/review-queue?status=${activeTab.value === 'pending' ? '' : activeTab.value}`,
+      `${apiBase}/api/v1/admin/review-queue${statusQuery}`,
       { credentials: 'include' },
     )
     if (resp.code === 0) {

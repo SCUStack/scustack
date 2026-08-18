@@ -5,7 +5,7 @@
 | Type | `architecture` |
 | Status | `active` |
 | Owner | `team` |
-| Last Updated | `2026-06-19` |
+| Last Updated | `2026-08-18` |
 | Source of Truth | `yes` |
 | Scope | 项目的技术架构、关键选型、系统边界与中长期演进方向。 |
 
@@ -466,20 +466,22 @@ graph TB
 ```sql
 CREATE TABLE users (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone       VARCHAR(20) UNIQUE NOT NULL,  -- 手机号（AES-256 加密存储）
     nickname    VARCHAR(50) NOT NULL,
     avatar_url  VARCHAR(500),
     role        VARCHAR(20) NOT NULL DEFAULT 'student',  -- student | contributor | maintainer | admin
-    wechat_openid VARCHAR(100) UNIQUE,        -- 微信登录绑定
-    university_id VARCHAR(50),                -- 学号（可选，加密存储）
+    wechat_openid VARCHAR(128),                  -- legacy nullable field; not an auth entry point
+    wechat_openid_lookup VARCHAR(64) UNIQUE,     -- legacy nullable field; not an auth entry point
+    university_id VARCHAR(256),               -- 学号（AES-256-GCM 加密）
+    university_id_lookup VARCHAR(64) UNIQUE,  -- 学号盲索引
+    university_verified_at TIMESTAMPTZ,       -- 川大身份校验时间
+    password_hash VARCHAR(128),               -- 独立课栈密码哈希
     trust_score INTEGER NOT NULL DEFAULT 0,    -- 用户信任分
     is_active   BOOLEAN NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 敏感字段使用 pgcrypto 加密
--- phone, university_id 在应用层 AES-256 加密后存储
+-- university_id 在应用层使用 AES-256-GCM 加密，查询使用盲索引
 ```
 
 #### 学院 (colleges)
@@ -1004,6 +1006,9 @@ docker exec onlyoffice supervisorctl restart all
 
 ### 6.4 缩略图生成
 
+缩略图不写入资料 LFS。原文件成功上传 LFS 后，由 Celery Worker 下载当前最新版本并生成
+`<material_id>.webp`，保存到 API 与 Worker 共享的服务器持久化目录。资料删除时同步清理该文件。
+
 | 文件类型 | 生成方式 | 说明 |
 |---|---|---|
 | PDF | PyMuPDF (fitz) | ~50ms/页，内存 < 20MB，远优于无头浏览器 |
@@ -1123,13 +1128,14 @@ flowchart TD
 
 ### 8.1 认证方案
 
-**分层认证体系**：
+**学号身份认证体系**：
 
 | 层级 | 方式 | 用途 |
 |---|---|---|
-| **Tier 1 (必选)** | 手机号 + 短信验证码 | 主注册/登录方式。手机号在中国已实名制，天然满足实名制要求 |
-| **Tier 2 (可选)** | 微信 OAuth 2.0 | 免密登录。微信在中国大学生中覆盖率 100% |
-| **Tier 3 (预留)** | 大学 SSO (CAS/OAuth2) | 未来对接川大统一认证系统 |
+| **注册身份校验** | 学号 + 川大统一认证密码 | 通过 SCU-CLI 完成一次性身份校验；学校密码和 Token 不保存 |
+| **日常登录** | 学号 + 独立课栈密码 | 不再调用学校认证系统，课栈密码仅保存 bcrypt 哈希 |
+
+手机号、短信验证码和微信 OAuth 不作为注册或登录入口。
 
 ### 8.2 Token 设计
 
@@ -1266,8 +1272,8 @@ async def pin_material(
 | 端点 | 限制 | 维度 |
 |---|---|---|
 | `GET /api/*` (读) | 60 req/min | 每用户 |
-| `POST /api/auth/sms/send` | 3 req / 10min | 每手机号 + 每 IP |
-| `POST /api/auth/login` | 5 req/min | 每 IP |
+| `POST /api/v1/auth/register` | 5 req/min + 5 req/5min | 每 IP + 每学号哈希 |
+| `POST /api/v1/auth/login` | 5 req/min | 每 IP；密码连续失败另行锁定学号哈希 |
 | `POST /api/materials` (上传) | 10 req/hour | 每用户 |
 | `GET /api/materials/:id/download` | 100 req/hour + 50 次/天（双层） | 每用户 |
 | `POST /api/reports` (举报) | 20 req/day | 每用户 |
@@ -1481,10 +1487,8 @@ POST   /api/v1/upload/token                       # 获取上传凭证
 POST   /api/v1/upload/check-duplicate             # 检查内容重复
 
 # ── 认证 ─────────────────────────────────────────────────
-POST   /api/v1/auth/sms/send                      # 发送短信验证码
-POST   /api/v1/auth/sms/verify                    # 验证码登录
-POST   /api/v1/auth/wechat/url                    # 获取微信授权链接
-POST   /api/v1/auth/wechat/callback               # 微信登录回调
+POST   /api/v1/auth/register                      # 川大身份校验并注册课栈账号
+POST   /api/v1/auth/login                         # 学号 + 课栈密码登录
 POST   /api/v1/auth/refresh                       # 刷新 Token
 POST   /api/v1/auth/logout                        # 登出
 
@@ -1761,8 +1765,8 @@ flowchart TD
 
 | 要求 | 实施措施 |
 |---|---|
-| **知情同意** | 注册时单独勾选：收集手机号、处理敏感信息（学号）、分享给第三方 |
-| **数据最小化** | 仅收集手机号、学号(可选)、昵称、头像。不收集位置、通讯录、设备 ID |
+| **知情同意** | 注册时单独勾选：处理学号及一次性川大统一认证凭据 |
+| **数据最小化** | 仅收集学号、昵称、头像等必要账号资料；川大密码和学校 Token 不留存 |
 | **未成年人 (<14岁)** | 原则上大学平台用户均 ≥18 岁，但注册流程增加年龄确认步骤 |
 | **数据跨境** | **全量部署于中国大陆**，无跨境传输。使用阿里云中国 Region |
 | **数据留存** | 账号注销后 30 天内删除 PII；上传资料匿名化或转移所有权 |
@@ -1773,9 +1777,8 @@ flowchart TD
 
 | 数据 | 加密方式 | 存储位置 |
 |---|---|---|
-| 手机号 | AES-256-GCM（应用层加密） | users 表，ciphertext 列 |
 | 学号 | AES-256-GCM（应用层加密） | users 表，ciphertext 列 |
-| 密码 (如有) | bcrypt (cost=12) | users 表 |
+| 课栈密码 | bcrypt | users 表，仅保存哈希 |
 | JWT Secret | 环境变量 / 密钥管理服务 | 不存储在代码仓库 |
 | 数据库静态加密 | RDS TDE (透明数据加密) | 一键开启 |
 
@@ -1896,15 +1899,11 @@ SCUSTACK_GATEWAY_UPLOAD_URL=https://lfs.example.com/upload
 SCUSTACK_GATEWAY_PUBLIC_BASE=https://lfs.example.com
 SCUSTACK_GATEWAY_AUTH_CODE=<optional>
 
-# 短信服务 (阿里云 SMS)
-SCUSTACK_SMS_ACCESS_KEY_ID=<key>
-SCUSTACK_SMS_ACCESS_KEY_SECRET=<secret>
-SCUSTACK_SMS_SIGN_NAME=川流课栈
-SCUSTACK_SMS_TEMPLATE_CODE=SMS_123456789
-
-# 微信开放平台
-SCUSTACK_WECHAT_APP_ID=<app-id>
-SCUSTACK_WECHAT_APP_SECRET=<secret>
+# 川大统一认证（SCU-CLI）
+SCUSTACK_UNIVERSITY_AUTH_PROVIDER=scu_cli
+SCUSTACK_SCU_CLI_PATH=/usr/local/bin/scu
+SCUSTACK_SCU_CLI_TIMEOUT_SECONDS=30
+SCUSTACK_SCU_CLI_RUNTIME_DIR=/dev/shm
 
 # JWT
 SCUSTACK_JWT_SECRET_KEY=<random-64-char>

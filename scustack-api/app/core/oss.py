@@ -4,20 +4,32 @@ from app.core.config import settings
 
 try:
     import oss2
+
     _has_oss = True
 except ImportError:
     _has_oss = False
 
 
+def _oss_configured() -> bool:
+    return _has_oss and all(
+        (
+            settings.OSS_ACCESS_KEY_ID,
+            settings.OSS_ACCESS_KEY_SECRET,
+            settings.OSS_ENDPOINT,
+            settings.OSS_BUCKET,
+        )
+    )
+
+
 def _get_bucket():
-    if not _has_oss:
-        raise RuntimeError('oss2 not installed')
+    if not _oss_configured():
+        raise RuntimeError('OSS is not configured')
     auth = oss2.Auth(settings.OSS_ACCESS_KEY_ID, settings.OSS_ACCESS_KEY_SECRET)
     return oss2.Bucket(auth, settings.OSS_ENDPOINT, settings.OSS_BUCKET)
 
 
 def generate_upload_token(file_name: str, content_type: str, size: int) -> dict:
-    if not _has_oss:
+    if not _oss_configured():
         ext = file_name.rsplit('.', 1)[-1] if '.' in file_name else ''
         key = f'materials/{uuid.uuid4().hex}.{ext}'
         return {
@@ -42,13 +54,15 @@ def generate_upload_token(file_name: str, content_type: str, size: int) -> dict:
 
 
 def generate_download_url(storage_key: str, expires: int = 600) -> str:
-    if not _has_oss:
+    if not _oss_configured():
         return f'{settings.PUBLIC_API_BASE}/oss/{storage_key}?expires={expires}'
     bucket = _get_bucket()
     return bucket.sign_url('GET', storage_key, expires, slash_safe=True)
 
 
-def generate_watermarked_image_url(storage_key: str, watermark_text: str, expires: int = 3600) -> str:
+def generate_watermarked_image_url(
+    storage_key: str, watermark_text: str, expires: int = 3600
+) -> str:
     """Generate a presigned URL with OSS image processing watermark for image files.
 
     Falls back to a plain presigned URL if OSS is not available or the file is not an image.
@@ -56,7 +70,7 @@ def generate_watermarked_image_url(storage_key: str, watermark_text: str, expire
     base_url = generate_download_url(storage_key, expires)
     ext = storage_key.rsplit('.', 1)[-1].lower() if '.' in storage_key else ''
     image_exts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'}
-    if not _has_oss or ext not in image_exts:
+    if not _oss_configured() or ext not in image_exts:
         return base_url
 
     encoded = watermark_text.replace(' ', '%20')
@@ -72,23 +86,25 @@ def generate_watermarked_image_url(storage_key: str, watermark_text: str, expire
 
 def list_objects(prefix: str = '', max_keys: int = 1000, marker: str = '') -> list[dict]:
     """List OSS objects with pagination. Returns list of {key, size, last_modified}."""
-    if not _has_oss:
+    if not _oss_configured():
         return []
     bucket = _get_bucket()
     result = bucket.list_objects(prefix=prefix, max_keys=max_keys, marker=marker)
     objects = []
     for obj in result.object_list:
-        objects.append({
-            'key': obj.key,
-            'size': obj.size,
-            'last_modified': obj.last_modified,  # Unix timestamp (float)
-        })
+        objects.append(
+            {
+                'key': obj.key,
+                'size': obj.size,
+                'last_modified': obj.last_modified,  # Unix timestamp (float)
+            }
+        )
     return objects
 
 
 def list_all_objects(prefix: str = '', max_per_page: int = 100) -> list[dict]:
     """List all OSS objects under a prefix, handling pagination."""
-    if not _has_oss:
+    if not _oss_configured():
         return []
     bucket = _get_bucket()
     all_objects = []
@@ -96,11 +112,13 @@ def list_all_objects(prefix: str = '', max_per_page: int = 100) -> list[dict]:
     while True:
         result = bucket.list_objects(prefix=prefix, max_keys=max_per_page, marker=marker)
         for obj in result.object_list:
-            all_objects.append({
-                'key': obj.key,
-                'size': obj.size,
-                'last_modified': obj.last_modified,
-            })
+            all_objects.append(
+                {
+                    'key': obj.key,
+                    'size': obj.size,
+                    'last_modified': obj.last_modified,
+                }
+            )
         if not result.next_marker:
             break
         marker = result.next_marker
@@ -109,7 +127,7 @@ def list_all_objects(prefix: str = '', max_per_page: int = 100) -> list[dict]:
 
 def get_object_size(storage_key: str) -> int | None:
     """Get object size in bytes, or None if object doesn't exist."""
-    if not _has_oss:
+    if not _oss_configured():
         return None
     bucket = _get_bucket()
     try:
@@ -120,7 +138,7 @@ def get_object_size(storage_key: str) -> int | None:
 
 
 def delete_object(storage_key: str) -> None:
-    if not _has_oss:
+    if not _oss_configured():
         return
     bucket = _get_bucket()
     bucket.delete_object(storage_key)
@@ -128,7 +146,7 @@ def delete_object(storage_key: str) -> None:
 
 def upload_bytes(storage_key: str, data: bytes, content_type: str) -> bool:
     """Upload bytes to OSS. Returns True on success, False on failure."""
-    if not _has_oss:
+    if not _oss_configured():
         return False
     try:
         bucket = _get_bucket()
@@ -138,27 +156,9 @@ def upload_bytes(storage_key: str, data: bytes, content_type: str) -> bool:
         return False
 
 
-def generate_thumbnail_url(material_id: str, expires: int = 3600) -> str:
-    """Generate a presigned URL for a material thumbnail (may not exist yet)."""
-    key = f'thumbs/{material_id}.webp'
-    return generate_download_url(key, expires)
-
-
-def thumbnail_exists(material_id: str) -> bool:
-    """Check whether a thumbnail has been uploaded for the given material."""
-    if not _has_oss:
-        return False
-    try:
-        bucket = _get_bucket()
-        bucket.get_object_meta(f'thumbs/{material_id}.webp')
-        return True
-    except Exception:
-        return False
-
-
 def delete_objects(storage_keys: list[str]) -> int:
     """Batch delete OSS objects. Returns count of deleted objects."""
-    if not _has_oss or not storage_keys:
+    if not _oss_configured() or not storage_keys:
         return 0
     bucket = _get_bucket()
     deleted = 0

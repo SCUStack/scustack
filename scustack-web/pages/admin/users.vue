@@ -5,7 +5,7 @@
       <p class="text-sm text-slate-500 mb-6">共 {{ total }} 位用户</p>
 
       <div class="mb-4 flex items-center gap-3 flex-wrap">
-        <input v-model="searchQuery" placeholder="搜索手机号/昵称..." class="w-56 h-9 px-3 border border-slate-200 rounded-md text-sm" @input="debounceSearch" />
+        <input v-model="searchQuery" placeholder="搜索昵称..." class="w-56 h-9 px-3 border border-slate-200 rounded-md text-sm" @input="debounceSearch" />
         <select v-model="roleFilter" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadUsers">
           <option value="">全部角色</option>
           <option value="student">学生</option>
@@ -54,7 +54,6 @@
               <div><span class="text-slate-400">昵称</span><p class="text-slate-700 mt-0.5">{{ userDetail.nickname }}</p></div>
               <div><span class="text-slate-400">角色</span><p class="text-slate-700 mt-0.5">{{ roleLabel(userDetail.role) }}</p></div>
               <div><span class="text-slate-400">信任分</span><p class="text-slate-700 mt-0.5">{{ userDetail.trust_score }}</p></div>
-              <div><span class="text-slate-400">手机号</span><p class="text-slate-700 mt-0.5">{{ userDetail.phone || '未绑定' }}</p></div>
               <div><span class="text-slate-400">状态</span><p class="mt-0.5" :class="userDetail.is_active ? 'text-emerald-600' : 'text-red-500'">{{ userDetail.is_active ? '正常' : '已封禁' }}</p></div>
               <div><span class="text-slate-400">注册时间</span><p class="text-slate-700 mt-0.5">{{ formatDate(userDetail.created_at) }}</p></div>
               <div><span class="text-slate-400">最后更新</span><p class="text-slate-700 mt-0.5">{{ formatDate(userDetail.updated_at) }}</p></div>

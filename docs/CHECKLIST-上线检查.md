@@ -78,7 +78,7 @@ These are required because repo-only evidence cannot prove real production behav
 - Admin review can approve a material.
 - Hosted download still works under normal conditions.
 - Admin security page shows anti-scraping events after a triggered protection path.
-- Office preview is reachable from the real frontend deployment.
+- Office files load through `NUXT_PUBLIC_OFFICE_PREVIEW_BASE` when a preview gateway is enabled; the low-budget MVP without OnlyOffice shows an explicit unavailable state and an authenticated download fallback.
 - `/api/v1/health`, `/api/v1/health/live`, and `/api/v1/health/ready` all pass in the target environment.
 
 ## 4. External Blockers Still Preventing True Go-Live
@@ -107,7 +107,7 @@ These are **not solved by more repository-only code changes** and should be trea
 
 - `#120` Accessibility review and remediation
   Why it blocks launch:
-  No real A11y audit evidence is present yet.
+  Repository automation now covers axe WCAG A/AA and keyboard Skip Link checks, but the issue remains open until target-environment manual keyboard, focus, contrast, and screen-reader review is recorded.
 
 ### Intentionally excluded
 
@@ -139,7 +139,7 @@ If any item in Section 4 remains unresolved and unwaived, the website is **not y
 | Type | `checklist` |
 | Status | `active` |
 | Owner | `team` |
-| Last Updated | `2026-06-19` |
+| Last Updated | `2026-08-18` |
 | Source of Truth | `yes` |
 | Scope | MVP 上线前需要逐项确认的准备项、验证项与风险项。 |
 

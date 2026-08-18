@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, ForeignKey, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,18 +14,18 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
-    phone: Mapped[str] = mapped_column(String(256), nullable=False)
-    phone_lookup: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     nickname: Mapped[str] = mapped_column(String(64), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     role: Mapped[str] = mapped_column(
         String(16), nullable=False, insert_default='student', server_default='student'
     )
     wechat_openid: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    wechat_openid_lookup: Mapped[str | None] = mapped_column(
-        String(64), unique=True, nullable=True
-    )
+    wechat_openid_lookup: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     university_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    university_id_lookup: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    university_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     trust_score: Mapped[int] = mapped_column(
         Integer, nullable=False, insert_default=0, server_default='0'
     )

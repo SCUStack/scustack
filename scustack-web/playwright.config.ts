@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // The local API deliberately rate-limits shared anonymous identities; serial E2E keeps tests deterministic.
+  workers: 1,
   timeout: 30000,
   retries: 1,
   use: {

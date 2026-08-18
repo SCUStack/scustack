@@ -32,6 +32,7 @@ class UserProfileResponse(BaseModel):
     role: str
     trust_score: int
     public_display_name: str | None
+    university_id_masked: str | None = None
     created_at: datetime
 
 

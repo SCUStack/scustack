@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.ruff_cache/
+.venv/
+**/__pycache__/
+*.egg-info/
+*.py[cod]
+tests/
+_debug_marker.txt

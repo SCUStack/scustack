@@ -68,7 +68,7 @@
             <a v-if="material.source_type === 'hosted'" :href="downloadUrl"
               class="col-span-2 flex items-center justify-center gap-1.5 min-h-[44px] rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 no-underline cursor-pointer transition-colors duration-150">
               <AppIcon name="Download" :size="16" /> 下载
-              <span v-if="material.file_size" class="text-xs opacity-80">({{ formatSize(material.file_size) }})</span>
+              <span v-if="material.file_size" class="text-xs">({{ formatSize(material.file_size) }})</span>
             </a>
             <button v-else-if="material.external_url" @click="$emit('openExternalLink', material.external_url)"
               class="col-span-2 flex items-center justify-center gap-1.5 min-h-[44px] rounded-md text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 no-underline cursor-pointer transition-colors duration-150">
@@ -97,7 +97,7 @@
               <AppIcon name="FolderPlus" :size="14" /> 收藏到合辑
             </button>
 
-            <button @click="copyShareLink"
+            <button @click="showShareDialog = true"
               class="flex items-center justify-center gap-1.5 min-h-[44px] rounded-md text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors duration-150">
               <AppIcon name="Share2" :size="14" /> 分享
             </button>
@@ -119,14 +119,10 @@
             <div v-if="material.contributor" class="border border-slate-200 rounded-lg p-3 sm:p-4 space-y-2">
               <div class="flex items-center gap-2.5">
                 <img
-                  v-if="material.contributor.avatar_url"
-                  :src="material.contributor.avatar_url"
+                  :src="material.contributor.avatar_url || getDefaultAvatar(material.contributor.id)"
                   :alt="material.contributor.nickname"
                   class="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-slate-100"
                 />
-                <div v-else class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                  <AppIcon name="User" :size="18" class="text-primary-600" />
-                </div>
                 <div class="min-w-0 flex-1">
                   <p class="text-xs sm:text-sm font-medium text-slate-800 truncate">{{ material.contributor.nickname }}</p>
                   <p class="text-[11px] sm:text-xs text-slate-400">贡献者</p>
@@ -178,11 +174,19 @@
         </div>
       </div>
     </div>
+
+    <ShareDialog
+      v-model="showShareDialog"
+      :material-id="material.id"
+      :title="material.title"
+      :description="material.description"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { MaterialItem, MaterialVersion, UserBadge } from '~/types/api'
+import { getDefaultAvatar } from '~/utils/defaultAvatar'
 
 const props = defineProps<{
   material: MaterialItem
@@ -209,15 +213,11 @@ defineEmits<{
 
 const showDiff = ref(false)
 const diffVersionId = ref('')
+const showShareDialog = ref(false)
 
 function openDiffView(versionId: string) {
   diffVersionId.value = versionId
   showDiff.value = true
-}
-
-function copyShareLink() {
-  navigator.clipboard.writeText(window.location.href)
-  // Toast is handled by parent via composable
 }
 
 function formatDate(d: string) {

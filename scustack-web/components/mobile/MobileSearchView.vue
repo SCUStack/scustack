@@ -79,7 +79,7 @@
     </FilterSheet>
 
     <!-- Results count -->
-    <p v-if="searched" class="px-4 pt-1 text-xs text-slate-400">共 {{ leftResults.length + rightResults.length }} 条结果</p>
+    <p v-if="searched" class="px-4 pt-1 text-xs text-slate-400">共 {{ total }} 条结果</p>
 
     <!-- Two-column masonry -->
     <div class="px-3 pt-2 min-h-[200px]">
@@ -141,6 +141,8 @@ const query = ref('')
 const leftResults = ref<any[]>([])
 const rightResults = ref<any[]>([])
 const page = ref(1)
+const total = ref(0)
+const effectivePageSize = ref(PAGE_SIZE)
 const loading = ref(false)
 const searched = ref(false)
 const searchError = ref(false)
@@ -148,7 +150,10 @@ const showChipSheet = ref(false)
 const { filterGroups: backendFilterGroups, sortOptions, load: loadFilterConfig } = useSearchFilterConfig()
 
 function appendToColumns(items: any[]) {
+  const existingIds = new Set([...leftResults.value, ...rightResults.value].map(item => item.id))
   for (const item of items) {
+    if (existingIds.has(item.id)) continue
+    existingIds.add(item.id)
     if (leftResults.value.length <= rightResults.value.length) {
       leftResults.value.push(item)
     } else {
@@ -260,14 +265,21 @@ const { sentinel, loading: scrollLoading, hasMore } = useInfiniteScroll(async ()
 })
 
 async function doSearch(append = false) {
-  if (!append) { page.value = 1; leftResults.value = []; rightResults.value = []; hasMore.value = true }
+  if (!append) {
+    page.value = 1
+    total.value = 0
+    effectivePageSize.value = PAGE_SIZE
+    leftResults.value = []
+    rightResults.value = []
+    hasMore.value = true
+  }
   loading.value = true
   searched.value = true
   searchError.value = false
 
   const t0 = Date.now()
   try {
-    const params = new URLSearchParams({ page: String(page.value), page_size: String(PAGE_SIZE) })
+    const params = new URLSearchParams({ page: String(page.value), page_size: String(effectivePageSize.value) })
     if (query.value.trim()) params.set('q', query.value.trim())
     for (const chip of filterChips.value) {
       if (chip.active && chip.value && chip.key !== 'sort') params.set(chip.key, chip.value)
@@ -275,13 +287,17 @@ async function doSearch(append = false) {
     const sortChip = filterChips.value.find(c => c.key === 'sort')
     if (sortChip?.value && sortChip.value !== 'relevance') params.set('sort', sortChip.value)
 
-    const resp = await $fetch<{ code: number; data?: { items?: any[]; total?: number } }>(
+    const resp = await $fetch<{ code: number; data?: { items?: any[]; total?: number; page_size?: number } }>(
       `${apiBase}/api/v1/search?${params.toString()}`,
     )
     if (resp.code === 0) {
       const newItems = resp.data?.items || []
+      total.value = resp.data?.total ?? newItems.length
+      const responsePageSize = resp.data?.page_size
+      if (responsePageSize && responsePageSize > 0) effectivePageSize.value = responsePageSize
       appendToColumns(newItems)
-      if (newItems.length < PAGE_SIZE) hasMore.value = false
+      const loadedCount = leftResults.value.length + rightResults.value.length
+      hasMore.value = newItems.length > 0 && loadedCount < total.value
     }
   } catch { searchError.value = leftResults.value.length === 0 && rightResults.value.length === 0 }
 

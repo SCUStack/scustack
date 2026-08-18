@@ -30,7 +30,7 @@ export function useMaterial(materialId: Ref<string>) {
   // ── Computed ──────────────────────────────────────────────────────────
 
   const downloadUrl = computed(() => `${apiBase}/api/v1/materials/${materialId.value}/download`)
-  const previewUrl = computed(() => `${apiBase}/api/v1/materials/${materialId.value}/download`)
+  const previewUrl = computed(() => `${apiBase}/api/v1/materials/${materialId.value}/preview`)
 
   const canUploadNewVersion = computed(() => {
     if (!auth.isLoggedIn || !material.value) return false

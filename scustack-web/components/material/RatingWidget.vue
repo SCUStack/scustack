@@ -3,6 +3,7 @@
     <button
       v-for="star in 5"
       :key="star"
+      :aria-label="`${star} 星`"
       class="p-0.5 bg-transparent border-none cursor-pointer transition-colors duration-100"
       :class="star <= (hoverRating || localRating) ? 'text-amber-500' : 'text-slate-200'"
       @mouseenter="hoverRating = star"

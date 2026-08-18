@@ -1,14 +1,22 @@
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from app.models.bookmark import Bookmark
 from app.models.course import Course
 from app.models.material import Material
 from app.models.notification import Notification
 from app.models.user import RefreshToken, User
+
+
+def get_masked_university_id(user: User) -> str | None:
+    if not user.university_id:
+        return None
+    from app.core.security import decrypt_pii
+
+    university_id = decrypt_pii(user.university_id)
+    return f'{university_id[:4]}****{university_id[-4:]}'
 
 
 async def get_user(db: AsyncSession, user_id: UUID) -> User | None:
@@ -52,16 +60,12 @@ async def toggle_bookmark(
 ) -> dict:
     if course_id:
         existing = await db.execute(
-            select(Bookmark).where(
-                Bookmark.user_id == user_id, Bookmark.course_id == course_id
-            )
+            select(Bookmark).where(Bookmark.user_id == user_id, Bookmark.course_id == course_id)
         )
         bookmark = existing.scalar_one_or_none()
     elif material_id:
         existing = await db.execute(
-            select(Bookmark).where(
-                Bookmark.user_id == user_id, Bookmark.material_id == material_id
-            )
+            select(Bookmark).where(Bookmark.user_id == user_id, Bookmark.material_id == material_id)
         )
         bookmark = existing.scalar_one_or_none()
     else:
@@ -163,6 +167,7 @@ async def mark_notification_read(db: AsyncSession, notification_id: UUID, user_i
 
 async def mark_all_notifications_read(db: AsyncSession, user_id: UUID) -> None:
     from sqlalchemy import update
+
     await db.execute(
         update(Notification)
         .where(Notification.user_id == user_id, Notification.is_read == False)
@@ -196,9 +201,7 @@ async def create_notification(
 async def notify_course_followers(
     db: AsyncSession, course_id: UUID, material_title: str, material_id: UUID
 ) -> None:
-    rows = await db.execute(
-        select(Bookmark.user_id).where(Bookmark.course_id == course_id)
-    )
+    rows = await db.execute(select(Bookmark.user_id).where(Bookmark.course_id == course_id))
     follower_ids = [row[0] for row in rows.all()]
     for uid in follower_ids:
         await create_notification(
@@ -212,17 +215,18 @@ async def notify_course_followers(
         )
 
 
-async def deactivate_account(db: AsyncSession, user_id: UUID, ip_address: str | None = None, user_agent: str | None = None) -> bool:
+async def deactivate_account(
+    db: AsyncSession, user_id: UUID, ip_address: str | None = None, user_agent: str | None = None
+) -> bool:
     from sqlalchemy import update as sql_update
-    from app.core.security import blind_index_pii, encrypt_pii
 
     user = await get_user(db, user_id)
     if user is None:
         return False
     user.is_active = False
-    deactivated_phone = f'deactivated:{user.id}'
-    user.phone = encrypt_pii(deactivated_phone)
-    user.phone_lookup = blind_index_pii(deactivated_phone)
+    user.university_id = None
+    user.university_id_lookup = None
+    user.university_verified_at = None
     user.wechat_openid = None
     user.wechat_openid_lookup = None
     user.email = None
@@ -237,5 +241,13 @@ async def deactivate_account(db: AsyncSession, user_id: UUID, ip_address: str | 
     await db.flush()
 
     from app.services.audit_service import log_action
-    await log_action(db, user_id, 'account_deactivated', resource=f'user:{user_id}', ip_address=ip_address, user_agent=user_agent)
+
+    await log_action(
+        db,
+        user_id,
+        'account_deactivated',
+        resource=f'user:{user_id}',
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
     return True

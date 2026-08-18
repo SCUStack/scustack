@@ -4,6 +4,7 @@
       <label class="block text-sm text-slate-600 mb-1">{{ collegeLabel }}</label>
       <select
         v-model="selectedCollegeId"
+        :aria-label="collegeLabel"
         class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
         @change="onCollegeChange"
       >
@@ -15,6 +16,7 @@
       <label class="block text-sm text-slate-600 mb-1">{{ courseLabel }}</label>
       <select
         v-model="selectedCourseId"
+        :aria-label="courseLabel"
         class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:bg-slate-50 disabled:text-slate-400"
         :disabled="!selectedCollegeId"
         @change="onCourseChange"

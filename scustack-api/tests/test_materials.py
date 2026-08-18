@@ -135,6 +135,29 @@ class TestMaterialService:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_get_material_download_delta_does_not_dirty_updated_at(self):
+        from app.services.material_service import get_material
+
+        mock_db = MagicMock()
+        material = MagicMock()
+        material.id = UUID(MATERIAL_ID)
+        material.download_count = 10
+        material.contributor_id = None
+        material.rating_distribution = None
+        material_result = MagicMock()
+        material_result.scalar_one_or_none.return_value = material
+        ratings_result = MagicMock()
+        ratings_result.fetchall.return_value = []
+        mock_db.execute = AsyncMock(side_effect=[material_result, ratings_result])
+
+        with patch('app.services.material_service.get_download_delta', new_callable=AsyncMock, return_value=3), \
+             patch('app.services.material_service.set_committed_value') as set_committed:
+            result = await get_material(mock_db, MATERIAL_ID)
+
+        assert result is material
+        set_committed.assert_called_once_with(material, 'download_count', 13)
+
+    @pytest.mark.asyncio
     async def test_create_material(self):
         from app.services.material_service import create_material
         mock_db = MagicMock()
@@ -318,6 +341,66 @@ class TestMaterialDownload:
         finally:
             app.dependency_overrides.clear()
 
+
+class TestMaterialPreview:
+    async def test_preview_unauthorized(self, client):
+        resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
+        assert resp.status_code == 401
+
+    async def test_thumbnail_returns_local_webp_for_public_material(self, client, tmp_path):
+        thumbnail = tmp_path / f'{MATERIAL_ID}.webp'
+        thumbnail.write_bytes(b'RIFF0000WEBPthumbnail')
+        material = MagicMock(review_status='approved', contributor_id=None)
+        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
+             patch('app.api.v1.materials.thumbnail_path', return_value=thumbnail):
+            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/thumbnail')
+
+        assert resp.status_code == 200
+        assert resp.headers['content-type'] == 'image/webp'
+        assert resp.content == b'RIFF0000WEBPthumbnail'
+
+    async def test_delete_material_removes_local_thumbnail(self, client):
+        user = MagicMock(id=UUID(USER_ID), role='contributor', is_active=True)
+        app.dependency_overrides[get_current_user] = lambda: user
+        client.cookies.set('access_token', 'fake-access')
+        client.cookies.set('csrf_token', 'csrf-token')
+        try:
+            with patch('app.api.v1.materials.material_service.soft_delete_material', new_callable=AsyncMock, return_value=True), \
+                 patch('app.api.v1.materials.delete_thumbnail') as delete_local_thumbnail:
+                resp = await client.delete(
+                    f'/api/v1/materials/{MATERIAL_ID}',
+                    headers={'X-CSRF-Token': 'csrf-token'},
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.json()['code'] == 0
+        delete_local_thumbnail.assert_called_once_with(UUID(MATERIAL_ID))
+
+    async def test_preview_proxies_verified_file(self, client):
+        user = MagicMock(id=USER_ID, role='student')
+        material = MagicMock(
+            source_type='hosted', review_status='approved', file_size=7,
+            format='txt', contributor_id=USER_ID,
+        )
+        version = MagicMock(file_size=7, file_hash=None)
+
+        async def write_preview(_db, _version, destination, max_bytes=None):
+            assert max_bytes == 25 * 1024 * 1024
+            destination.write_bytes(b'preview')
+
+        app.dependency_overrides[get_current_user] = lambda: user
+        try:
+            with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
+                 patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
+                 patch('app.api.v1.materials.download_version_to_path', new=write_preview):
+                resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        assert resp.headers['content-type'].startswith('text/plain')
+        assert resp.content == b'preview'
 
 class TestVersionDiff:
     async def test_diff_non_text_returns_null_diff(self, client):

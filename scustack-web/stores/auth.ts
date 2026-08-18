@@ -9,6 +9,7 @@ interface UserInfo {
   avatarUrl: string | null
   trustScore: number
   publicDisplayName: string | null
+  universityIdMasked: string | null
   createdAt: string
 }
 
@@ -32,23 +33,26 @@ export const useAuthStore = defineStore('auth', () => {
     isLoginModalOpen.value = false
   }
 
-  async function login(phone: string, code: string) {
-    const { verifyCode } = useAuth()
-    const resp = await verifyCode(phone, code)
-    if (resp.code !== 0) throw new Error(resp.message)
-    await fetchUser()
-  }
-
-  async function loginWithPassword(phone: string, password: string) {
+  async function loginWithPassword(universityId: string, password: string) {
     const { loginWithPassword: doLogin } = useAuth()
-    const resp = await doLogin(phone, password)
+    const resp = await doLogin(universityId, password)
     if (resp.code !== 0) throw new Error(resp.message)
     await fetchUser()
   }
 
-  async function registerWithPassword(phone: string, password: string, confirmPassword: string) {
+  async function registerWithPassword(
+    universityId: string,
+    universityPassword: string,
+    password: string,
+    confirmPassword: string,
+  ) {
     const { registerWithPassword: doRegister } = useAuth()
-    const resp = await doRegister(phone, password, confirmPassword)
+    const resp = await doRegister(
+      universityId,
+      universityPassword,
+      password,
+      confirmPassword,
+    )
     if (resp.code !== 0) throw new Error(resp.message)
     await fetchUser()
   }
@@ -75,6 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
         avatarUrl: resp.data.avatar_url,
         trustScore: resp.data.trust_score,
         publicDisplayName: resp.data.public_display_name,
+        universityIdMasked: resp.data.university_id_masked,
         createdAt: resp.data.created_at,
       }
     } else {
@@ -100,13 +105,25 @@ export const useAuthStore = defineStore('auth', () => {
     unreadNotificationCount.value = 0
   }
 
-  async function updateProfile(fields: { nickname?: string }) {
+  async function updateProfile(fields: { nickname?: string; avatarUrl?: string }) {
     const { updateProfile } = useAuth()
-    const resp = await updateProfile(fields)
+    const resp = await updateProfile({
+      nickname: fields.nickname,
+      avatar_url: fields.avatarUrl,
+    })
     if (resp.code === 0 && user.value) {
       if (fields.nickname) user.value.nickname = fields.nickname
+      if (fields.avatarUrl) user.value.avatarUrl = fields.avatarUrl
     }
     return resp
+  }
+
+  async function uploadAvatar(file: File) {
+    const { uploadAvatar: doUploadAvatar } = useAuth()
+    const resp = await doUploadAvatar(file)
+    if (resp.code !== 0) throw new Error(resp.message)
+    if (user.value) user.value.avatarUrl = resp.data.avatar_url
+    return resp.data.avatar_url
   }
 
   async function fetchUnreadCount() {
@@ -126,13 +143,13 @@ export const useAuthStore = defineStore('auth', () => {
     unreadNotificationCount,
     openLogin,
     closeLogin,
-    login,
     loginWithPassword,
     registerWithPassword,
     fetchUser,
     doRefresh,
     doLogout,
     updateProfile,
+    uploadAvatar,
     fetchUnreadCount,
   }
 })

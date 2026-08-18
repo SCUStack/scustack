@@ -56,16 +56,16 @@
 
       <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">3.2 注册要求</h3>
       <ul class="list-decimal pl-5 space-y-1">
-        <li>您需要使用有效的手机号码注册账号。同一手机号码仅可注册一个账号。账号注销后，原手机号码可重新注册。</li>
+        <li>您需要使用有效的四川大学学号和统一认证完成身份校验后注册账号。同一学号仅可注册一个账号。</li>
         <li>您应当提供真实、准确的注册信息，并在信息变更时及时更新。因注册信息不真实或不准确导致无法接收重要通知的，由您自行承担后果。</li>
-        <li>您应当妥善保管您的账号、密码及短信验证码，<strong>不得以任何形式将账号出借、出租、转让、继承或授权给他人使用</strong>。</li>
+        <li>您应当妥善保管您的学号和课栈密码，<strong>不得以任何形式将账号出借、出租、转让、继承或授权给他人使用</strong>。</li>
         <li><strong>您对通过您的账号进行的所有活动和事件承担全部法律责任</strong>，无论该等活动是否由您本人实施。因账号出借、转让或保管不善导致的一切后果由您自行承担。</li>
       </ul>
 
       <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">3.3 账户安全</h3>
       <ul class="list-disc pl-5 space-y-1">
         <li>如您发现账号被未授权使用或存在安全漏洞，应立即通过第十四条所述方式通知我们。我们在接到通知前对已发生的未授权使用不承担责任，但在接到通知后将采取合理措施防止损失扩大。</li>
-        <li>我们有权对长期未使用的账号（连续 12 个月未登录且无任何活动记录）进行冻结处理。冻结前我们将通过注册手机号发送短信通知，通知发出后 7 日内用户未登录的，我们将执行冻结。冻结账号在解冻前将无法登录和使用平台功能。</li>
+        <li>我们有权对长期未使用的账号（连续 12 个月未登录且无任何活动记录）进行冻结处理，并通过站内消息或绑定邮箱通知您。冻结账号在解冻前将无法登录和使用平台功能。</li>
         <li>如您的账号涉及违法违规行为，我们有权暂停或永久封禁您的账号，并保留向有关部门报告的权利。</li>
       </ul>
 
@@ -134,7 +134,7 @@
         <li>向相关权利人（如被侵权方、著作权人）通报情况；</li>
         <li>依据法律法规向有关部门报告。</li>
       </ul>
-      <p>我们对违规行为采取处置措施后，将通过站内消息或注册手机号告知您处置结果和原因。如您对处置有异议，可通过第十四条所述方式提出申诉。</p>
+      <p>我们对违规行为采取处置措施后，将通过站内消息或绑定邮箱告知您处置结果和原因。如您对处置有异议，可通过第十四条所述方式提出申诉。</p>
 
       <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">五、知识产权</h2>
 
@@ -156,7 +156,7 @@
       <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">5.4 版权侵权投诉</h3>
       <p>我们尊重知识产权。如您认为本平台上的任何内容侵犯了您的著作权，请通过以下方式提交侵权通知：</p>
       <ul class="list-decimal pl-5 space-y-1">
-        <li>访问本平台的<a href="/copyright" class="text-primary-600 hover:text-primary-700">版权投诉页面</a>，填写侵权投诉表单；</li>
+        <li>访问本平台的<a href="/copyright" class="text-primary-600 underline underline-offset-2 hover:text-primary-700">版权投诉页面</a>，填写侵权投诉表单；</li>
         <li>或发送邮件至 admin@scustack.com，提供以下材料：<strong>(a)</strong> 权利人的身份证明或著作权权属证明；<strong>(b)</strong> 侵权内容在本平台的具体 URL 地址；<strong>(c)</strong> 您的有效联系方式；<strong>(d)</strong> 您的电子或物理签名（或等效的身份验证信息）；<strong>(e)</strong> 您承诺通知内容真实性的声明。</li>
       </ul>
       <p>我们在收到符合法定要求的有效通知后，将<strong>在合理时间内（通常不超过 7 个工作日）</strong>对侵权内容进行审核和处理（删除或断开链接），并通知上传用户。上传用户如认为不存在侵权行为，可通过相同渠道提交反通知，说明不侵权的理由并提供证明材料。我们将依据《信息网络传播权保护条例》及相关法律法规的"通知-删除"规则处理所有投诉。</p>
@@ -240,11 +240,10 @@
       <p>我们向您发出的通知可通过以下一种或多种方式送达：</p>
       <ul class="list-disc pl-5 space-y-1">
         <li>在本平台显著位置发布公告；</li>
-        <li>向您注册时提供的手机号发送短信；</li>
         <li>向您绑定的电子邮箱发送邮件；</li>
         <li>在您登录后推送站内消息。</li>
       </ul>
-      <p>以公告方式发出的通知，在公告发布之时起即视为送达；以短信、邮件方式发出的通知，在发送之时起即视为送达；以站内消息方式发出的通知，在您下次登录时视为送达。您应当定期查看平台公告和账户信息。您因未及时查看通知而产生的后果，由您自行承担。您应确保注册时提供的联系方式准确有效，联系方式变更后应及时更新。</p>
+      <p>以公告方式发出的通知，在公告发布之时起即视为送达；以邮件方式发出的通知，在发送之时起即视为送达；以站内消息方式发出的通知，在您下次登录时视为送达。您应当定期查看平台公告和账户信息。您因未及时查看通知而产生的后果，由您自行承担。您应确保绑定邮箱有效。</p>
 
       <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">十三、其他条款</h2>
       <ul class="list-disc pl-5 space-y-2">
@@ -257,9 +256,9 @@
       <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">十四、联系我们</h2>
       <p>如您对本协议有任何疑问、意见或建议，请通过以下方式联系我们：</p>
       <ul class="list-disc pl-5 space-y-1">
-        <li><strong>电子邮箱</strong>：<a href="mailto:admin@scustack.com" class="text-primary-600 hover:text-primary-700">admin@scustack.com</a></li>
-        <li><strong>GitHub Issues</strong>：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener" class="text-primary-600 hover:text-primary-700">yeyixiang2007/scustack/issues</a></li>
-        <li><strong>版权投诉</strong>：<NuxtLink to="/copyright" class="text-primary-600 hover:text-primary-700">/copyright</NuxtLink></li>
+        <li><strong>电子邮箱</strong>：<a href="mailto:admin@scustack.com" class="text-primary-600 underline underline-offset-2 hover:text-primary-700">admin@scustack.com</a></li>
+        <li><strong>GitHub Issues</strong>：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener" class="text-primary-600 underline underline-offset-2 hover:text-primary-700">yeyixiang2007/scustack/issues</a></li>
+        <li><strong>版权投诉</strong>：<NuxtLink to="/copyright" class="text-primary-600 underline underline-offset-2 hover:text-primary-700">/copyright</NuxtLink></li>
         <li><strong>通信地址</strong>：四川省成都市双流区川大路 四川大学江安校区</li>
       </ul>
     </div>

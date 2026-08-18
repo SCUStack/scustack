@@ -15,10 +15,10 @@ export interface PaginatedItems<T> {
 export interface UserProfile {
   id: string
   nickname: string
-  phone?: string
   avatar_url?: string
   role: 'visitor' | 'student' | 'contributor' | 'maintainer' | 'admin'
   trust_score: number
+  university_id_masked?: string | null
   created_at: string
 }
 
@@ -48,6 +48,7 @@ export interface Course {
 
 // ── Material ──
 export interface MaterialContributor {
+  id: string
   nickname: string
   avatar_url?: string
   trust_score: number

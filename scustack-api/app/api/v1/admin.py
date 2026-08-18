@@ -239,7 +239,7 @@ async def delete_calendar(
 
 @router.get('/users')
 async def list_users(
-    q: str | None = Query(None, description='Search nickname or phone'),
+    q: str | None = Query(None, description='Search nickname'),
     role: str | None = Query(None),
     is_active: bool | None = Query(None),
     limit: int = Query(20, le=50),
@@ -356,6 +356,7 @@ async def analytics_trends(
 ):
     from datetime import datetime, timezone, timedelta
     from sqlalchemy import select, func, text
+    from app.models.material import Material
 
     start = datetime.now(timezone.utc) - timedelta(days=days)
     dates = [(start + timedelta(days=i)).strftime('%m-%d') for i in range(days)]

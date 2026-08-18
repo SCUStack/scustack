@@ -1,7 +1,7 @@
 """create material file replicas
 
-Revision ID: 030
-Revises: 029
+Revision ID: 031
+Revises: 030
 Create Date: 2026-08-04
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = '030'
-down_revision: str | None = '029'
+revision: str = '031'
+down_revision: str | None = '030'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

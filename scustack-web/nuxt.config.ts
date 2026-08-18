@@ -10,6 +10,9 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
 
   app: {
+    head: {
+      htmlAttrs: { lang: 'zh-CN' },
+    },
     pageTransition: { name: 'page' },
     layoutTransition: { name: 'layout' },
   },
@@ -40,6 +43,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8403',
+      officePreviewBase: process.env.NUXT_PUBLIC_OFFICE_PREVIEW_BASE || '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
       appEnv: process.env.NUXT_PUBLIC_APP_ENV || 'dev',
     },

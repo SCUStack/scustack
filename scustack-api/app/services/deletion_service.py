@@ -1,17 +1,15 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.account_deletion import AccountDeletion, GRACE_PERIOD_DAYS
+from app.models.account_deletion import GRACE_PERIOD_DAYS, AccountDeletion
 from app.models.user import User
 
 
 async def request_deletion(db: AsyncSession, user_id: UUID) -> AccountDeletion | None:
-    existing = await db.scalar(
-        select(AccountDeletion).where(AccountDeletion.user_id == user_id)
-    )
+    existing = await db.scalar(select(AccountDeletion).where(AccountDeletion.user_id == user_id))
     if existing:
         if existing.status == 'pending':
             existing.cancelled_at = datetime.now(timezone.utc)
@@ -59,35 +57,32 @@ async def cancel_deletion(db: AsyncSession, user_id: UUID) -> bool:
 
 
 async def get_deletion_status(db: AsyncSession, user_id: UUID) -> AccountDeletion | None:
-    return await db.scalar(
-        select(AccountDeletion).where(AccountDeletion.user_id == user_id)
-    )
+    return await db.scalar(select(AccountDeletion).where(AccountDeletion.user_id == user_id))
 
 
 async def process_expired_deletions(db: AsyncSession) -> int:
     """Delete user data for expired deletion requests. Returns count of processed users."""
     now = datetime.now(timezone.utc)
     result = await db.execute(
-        select(AccountDeletion).where(
+        select(AccountDeletion)
+        .where(
             AccountDeletion.status == 'pending',
             AccountDeletion.scheduled_at <= now,
-        ).limit(100)
+        )
+        .limit(100)
     )
     expired = list(result.scalars().all())
 
     for deletion in expired:
         user = await db.get(User, deletion.user_id)
         if user:
-            from app.core.security import blind_index_pii, encrypt_pii
-
-            deleted_phone = f'deleted:{user.id}'
             user.nickname = f'deleted_user_{str(user.id)[:8]}'
-            user.phone = encrypt_pii(deleted_phone)
-            user.phone_lookup = blind_index_pii(deleted_phone)
             user.email = None
             user.email_lookup = None
             user.avatar_url = None
             user.university_id = None
+            user.university_id_lookup = None
+            user.university_verified_at = None
             user.wechat_openid = None
             user.wechat_openid_lookup = None
             user.is_active = False

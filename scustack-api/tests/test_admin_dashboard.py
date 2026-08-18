@@ -149,6 +149,23 @@ class TestAnalytics:
                 assert resp.status_code == 200
                 assert resp.json()['data']['college_count'] == 5
 
+    async def test_analytics_trends_ok(self):
+        user = _make_user()
+        app.dependency_overrides[get_current_user] = lambda: user
+
+        from app.core.database import get_db
+        mock_db = AsyncMock()
+        empty_result = MagicMock()
+        empty_result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=empty_result)
+        app.dependency_overrides[get_db] = lambda: mock_db
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url='http://test') as client:
+            resp = await client.get('/api/v1/admin/analytics/trends?days=7')
+            assert resp.status_code == 200
+            assert len(resp.json()['data']['dates']) == 7
+
 
 class TestCalendarService:
     @pytest.mark.asyncio

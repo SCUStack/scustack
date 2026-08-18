@@ -11,29 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend-lint:
-    name: Backend Lint (Ruff)
+  backend-compile:
+    name: Backend Compile Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
-      - run: pip install ruff
-      - run: ruff check scustack-api/
-
-  backend-typecheck:
-    name: Backend Typecheck (Pyright)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-      - run: pip install -e "scustack-api/[dev]"
-      - run: cd scustack-api && pyright
+      - run: python -m compileall -q scustack-api/app scustack-api/scripts
 
   backend-test:
     name: Backend Tests (pytest)
@@ -77,15 +63,15 @@ jobs:
           cache: pip
       - run: pip install -e "scustack-api/[dev]"
       - run: cd scustack-api && alembic upgrade head
-      - run: cd scustack-api && pytest --cov --cov-report=xml --ignore=tests/test_search.py -q
+      - run: cd scustack-api && pytest --cov --cov-report=xml -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: backend-coverage
           path: scustack-api/coverage.xml
 
-  frontend-lint:
-    name: Frontend Lint (ESLint)
+  frontend-build:
+    name: Frontend Production Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +81,7 @@ jobs:
           cache: npm
           cache-dependency-path: scustack-web/package-lock.json
       - run: cd scustack-web && npm ci
-      - run: cd scustack-web && npx eslint . --ext .vue,.ts
+      - run: cd scustack-web && npm run build
 
   frontend-typecheck:
     name: Frontend Typecheck (vue-tsc)

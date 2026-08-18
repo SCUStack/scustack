@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 useHead({
-  titleTemplate: '%s | 川流课栈',
+  titleTemplate: '川流课栈 >( ⁰▿⁰)< 好好学习天天向上 ~ SCUStack',
   meta: [
     { charset: 'utf-8' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },

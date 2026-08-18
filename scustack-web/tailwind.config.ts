@@ -21,9 +21,11 @@ export default {
           900: '#1E3050',
         },
         accent: {
+          50: '#FFFBEB',
           400: '#FBBF24',
           500: '#F59E0B',
           600: '#D97706',
+          700: '#B45309',
         },
       },
       fontFamily: {

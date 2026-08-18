@@ -1,7 +1,11 @@
+import mimetypes
+import tempfile
+from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
+from starlette.background import BackgroundTask
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.anti_scraping_events import log_anti_scraping_event
@@ -13,8 +17,10 @@ from app.core.storage import (
     StorageError,
     add_primary_replica,
     consume_uploaded_object,
+    download_version_to_path,
     resolve_download_url,
 )
+from app.core.thumbnails import delete_thumbnail, thumbnail_path
 from app.core.permissions import Permission
 from app.dependencies import get_current_user, get_optional_user, require_permission
 from app.models.user import User
@@ -82,6 +88,30 @@ async def get_material(
     return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'ok'}
 
 
+@router.get('/{material_id}/thumbnail')
+async def get_material_thumbnail(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
+    material = await material_service.get_material(db, material_id)
+    if (
+        material is None
+        or material.review_status == 'removed'
+        or not _can_access_material(material, current_user)
+    ):
+        raise HTTPException(status_code=404, detail='thumbnail not found')
+    path = thumbnail_path(material_id)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail='thumbnail not found')
+    return FileResponse(
+        path,
+        media_type='image/webp',
+        filename=f'{material_id}.webp',
+        headers={'Cache-Control': 'public, max-age=300'},
+    )
+
+
 @router.get('/{material_id}/detail')
 async def get_material_detail(
     material_id: UUID,
@@ -142,11 +172,12 @@ async def create_material(
     await db.commit()
     # Trigger async upload validation pipeline before anything becomes publicly visible.
     try:
-        from app.tasks.material_tasks import pre_screen_content, virus_scan
+        from app.tasks.material_tasks import generate_thumbnail, pre_screen_content, virus_scan
         if m.source_type == 'hosted':
             latest_version = await material_service.get_latest_version(db, m.id)
             if latest_version is not None:
                 virus_scan.delay(str(m.id), str(latest_version.id))
+                generate_thumbnail.delay(str(m.id), str(latest_version.id), m.format or '')
         pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:
         pass
@@ -185,6 +216,7 @@ async def delete_material(
     if not ok:
         return {'code': 40400, 'data': None, 'message': 'material not found or forbidden'}
     await db.commit()
+    delete_thumbnail(material_id)
     return {'code': 0, 'data': None, 'message': 'material removed'}
 
 
@@ -267,6 +299,39 @@ async def download_material(
     return RedirectResponse(url=url, status_code=302)
 
 
+@router.get('/{material_id}/preview')
+async def preview_material(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = await material_service.get_material(db, material_id)
+    if m is None or m.source_type != 'hosted' or not _can_access_material(m, current_user):
+        return JSONResponse({'code': 40400, 'data': None, 'message': 'file not available for preview'}, status_code=404)
+    if m.file_size and m.file_size > 25 * 1024 * 1024:
+        return JSONResponse({'code': 41300, 'data': None, 'message': 'file too large for preview'}, status_code=413)
+
+    version = await material_service.get_latest_version(db, material_id)
+    if version is None:
+        return JSONResponse({'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404)
+
+    suffix = f'.{m.format}' if m.format else ''
+    with tempfile.NamedTemporaryFile(prefix='scustack-preview-', suffix=suffix, delete=False) as output:
+        destination = Path(output.name)
+    try:
+        await download_version_to_path(db, version, destination, max_bytes=25 * 1024 * 1024)
+    except StorageError:
+        destination.unlink(missing_ok=True)
+        return JSONResponse({'code': 50300, 'data': None, 'message': 'preview temporarily unavailable'}, status_code=503)
+
+    media_type = mimetypes.guess_type(destination.name)[0] or 'application/octet-stream'
+    return FileResponse(
+        destination,
+        media_type=media_type,
+        background=BackgroundTask(destination.unlink, missing_ok=True),
+    )
+
+
 @router.post('/{material_id}/ratings')
 async def rate_material(
     material_id: UUID,
@@ -319,8 +384,9 @@ async def create_version(
     await add_primary_replica(db, v.id, stored, checksum)
     await db.commit()
     try:
-        from app.tasks.material_tasks import pre_screen_content, virus_scan
+        from app.tasks.material_tasks import generate_thumbnail, pre_screen_content, virus_scan
         virus_scan.delay(str(m.id), str(v.id))
+        generate_thumbnail.delay(str(m.id), str(v.id), m.format or '')
         pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:
         pass

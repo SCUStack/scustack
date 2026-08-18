@@ -77,12 +77,18 @@
         </div>
 
         <!-- User avatar (desktop) -->
-        <div class="relative" @click="auth.isLoggedIn ? (showUserMenu = !showUserMenu) : auth.openLogin()">
-          <button class="flex items-center gap-1.5 cursor-pointer transition-colors duration-150 px-1 py-1 rounded-md"
-            :class="isHome && !scrolled ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100'">
+        <div class="relative">
+          <button type="button" :aria-label="auth.isLoggedIn ? '打开用户菜单' : '登录或注册'" class="flex items-center gap-1.5 cursor-pointer transition-colors duration-150 px-1 py-1 rounded-md"
+            :class="isHome && !scrolled ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100'"
+            @click="auth.isLoggedIn ? (showUserMenu = !showUserMenu) : auth.openLogin()">
             <div class="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden shrink-0"
               :class="isHome && !scrolled ? '!bg-white/20' : ''">
-              <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" class="w-full h-full object-cover" alt="" />
+              <img
+                v-if="auth.user"
+                :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
+                class="w-full h-full object-cover"
+                :alt="`${auth.user.nickname}的头像`"
+              />
               <AppIcon v-else name="User" :size="16" :class="isHome && !scrolled ? 'text-white' : 'text-primary-600'" />
             </div>
             <span class="text-sm hidden sm:inline max-w-[80px] truncate">{{ auth.isLoggedIn ? auth.user?.nickname : '未登录' }}</span>
@@ -91,8 +97,12 @@
             class="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50" @click.stop>
             <div class="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
               <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden shrink-0">
-                <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" class="w-full h-full object-cover" alt="" />
-                <AppIcon v-else name="User" :size="20" class="text-primary-600" />
+                <img
+                  v-if="auth.user"
+                  :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
+                  class="w-full h-full object-cover"
+                  :alt="`${auth.user.nickname}的头像`"
+                />
               </div>
               <div class="min-w-0">
                 <p class="text-sm font-medium text-slate-800 truncate">{{ auth.user?.nickname }}</p>
@@ -127,7 +137,12 @@
         <div class="absolute inset-[1px] rounded-[27px] bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_34%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_28%)]" />
         <div class="relative flex items-center gap-2 px-2 py-2">
           <button class="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer border border-primary-100/80 shadow-sm" @click="navigateTo('/user/profile')">
-            <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" class="w-full h-full object-cover" alt="" />
+            <img
+              v-if="auth.user"
+              :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
+              class="w-full h-full object-cover"
+              :alt="`${auth.user.nickname}的头像`"
+            />
             <AppIcon v-else name="User" :size="18" class="text-primary-600" />
           </button>
 
@@ -236,7 +251,7 @@
     <div v-if="isHome" class="lg:hidden" style="height: calc(var(--mobile-header-height) + var(--safe-area-top))" />
     <div class="hidden lg:block" :class="isHome ? '' : 'h-14'" />
 
-    <main id="main-content" class="relative z-10 lg:pb-0" style="padding-bottom: calc(var(--mobile-bottom-nav-height) + 0.75rem)">
+    <main id="main-content" :tabindex="-1" class="relative z-10 lg:pb-0" style="padding-bottom: calc(var(--mobile-bottom-nav-height) + 0.75rem)">
       <slot />
     </main>
 
@@ -246,6 +261,7 @@
 
 <script setup lang="ts">
 import type { NotificationItem } from '~/types/api'
+import { getDefaultAvatar } from '~/utils/defaultAvatar'
 
 const route = useRoute()
 const auth = useAuthStore()

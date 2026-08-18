@@ -1,7 +1,7 @@
 /**
  * E2E Path 3: Login/Profile/Bookmarks
  *
- * SMS login → edit profile → bookmark material → view bookmarks → un-bookmark
+ * Student ID login → edit profile → bookmark material → view bookmarks → un-bookmark
  */
 import { test, expect } from '@playwright/test'
 
@@ -37,10 +37,10 @@ test.describe('Path 3: Login and Profile', () => {
     await expect(page.locator('body')).toBeVisible()
   })
 
-  test('error scenario: SMS login with empty phone', async ({ page }) => {
+  test('error scenario: login with empty student id', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // Login modal should handle empty phone gracefully
+    // Login modal should handle an empty student ID without submitting.
     await expect(page.locator('body')).toBeVisible()
   })
 })

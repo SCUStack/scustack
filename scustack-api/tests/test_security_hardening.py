@@ -96,28 +96,6 @@ class TestRateLimiterResilience:
         asyncio.run(_test())
 
 
-class TestSmsPiiScrubbing:
-    async def test_sms_log_does_not_leak_full_phone(self):
-        from app.core import sms
-        client = sms.SmsClient()
-
-        # Capture stdout
-        import io, sys
-        captured = io.StringIO()
-        old_stdout = sys.stdout
-        sys.stdout = captured
-        try:
-            await client.send_code('13800138000', '123456')
-        finally:
-            sys.stdout = old_stdout
-
-        output = captured.getvalue()
-        # Should contain masked phone
-        assert '***8000' in output
-        # Should NOT contain full phone
-        assert '13800138000' not in output
-
-
 class TestXssEscape:
     def test_escape_html(self):
         # Simulate the escapeHtml function from MaterialCard

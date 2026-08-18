@@ -6,14 +6,14 @@
 
       <div class="mb-4 flex flex-wrap items-center gap-3">
         <input v-model="searchQuery" placeholder="搜索标题..." class="w-56 h-9 px-3 border border-slate-200 rounded-md text-sm" @input="debounceSearch" />
-        <select v-model="statusFilter" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadData">
+        <select v-model="statusFilter" aria-label="审核状态" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadData">
           <option value="">全部状态</option>
           <option value="pending">待审核</option>
           <option value="approved">已通过</option>
           <option value="rejected">已驳回</option>
           <option value="removed">已下架</option>
         </select>
-        <select v-model="categoryFilter" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadData">
+        <select v-model="categoryFilter" aria-label="资料分类" class="h-9 px-3 border border-slate-200 rounded-md text-sm" @change="loadData">
           <option value="">全部分类</option>
           <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
         </select>
@@ -34,7 +34,7 @@
               <span class="ml-1">· ↓{{ m.download_count }}</span>
             </p>
           </div>
-          <select :value="m.trust_status || 'unverified'" class="h-7 px-2 border border-slate-200 rounded text-xs" @change="setTrust(m.id, ($event.target as HTMLSelectElement).value)">
+          <select :value="m.trust_status || 'unverified'" :aria-label="`设置 ${m.title} 的信任状态`" class="h-7 px-2 border border-slate-200 rounded text-xs" @change="setTrust(m.id, ($event.target as HTMLSelectElement).value)">
             <option v-for="option in trustStatusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select>
           <button v-if="m.review_status !== 'removed'" class="h-7 px-2 rounded text-xs text-red-400 hover:bg-red-50 cursor-pointer" @click="removeMaterial(m.id)">下架</button>

@@ -96,6 +96,10 @@ def _provider():
     return providers[settings.STORAGE_DEFAULT_PROVIDER]()
 
 
+async def store_bytes(file_name: str, content_type: str, content: bytes) -> StoredObject:
+    return await _provider().upload_bytes(file_name, content_type, content)
+
+
 def _pending_key(upload_id: str, user_id: str) -> str:
     return f'upload:pending:{user_id}:{upload_id}'
 

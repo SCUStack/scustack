@@ -72,8 +72,8 @@
                     <AppIcon :name="isBookmarked ? 'BookmarkCheck' : 'Bookmark'" :size="14" />
                     {{ isBookmarked ? '已收藏' : '收藏' }}
                   </button>
-                  <button @click="copyShareLink"
-                    class="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
+                  <button @click="showShareDialog = true"
+                    class="flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-2 text-xs text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 cursor-pointer">
                     <AppIcon name="Share2" :size="14" /> 分享
                   </button>
                   <button @click="navigateTo(`/material/${material.id}`)"
@@ -101,6 +101,14 @@
         </div>
       </div>
     </Transition>
+
+    <ShareDialog
+      v-if="material"
+      v-model="showShareDialog"
+      :material-id="material.id"
+      :title="material.title"
+      :description="material.description"
+    />
   </Teleport>
 </template>
 
@@ -109,6 +117,7 @@ import type { MaterialItem } from '~/types/api'
 
 const props = defineProps<{ materialId: string; initialItem?: MaterialItem | null }>()
 defineEmits<{ close: [] }>()
+const showShareDialog = ref(false)
 
 const {
   material, versions, courseName, loading, isBookmarked,
@@ -124,13 +133,6 @@ function formatSize(bytes: number): string {
   return bytes + ' B'
 }
 
-function copyShareLink() {
-  const url = `${window.location.origin}/material/${props.materialId}`
-  navigator.clipboard.writeText(url).then(() => {
-    const { success } = useToast()
-    success?.('链接已复制')
-  }).catch(() => {})
-}
 </script>
 
 <style scoped>

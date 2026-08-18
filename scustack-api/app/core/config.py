@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings
@@ -13,7 +14,9 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool | None = None
 
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
-        'JWT_SECRET_KEY', 'ENCRYPTION_KEY', 'DB_PASSWORD',
+        'JWT_SECRET_KEY',
+        'ENCRYPTION_KEY',
+        'DB_PASSWORD',
     )
 
     CORS_ORIGINS: list[str] = ['http://localhost:3000']
@@ -42,6 +45,7 @@ class Settings(BaseSettings):
     STORAGE_DEFAULT_PROVIDER: Literal['lfs', 'oss'] = 'lfs'
     STORAGE_TARGET_REPLICA_COUNT: int = 1
     STORAGE_DOWNLOAD_GATEWAY: str = 'https://download.cacode.qzz.io'
+    THUMBNAIL_DIR: Path = Path('data/thumbnails')
 
     LFS_UPLOAD_URL: str = 'https://lfs.cacode.qzz.io/upload'
     LFS_PUBLIC_BASE: str = 'https://lfs.cacode.qzz.io'
@@ -59,15 +63,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # SMS
-    SMS_ACCESS_KEY_ID: str = ''
-    SMS_ACCESS_KEY_SECRET: str = ''
-    SMS_SIGN_NAME: str = '川流课栈'
-    SMS_TEMPLATE_CODE: str = ''
-
-    # WeChat
-    WECHAT_APP_ID: str = ''
-    WECHAT_APP_SECRET: str = ''
+    # Sichuan University identity verification
+    UNIVERSITY_AUTH_PROVIDER: Literal['disabled', 'mock', 'scu_cli'] = 'disabled'
+    UNIVERSITY_AUTH_MOCK_PASSWORD: str = ''
+    SCU_CLI_PATH: str = ''
+    SCU_CLI_TIMEOUT_SECONDS: float = 30.0
+    SCU_CLI_RUNTIME_DIR: str = ''
 
     model_config = {'env_prefix': 'SCUSTACK_', 'env_file': '.env'}
 
@@ -79,17 +80,34 @@ class Settings(BaseSettings):
             'ENCRYPTION_KEY': 'change-me-in-production',
             'DB_PASSWORD': 'scustack',
         }
+        minimum_lengths = {
+            'JWT_SECRET_KEY': 32,
+            'ENCRYPTION_KEY': 32,
+            'DB_PASSWORD': 16,
+        }
         for name in self._REQUIRED_IN_PRODUCTION:
-            current = getattr(self, name, None)
+            current = getattr(self, name, '')
             default = defaults.get(name)
             if current == default:
                 issues.append(f'{name} is still set to default value')
+            elif len(current) < minimum_lengths[name]:
+                issues.append(f'{name} must be at least {minimum_lengths[name]} characters')
         if self.STORAGE_DEFAULT_PROVIDER == 'lfs' and not self.LFS_API_TOKEN:
             issues.append('LFS_API_TOKEN is required when LFS is the default storage provider')
         if self.APP_ENV == 'prod' and self.DEBUG:
             issues.append('DEBUG must be disabled in production')
         if self.APP_ENV == 'prod' and not self.TRUSTED_HOSTS:
             issues.append('TRUSTED_HOSTS must be configured in production')
+        if self.APP_ENV == 'prod' and self.UNIVERSITY_AUTH_PROVIDER == 'mock':
+            issues.append('UNIVERSITY_AUTH_PROVIDER cannot be mock in production')
+        if self.UNIVERSITY_AUTH_PROVIDER == 'scu_cli' and not self.SCU_CLI_PATH:
+            issues.append('SCU_CLI_PATH is required when scu_cli authentication is enabled')
+        if (
+            self.APP_ENV == 'prod'
+            and self.UNIVERSITY_AUTH_PROVIDER == 'scu_cli'
+            and not self.SCU_CLI_RUNTIME_DIR
+        ):
+            issues.append('SCU_CLI_RUNTIME_DIR is required for scu_cli in production')
         return issues
 
     @property

@@ -17,6 +17,11 @@
   --color-accent-400: #FBBF24;
   --color-accent-500: #F59E0B;
   --color-accent-600: #D97706;
+  --color-accent-700: #B45309;
+
+  --color-text-muted: #475569;
+  --color-success-readable: #047857;
+  --color-danger-readable: #B91C1C;
 
   --color-success: #10B981;
   --color-warning: #F59E0B;
@@ -50,6 +55,39 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+/* Small text must retain WCAG AA contrast on the light surfaces used throughout the app. */
+.text-slate-300,
+.text-slate-400,
+.text-slate-500 {
+  color: var(--color-text-muted);
+}
+
+.text-amber-600,
+.text-accent-600 {
+  color: var(--color-accent-700);
+}
+
+.text-emerald-600 {
+  color: var(--color-success-readable);
+}
+
+.text-emerald-500 {
+  color: var(--color-success-readable);
+}
+
+.text-red-400,
+.text-red-500 {
+  color: var(--color-danger-readable);
+}
+
+.text-amber-500 {
+  color: var(--color-accent-700);
+}
+
+.bg-primary-500.text-white {
+  background-color: var(--color-primary-600);
 }
 
 #__nuxt {

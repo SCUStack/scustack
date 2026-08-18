@@ -1,7 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
@@ -25,64 +24,125 @@ def _mock_rate_limiter():
 TOKENS = {'access_token': 'at', 'refresh_token': 'rt', 'token_type': 'bearer'}
 
 
-class TestSmsSend:
-    async def test_send_ok(self, client):
-        phone = f'1380013{str(uuid4().int)[:4]}'
-        with patch('app.api.v1.auth.send_sms_code', new_callable=AsyncMock):
-            resp = await client.post('/api/v1/auth/sms/send', json={'phone': phone})
-            assert resp.json()['code'] == 0
+class TestUniversityAuthentication:
+    async def test_register_sets_cookies(self, client):
+        with (
+            _mock_rate_limiter(),
+            patch(
+                'app.api.v1.auth.register_with_university',
+                new_callable=AsyncMock,
+                return_value=TOKENS,
+            ),
+        ):
+            resp = await client.post(
+                '/api/v1/auth/register',
+                json={
+                    'university_id': '2026123456789',
+                    'university_password': 'school-secret',
+                    'password': 'local-pass-1',
+                    'confirm_password': 'local-pass-1',
+                },
+            )
+        assert resp.status_code == 200
+        assert resp.json()['code'] == 0
+        assert 'access_token' in resp.cookies
+        assert 'refresh_token' in resp.cookies
+        assert 'csrf_token' in resp.cookies
 
-    async def test_send_invalid_phone(self, client):
-        resp = await client.post('/api/v1/auth/sms/send', json={'phone': '12345'})
+    async def test_register_rejects_invalid_school_credentials(self, client):
+        from app.core.university_auth import UniversityCredentialsRejectedError
+
+        with (
+            _mock_rate_limiter(),
+            patch(
+                'app.api.v1.auth.register_with_university',
+                new_callable=AsyncMock,
+                side_effect=UniversityCredentialsRejectedError,
+            ),
+        ):
+            resp = await client.post(
+                '/api/v1/auth/register',
+                json={
+                    'university_id': '2026123456789',
+                    'university_password': 'wrong',
+                    'password': 'local-pass-1',
+                    'confirm_password': 'local-pass-1',
+                },
+            )
+        assert resp.status_code == 401
+        assert resp.json()['message'] == '川大账号或密码不正确'
+
+    async def test_register_reports_unavailable_identity_service(self, client):
+        from app.core.university_auth import UniversityAuthUnavailableError
+
+        with (
+            _mock_rate_limiter(),
+            patch(
+                'app.api.v1.auth.register_with_university',
+                new_callable=AsyncMock,
+                side_effect=UniversityAuthUnavailableError,
+            ),
+        ):
+            resp = await client.post(
+                '/api/v1/auth/register',
+                json={
+                    'university_id': '2026123456789',
+                    'university_password': 'school-secret',
+                    'password': 'local-pass-1',
+                    'confirm_password': 'local-pass-1',
+                },
+            )
+
+        assert resp.status_code == 503
+        assert resp.json() == {
+            'code': 50300,
+            'data': None,
+            'message': '川大身份校验服务暂不可用',
+        }
+
+    async def test_register_validates_student_id_and_local_password(self, client):
+        resp = await client.post(
+            '/api/v1/auth/register',
+            json={
+                'university_id': 'not-a-student-id',
+                'university_password': 'school-secret',
+                'password': 'password-only',
+                'confirm_password': 'password-only',
+            },
+        )
         assert resp.status_code == 422
 
-    async def test_send_rate_limited(self, client):
-        from app.services.auth_service import SmsSendError
+    async def test_login_uses_university_id(self, client):
+        login = AsyncMock(return_value=TOKENS)
+        with _mock_rate_limiter(), patch('app.api.v1.auth.login_with_university_id', login):
+            resp = await client.post(
+                '/api/v1/auth/login',
+                json={'university_id': '2026123456789', 'password': 'local-pass-1'},
+            )
+        assert resp.status_code == 200
+        assert login.await_args.args[1:3] == ('2026123456789', 'local-pass-1')
 
-        async def _raise(*args, **kwargs):
-            raise SmsSendError('too frequent')
-
-        phone = f'1380014{str(uuid4().int)[:4]}'
-        with patch('app.api.v1.auth.send_sms_code', side_effect=_raise):
-            resp = await client.post('/api/v1/auth/sms/send', json={'phone': phone})
-            assert resp.json()['code'] == 42900
-
-
-class TestSmsVerify:
-    async def test_verify_ok_sets_cookies(self, client):
-        phone = f'1380013{str(uuid4().int)[:4]}'
-        with patch('app.api.v1.auth.verify_sms_code', new_callable=AsyncMock, return_value=TOKENS):
-            resp = await client.post('/api/v1/auth/sms/verify',
-                                     json={'phone': phone, 'code': '000000'})
-            assert resp.status_code == 200
-            body = resp.json()
-            assert body['code'] == 0
-            assert body['data'] is None
-            assert 'access_token' in resp.cookies
-            assert 'refresh_token' in resp.cookies
-            assert 'csrf_token' in resp.cookies
-
-    async def test_verify_wrong_code(self, client):
-        from app.services.auth_service import SmsVerifyError
-
-        async def _raise(*args, **kwargs):
-            raise SmsVerifyError('incorrect')
-
-        with _mock_rate_limiter(), patch('app.api.v1.auth.verify_sms_code', side_effect=_raise):
-            resp = await client.post('/api/v1/auth/sms/verify',
-                                     json={'phone': '13800138000', 'code': '999999'})
-            assert resp.json()['code'] == 40000
-
-    async def test_verify_invalid_request(self, client):
-        resp = await client.post('/api/v1/auth/sms/verify',
-                                 json={'phone': '13800138000', 'code': 'abc'})
+    async def test_phone_login_is_removed(self, client):
+        resp = await client.post(
+            '/api/v1/auth/login',
+            json={'phone': '13800138000', 'password': 'local-pass-1'},
+        )
         assert resp.status_code == 422
+
+    async def test_sms_routes_are_removed(self, client):
+        resp = await client.post('/api/v1/auth/sms/send', json={'phone': '13800138000'})
+        assert resp.status_code == 404
 
 
 class TestRefresh:
     async def test_refresh_ok_rotates(self, client):
         new_tokens = {'access_token': 'at2', 'refresh_token': 'rt2', 'token_type': 'bearer'}
-        with _mock_rate_limiter(), patch('app.api.v1.auth.refresh_tokens', new_callable=AsyncMock, return_value=new_tokens):
+        with (
+            _mock_rate_limiter(),
+            patch(
+                'app.api.v1.auth.refresh_tokens', new_callable=AsyncMock, return_value=new_tokens
+            ),
+        ):
             client.cookies.set('refresh_token', 'rt-old')
             client.cookies.set('csrf_token', 'csrf-test')
             resp = await client.post('/api/v1/auth/refresh', headers={'X-CSRF-Token': 'csrf-test'})
@@ -132,6 +192,7 @@ class TestCsrfToken:
 class TestJwtTokens:
     def test_create_and_decode(self):
         from app.core.security import create_access_token, decode_token
+
         token = create_access_token('user-1', 'student')
         payload = decode_token(token)
         assert payload['sub'] == 'user-1'
@@ -139,6 +200,7 @@ class TestJwtTokens:
 
     def test_refresh_token_unique(self):
         from app.core.security import create_refresh_token
+
         t1 = create_refresh_token()
         t2 = create_refresh_token()
         assert t1 != t2
@@ -146,14 +208,16 @@ class TestJwtTokens:
 
     def test_token_hash(self):
         from app.core.security import hash_token
+
         assert hash_token('abc') == hash_token('abc')
         assert hash_token('abc') != hash_token('def')
         assert len(hash_token('test')) == 64
 
     def test_expired_token_raises(self):
+        from jose.exceptions import ExpiredSignatureError
+
         from app.core.config import settings
         from app.core.security import create_access_token, decode_token
-        from jose.exceptions import ExpiredSignatureError
 
         original = settings.ACCESS_TOKEN_EXPIRE_MINUTES
         settings.ACCESS_TOKEN_EXPIRE_MINUTES = -1
@@ -177,6 +241,7 @@ class TestGetCurrentUser:
 
     async def test_valid_auth_returns_user(self, client):
         from unittest.mock import MagicMock
+
         from app.dependencies import get_current_user as original_get_current_user
 
         mock_user = MagicMock()
@@ -202,7 +267,8 @@ class TestGetCurrentUser:
 
 class TestPermissions:
     def test_role_permission_mapping(self):
-        from app.core.permissions import Permission, ROLE_PERMISSIONS
+        from app.core.permissions import ROLE_PERMISSIONS, Permission
+
         assert Permission.MATERIALS_READ in ROLE_PERMISSIONS['visitor']
         assert Permission.MATERIALS_CREATE not in ROLE_PERMISSIONS['visitor']
         assert Permission.MATERIALS_MODERATE in ROLE_PERMISSIONS['maintainer']
@@ -211,6 +277,7 @@ class TestPermissions:
         assert Permission.USERS_MANAGE in ROLE_PERMISSIONS['admin']
 
     def test_admin_has_all_permissions(self):
-        from app.core.permissions import Permission, ROLE_PERMISSIONS
+        from app.core.permissions import ROLE_PERMISSIONS, Permission
+
         for perm in Permission:
             assert perm in ROLE_PERMISSIONS['admin']

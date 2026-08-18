@@ -41,15 +41,15 @@
                  @keydown.enter="searchInCourse" />
         </div>
         <div class="flex gap-2">
-          <select v-model="inCourseCategory" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
+          <select v-model="inCourseCategory" aria-label="资料分类" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
             <option value="">全部分类</option>
             <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
           </select>
-          <select v-model="inCourseSemester" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
+          <select v-model="inCourseSemester" aria-label="适用学期" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
             <option value="">全部学期</option>
             <option v-for="s in semesters" :key="s" :value="s">{{ s }}</option>
           </select>
-          <select v-model="inCourseSort" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
+          <select v-model="inCourseSort" aria-label="排序方式" @change="searchInCourse" class="h-10 px-3 border border-slate-200 rounded-md text-sm bg-white">
             <option v-for="sort in searchSortOptions" :key="sort.key" :value="sort.key">{{ sort.label }}</option>
           </select>
         </div>

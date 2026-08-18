@@ -31,7 +31,7 @@
 
         <div class="mt-6 bg-white border border-slate-200 rounded-lg p-6">
           <h2 class="text-sm font-semibold text-slate-800 mb-4">近期反扒事件</h2>
-            <div v-if="stats.items?.length" class="space-y-1.5 max-h-96 overflow-y-auto">
+            <div v-if="stats.items?.length" tabindex="0" aria-label="近期反爬事件列表" class="space-y-1.5 max-h-96 overflow-y-auto">
               <div v-for="r in stats.items" :key="r.id || r.created_at" class="text-xs py-2 border-b border-slate-50 last:border-0">
                 <span class="font-medium text-slate-700">{{ labelAction(r.action) }}</span>
                 <span class="text-slate-400 mx-1">→</span>
@@ -62,6 +62,8 @@ function labelAction(action: string) {
     'anti_scraping.search_rapid_scroll_block': '搜索快速翻页拦截',
     'anti_scraping.search_pressure_slowdown': '搜索压力降速',
     'anti_scraping.search_pressure_block': '搜索压力封禁',
+    'anti_scraping.search_challenge_issued': '搜索验证触发',
+    'anti_scraping.search_challenge_passed': '搜索验证通过',
     'anti_scraping.search_limit_degraded': '搜索限流降级',
     'anti_scraping.suggest_rate_limited': '补全限流',
     'anti_scraping.suggest_limit_degraded': '补全限流降级',

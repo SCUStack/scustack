@@ -1,11 +1,15 @@
 <template>
   <div class="relative transition-all duration-300 ease-out" :class="variant === 'hero' ? 'w-full max-w-2xl mx-auto' : (isFocused ? 'w-80 sm:w-96' : 'w-48 sm:w-56')">
     <div class="relative">
-      <AppIcon name="Search" :size="variant === 'hero' ? 20 : 16"
-               class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       <input
         ref="inputRef"
         v-model="query"
+        :aria-label="placeholder"
+        role="combobox"
+        :aria-expanded="panelVisible"
+        aria-autocomplete="list"
+        autocomplete="off"
+        enterkeyhint="search"
         :class="inputClass"
         :placeholder="placeholder"
         @input="onInput"
@@ -16,7 +20,9 @@
         @focus="onFocus"
         @blur="onBlur"
       />
-      <button v-if="query" aria-label="清空搜索内容" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer" @click="clear">
+      <AppIcon v-if="!query" name="Search" :size="variant === 'hero' ? 20 : 16"
+               class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <button v-if="query" type="button" aria-label="清空搜索内容" title="清空搜索内容" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer" @click="clear">
         <AppIcon name="X" :size="14" />
       </button>
     </div>
@@ -162,8 +168,8 @@ async function fetchHotSearches() {
 
 const inputClass = computed(() =>
   props.variant === 'hero'
-    ? 'w-full h-14 pl-10 pr-10 border border-white/60 rounded-2xl text-base text-slate-800 bg-white/72 backdrop-blur-xl backdrop-saturate-150 outline-none focus:border-primary-300 focus:ring-2 focus:ring-primary-100/80 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-200 placeholder:text-slate-400'
-    : 'w-full h-10 pl-9 pr-8 border border-white/60 rounded-xl text-sm text-slate-800 bg-white/72 backdrop-blur-xl backdrop-saturate-150 outline-none focus:border-primary-300 focus:ring-2 focus:ring-primary-100/80 shadow-[0_8px_22px_rgba(15,23,42,0.06)] transition-all duration-200 placeholder:text-slate-400'
+    ? 'w-full h-14 pl-4 pr-10 border border-white/60 rounded-2xl text-base text-slate-800 bg-white/72 backdrop-blur-xl backdrop-saturate-150 outline-none focus:border-primary-300 focus:ring-2 focus:ring-primary-100/80 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-200 placeholder:text-slate-400'
+    : 'w-full h-10 pl-4 pr-9 border border-white/60 rounded-xl text-sm text-slate-800 bg-white/72 backdrop-blur-xl backdrop-saturate-150 outline-none focus:border-primary-300 focus:ring-2 focus:ring-primary-100/80 shadow-[0_8px_22px_rgba(15,23,42,0.06)] transition-all duration-200 placeholder:text-slate-400'
 )
 
 function onInput() {

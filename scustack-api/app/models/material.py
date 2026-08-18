@@ -82,10 +82,8 @@ class Material(Base):
     @property
     def thumbnail_url(self) -> str | None:
         try:
-            from app.core import oss
-            if not oss.thumbnail_exists(str(self.id)):
-                return None
-            return oss.generate_thumbnail_url(str(self.id))
+            from app.core.thumbnails import thumbnail_url
+            return thumbnail_url(self.id)
         except Exception:
             return None
 

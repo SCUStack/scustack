@@ -32,6 +32,12 @@ Thumbs.db
 # Logs
 *.log
 logs/
+scustack-api/data/thumbnails/
+.agents/
+.deploy-tmp/
+.playwright-cli/
+.scustack-*.bundle
+scustack-web/output/
 
 # Coverage
 coverage/

@@ -4,27 +4,6 @@ export function useAuth() {
   const config = useRuntimeConfig()
   const base = config.public.apiBase as string
 
-  async function sendCode(phone: string) {
-    return $fetch<{ code: number; message: string }>(`${base}/api/v1/auth/sms/send`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
-    })
-  }
-
-  async function verifyCode(phone: string, code: string) {
-    return $fetch<{ code: number; data: null; message: string }>(
-      `${base}/api/v1/auth/sms/verify`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
-      },
-    )
-  }
-
   async function refresh() {
     return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/refresh`,
@@ -43,7 +22,7 @@ export function useAuth() {
   }
 
   async function getMe() {
-    return $fetch<{ code: number; data: { id: string; nickname: string; role: string; avatar_url: string | null; trust_score: number; public_display_name: string | null; created_at: string } | null; message: string }>(
+    return $fetch<{ code: number; data: { id: string; nickname: string; role: string; avatar_url: string | null; trust_score: number; public_display_name: string | null; university_id_masked: string | null; created_at: string } | null; message: string }>(
       `${base}/api/v1/me`,
       { credentials: 'include' },
     )
@@ -155,34 +134,50 @@ export function useAuth() {
     )
   }
 
-  async function loginWithPassword(phone: string, password: string) {
+  async function loginWithPassword(universityId: string, password: string) {
     return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/login`,
       {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({ university_id: universityId, password }),
       },
     )
   }
 
-  async function registerWithPassword(phone: string, password: string, confirmPassword: string) {
+  async function registerWithPassword(
+    universityId: string,
+    universityPassword: string,
+    password: string,
+    confirmPassword: string,
+  ) {
     return $fetch<{ code: number; data: null; message: string }>(
       `${base}/api/v1/auth/register`,
       {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password, confirm_password: confirmPassword }),
+        body: JSON.stringify({
+          university_id: universityId,
+          university_password: universityPassword,
+          password,
+          confirm_password: confirmPassword,
+        }),
       },
     )
   }
 
-  async function getWechatUrl() {
-    return $fetch<{ code: number; data: { url: string }; message: string }>(
-      `${base}/api/v1/auth/wechat/url`,
-      { credentials: 'include' },
+  async function uploadAvatar(file: File) {
+    const body = new FormData()
+    body.append('file', file)
+    return $fetch<{ code: number; data: { avatar_url: string }; message: string }>(
+      `${base}/api/v1/me/avatar`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        body,
+      },
     )
   }
 
@@ -194,11 +189,11 @@ export function useAuth() {
   }
 
   return {
-    sendCode, verifyCode, refresh, logout, getMe, updateProfile,
+    refresh, logout, getMe, updateProfile, uploadAvatar,
     getContributions, toggleBookmark, getBookmarks, getBadges,
     getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead,
     getPrivacy, updatePrivacy, deactivateAccount,
-    getSessions, deleteSession, getWechatUrl,
+    getSessions, deleteSession,
     loginWithPassword, registerWithPassword,
   }
 }
