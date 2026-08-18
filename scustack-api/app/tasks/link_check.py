@@ -1,11 +1,10 @@
 """Dead link detection Celery task."""
-import asyncio
 from datetime import datetime, timezone, timedelta
 
 import httpx
 from sqlalchemy import select, update
 
-from app.core.celery_app import app
+from app.core.celery_app import app, run_async
 from app.core.database import async_session
 from app.models.material import Material
 
@@ -18,7 +17,7 @@ def check_dead_links():
     On 3 consecutive failures, material is flagged with link_status='dead'.
     Successful check resets the failure counter.
     """
-    asyncio.run(_do_check_dead_links())
+    run_async(_do_check_dead_links())
 
 
 async def _do_check_dead_links():

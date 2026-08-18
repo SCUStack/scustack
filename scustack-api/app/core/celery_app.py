@@ -1,7 +1,27 @@
+import asyncio
+import os
+from collections.abc import Awaitable
+
 from celery import Celery
 from celery.schedules import crontab
 
 from app.core.config import settings
+
+_task_event_loop: asyncio.AbstractEventLoop | None = None
+_task_event_loop_pid: int | None = None
+
+
+def run_async[T](awaitable: Awaitable[T]) -> T:
+    global _task_event_loop, _task_event_loop_pid
+    process_id = os.getpid()
+    if (
+        _task_event_loop is None
+        or _task_event_loop.is_closed()
+        or _task_event_loop_pid != process_id
+    ):
+        _task_event_loop = asyncio.new_event_loop()
+        _task_event_loop_pid = process_id
+    return _task_event_loop.run_until_complete(awaitable)
 
 app = Celery(
     'scustack',

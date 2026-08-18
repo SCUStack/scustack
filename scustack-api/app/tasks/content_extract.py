@@ -1,11 +1,9 @@
 """Celery task: extract searchable text from hosted materials and sync to ES."""
-import asyncio
-
 import httpx
 from sqlalchemy import select
 
 from app.core import elasticsearch as es
-from app.core.celery_app import app
+from app.core.celery_app import app, run_async
 from app.core.database import async_session
 from app.core.storage import resolve_access_url
 from app.models.college import College
@@ -128,4 +126,4 @@ def extract_material_content_to_es(material_id: str):
             await es.ensure_materials_index()
             await es.index_material(str(material.id), document)
 
-    asyncio.run(_run())
+    run_async(_run())

@@ -1,11 +1,10 @@
 """OSS orphan file garbage collection Celery task."""
-import asyncio
 import time
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import select, text
 
-from app.core.celery_app import app
+from app.core.celery_app import app, run_async
 from app.core.database import async_session
 from app.core import oss
 from app.models.material import MaterialVersion
@@ -18,7 +17,7 @@ _MAX_DELETE_PER_RUN = 1000
 
 @app.task(queue='default')
 def process_account_deletions():
-    asyncio.run(_do_process_account_deletions())
+    run_async(_do_process_account_deletions())
 
 
 async def _do_process_account_deletions():
@@ -36,7 +35,7 @@ async def _do_process_account_deletions():
 
 @app.task(queue='default')
 def gc_orphan_files():
-    asyncio.run(_do_gc_orphan_files())
+    run_async(_do_gc_orphan_files())
 
 
 async def _collect_active_storage_keys(db) -> set[str]:
@@ -117,7 +116,7 @@ async def _do_gc_orphan_files():
 
 @app.task(queue='default')
 def backup_database():
-    asyncio.run(_do_backup_database())
+    run_async(_do_backup_database())
 
 
 async def _do_backup_database():

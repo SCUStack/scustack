@@ -1,12 +1,11 @@
 """Batch-sync Redis download counters to PostgreSQL every 5 minutes."""
 
-from app.core.celery_app import app
+from app.core.celery_app import app, run_async
 
 
 @app.task(queue='default')
 def sync_download_counters():
     """Read pending Redis download counters, batch-update DB, flush keys."""
-    import asyncio
     from app.core.database import async_session
     from app.core.redis import get_all_download_deltas, flush_download_deltas
     from app.models.material import Material
@@ -32,4 +31,4 @@ def sync_download_counters():
             await db.commit()
             await flush_download_deltas(list(materials.keys()))
 
-    asyncio.run(_do())
+    run_async(_do())

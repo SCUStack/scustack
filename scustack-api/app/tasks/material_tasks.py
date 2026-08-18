@@ -1,5 +1,5 @@
 """Async Celery tasks for material processing."""
-from app.core.celery_app import app
+from app.core.celery_app import app, run_async
 
 
 @app.task(queue='scan')
@@ -53,7 +53,7 @@ def virus_scan(material_id: str, version_id: str):
             else:
                 await _set_scan_status(db, material_id, str(version.id), 'error')
 
-    asyncio.run(_run())
+    run_async(_run())
 
 
 @app.task(queue='scan')
@@ -66,7 +66,6 @@ def pre_screen_content(material_id: str, title: str, description: str | None = N
     - Hosted uploads stay pending until human review / scan outcome
     - External links may still auto-approve if clean
     """
-    import asyncio
     from app.core.database import async_session
     from app.models.material import Material
     from sqlalchemy import select
@@ -93,7 +92,7 @@ def pre_screen_content(material_id: str, title: str, description: str | None = N
                 m.trust_status = m.trust_status or 'unverified'
             await db.commit()
 
-    asyncio.run(_do())
+    run_async(_do())
 
 
 @app.task(queue='thumbnail')
@@ -144,7 +143,7 @@ def generate_thumbnail(material_id: str, version_id: str, file_format: str):
                     )
                     return
 
-    asyncio.run(_run())
+    run_async(_run())
 
 
 async def _set_scan_status(db, material_id: str, version_id: str, status: str):

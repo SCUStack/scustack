@@ -1,4 +1,13 @@
-from app.core.celery_app import app
+import asyncio
+
+from app.core.celery_app import app, run_async
+
+
+def test_async_tasks_reuse_the_worker_process_event_loop():
+    async def event_loop_identity():
+        return id(asyncio.get_running_loop())
+
+    assert run_async(event_loop_identity()) == run_async(event_loop_identity())
 
 
 def test_worker_registers_application_tasks():
