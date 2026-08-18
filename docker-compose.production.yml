@@ -64,7 +64,7 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
-    networks: [backend]
+    networks: [backend, egress]
     restart: unless-stopped
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
@@ -110,7 +110,7 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
-    networks: [backend]
+    networks: [backend, egress]
     restart: unless-stopped
     deploy:
       resources:
@@ -160,6 +160,7 @@ services:
 
 networks:
   frontend:
+  egress:
   backend:
     internal: true
 
