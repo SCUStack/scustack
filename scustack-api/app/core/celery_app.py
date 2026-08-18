@@ -7,6 +7,15 @@ app = Celery(
     'scustack',
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
+    include=[
+        'app.tasks.achievement',
+        'app.tasks.cleanup',
+        'app.tasks.content_extract',
+        'app.tasks.counter_sync',
+        'app.tasks.index_sync',
+        'app.tasks.link_check',
+        'app.tasks.material_tasks',
+    ],
 )
 
 app.conf.update(
@@ -53,5 +62,3 @@ app.conf.update(
         },
     },
 )
-
-app.autodiscover_tasks(['app.tasks'])

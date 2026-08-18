@@ -321,11 +321,12 @@ class TestMaterialDownload:
                  patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
                  patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
                  patch('app.api.v1.materials.resolve_download_url', new_callable=AsyncMock, return_value='https://example.com/file'), \
-                 patch('app.core.redis.incr_download', new_callable=AsyncMock), \
+                 patch('app.core.redis.incr_download', new_callable=AsyncMock) as increment_download, \
                  patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[allow_decision, allow_decision]) as check_mock:
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
                 assert resp.status_code == 302
                 assert check_mock.await_args_list[1].args[0] == 'download:identity-key'
+                increment_download.assert_awaited_once_with(MATERIAL_ID)
         finally:
             app.dependency_overrides.clear()
 
