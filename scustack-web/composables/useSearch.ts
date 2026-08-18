@@ -75,9 +75,6 @@ export function useSearch() {
 
   // ── Search ────────────────────────────────────────────────────────────
 
-  let retryCount = 0
-  const MAX_RETRIES = 2
-
   async function doSearch(retryAttempt = 0) {
     if (abortController) abortController.abort()
     abortController = new AbortController()
@@ -85,7 +82,6 @@ export function useSearch() {
     if (retryAttempt === 0) {
       loading.value = true
       rateLimited.value = false
-      retryCount = 0
     }
 
     try {
@@ -107,20 +103,16 @@ export function useSearch() {
         total.value = resp.data.total
         searched.value = true
         rateLimited.value = false
-      } else if (resp.code === 42900 && retryAttempt < MAX_RETRIES) {
-        // Rate limited — exponential backoff retry
-        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
-        return doSearch(retryAttempt + 1)
+      } else if (resp.code === 42900) {
+        rateLimited.value = true
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
         return // Expected: request cancelled
       }
       const err = e as { status?: number; statusCode?: number }
-      if ((err.status === 429 || err.statusCode === 429) && retryAttempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, 1000 * (retryAttempt + 1)))
-        retryCount++
-        return doSearch(retryAttempt + 1)
+      if (err.status === 429 || err.statusCode === 429) {
+        rateLimited.value = true
       }
       // Only clear results on non-retryable errors
       if (retryAttempt === 0) {

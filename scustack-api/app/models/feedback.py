@@ -25,3 +25,7 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default='pending', index=True)
+    handled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)

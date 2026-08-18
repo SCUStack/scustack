@@ -14,6 +14,7 @@ def check_achievements_after_approval(user_id_str: str, material_id_str: str):
     async def _do():
         async with async_session() as db:
             await badge_service.check_all_badges(db, UUID(user_id_str))
+            await db.commit()
 
     run_async(_do())
 
@@ -27,6 +28,7 @@ def check_achievements_after_download(user_id_str: str, material_id_str: str):
     async def _do():
         async with async_session() as db:
             await badge_service.check_all_badges(db, UUID(user_id_str))
+            await db.commit()
 
     run_async(_do())
 
@@ -49,5 +51,6 @@ def check_college_contributors_nightly():
             contributor_ids = [row[0] for row in result.all()]
             for cid in contributor_ids:
                 await badge_service.check_all_badges(db, cid)
+            await db.commit()
 
     run_async(_do())

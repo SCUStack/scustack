@@ -21,7 +21,7 @@ async def create_comment(db: AsyncSession, material_id: UUID, user_id: UUID, con
 async def list_comments(db: AsyncSession, material_id: UUID, limit: int = 50, offset: int = 0) -> list[dict]:
     # Get top-level comments with user info
     stmt = (
-        select(Comment, User.nickname)
+        select(Comment, User.nickname, User.avatar_url)
         .join(User, Comment.user_id == User.id)
         .where(Comment.material_id == material_id, Comment.parent_id.is_(None), Comment.is_deleted == False)
         .order_by(Comment.created_at.desc())
@@ -34,16 +34,16 @@ async def list_comments(db: AsyncSession, material_id: UUID, limit: int = 50, of
     reply_map: dict[UUID, list[dict]] = {}
     if comment_ids:
         reply_stmt = (
-            select(Comment, User.nickname)
+            select(Comment, User.nickname, User.avatar_url)
             .join(User, Comment.user_id == User.id)
             .where(Comment.parent_id.in_(comment_ids), Comment.is_deleted == False)
             .order_by(Comment.created_at.asc())
         )
         reply_result = await db.execute(reply_stmt)
-        for c, nick in reply_result.all():
-            reply_map.setdefault(c.parent_id, []).append(_format_comment(c, nick))
+        for c, nick, avatar_url in reply_result.all():
+            reply_map.setdefault(c.parent_id, []).append(_format_comment(c, nick, avatar_url))
 
-    return [_format_comment(c, nick, reply_map.get(c.id, [])) for c, nick in rows]
+    return [_format_comment(c, nick, avatar_url, reply_map.get(c.id, [])) for c, nick, avatar_url in rows]
 
 
 async def count_comments(db: AsyncSession, material_id: UUID) -> int:
@@ -66,12 +66,13 @@ async def delete_comment(db: AsyncSession, comment_id: UUID, user_id: UUID, role
     return True
 
 
-def _format_comment(c: Comment, nickname: str, replies: list[dict] | None = None) -> dict:
+def _format_comment(c: Comment, nickname: str, avatar_url: str | None = None, replies: list[dict] | None = None) -> dict:
     return {
         'id': str(c.id),
         'material_id': str(c.material_id),
         'user_id': str(c.user_id),
         'nickname': nickname,
+        'avatar_url': avatar_url,
         'content': c.content,
         'parent_id': str(c.parent_id) if c.parent_id else None,
         'is_deleted': c.is_deleted,

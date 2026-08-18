@@ -60,6 +60,7 @@ const navItems: NavItem[] = [
   { label: '数据分析', to: '/admin/analytics' },
   { label: '审核队列', to: '/admin/review', badge: 0 },
   { label: '举报处理', to: '/admin/reports', badge: 0 },
+  { label: '用户反馈', to: '/admin/feedback', badge: 0 },
   { label: '资料管理', to: '/admin/materials' },
   { label: '课程管理', to: '/admin/courses' },
   { label: '学院管理', to: '/admin/colleges' },

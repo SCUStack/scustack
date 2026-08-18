@@ -124,7 +124,12 @@ onMounted(() => {
 })
 
 watch(() => useRoute().query, () => {
+  // URL updates initiated by this page already have the current state.
+  // Only search when the query actually differs from the current state.
+  const before = JSON.stringify({ q: queryText.value, sort: currentSort.value, page: page.value, filters: filters })
   syncFromUrl()
+  const after = JSON.stringify({ q: queryText.value, sort: currentSort.value, page: page.value, filters: filters })
+  if (before === after) return
   results.value = []
   total.value = 0
   page.value = 1

@@ -35,7 +35,7 @@ async def search_endpoint(
     ip = request.client.host if request and request.client else 'unknown'
     identity = build_request_identity(request, current_user)
     challenge_token = request.headers.get('X-Search-Challenge')
-    max_req = 60 if current_user else 30
+    max_req = 120 if current_user else 60
     limiter = RateLimiter(
         max_requests=max_req,
         window_seconds=60,

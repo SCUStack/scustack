@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -11,11 +12,46 @@ from app.schemas.audit import AuditLogResponse
 from app.schemas.calendar import CalendarCreate, CalendarResponse, CalendarUpdate
 from app.schemas.report import ReportHandle
 from app.schemas.review import ReviewAction, ReviewBatchAction, ReviewLogResponse
+from app.schemas.feedback import FeedbackHandle, FeedbackResponse
+from app.models.feedback import Feedback
 from app.schemas.user import UserResponse
 from app.services import audit_service, calendar_service, homepage_presentation_service, report_service, review_service, user_service
+from sqlalchemy import select, func
 from app.services.homepage_service import get_stats
 
 router = APIRouter(prefix='/admin', tags=['admin'])
+
+@router.get('/feedback')
+async def list_feedback(
+    status: str | None = Query(None, pattern='^(pending|resolved|ignored)$'),
+    limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    stmt = select(Feedback).order_by(Feedback.created_at.desc()).offset(offset).limit(limit)
+    count_stmt = select(func.count(Feedback.id))
+    if status:
+        stmt = stmt.where(Feedback.status == status)
+        count_stmt = count_stmt.where(Feedback.status == status)
+    items = (await db.scalars(stmt)).all()
+    total = await db.scalar(count_stmt) or 0
+    return {'code': 0, 'data': {'items': [FeedbackResponse.model_validate(x).model_dump(mode='json') for x in items], 'total': total}, 'message': 'ok'}
+
+@router.patch('/feedback/{feedback_id}')
+async def handle_feedback(
+    feedback_id: UUID, body: FeedbackHandle, request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    item = await db.get(Feedback, feedback_id)
+    if item is None:
+        return {'code': 40400, 'data': None, 'message': 'feedback not found'}
+    item.status = body.status
+    item.admin_note = body.admin_note
+    item.handled_by = current_user.id if body.status != 'pending' else None
+    item.handled_at = datetime.now(timezone.utc) if body.status != 'pending' else None
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'feedback updated'}
 
 
 def _get_ip(request: Request) -> str:
