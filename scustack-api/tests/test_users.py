@@ -416,8 +416,26 @@ class TestUserService:
         mock_db = MagicMock()
         user = _make_user()
         mock_db.flush = AsyncMock()
+        mock_db.refresh = AsyncMock()
         mock_result = MagicMock()
         mock_result.scalar_one_or_none = MagicMock(return_value=user)
         mock_db.execute = AsyncMock(return_value=mock_result)
         result = await update_profile(mock_db, user.id, nickname=None)
         assert result.nickname == 'testuser'  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_update_profile_refreshes_server_updated_at(self):
+        from app.services.user_service import update_profile
+
+        mock_db = MagicMock()
+        user = _make_user()
+        mock_db.flush = AsyncMock()
+        mock_db.refresh = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = user
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        result = await update_profile(mock_db, user.id, nickname='newname')
+
+        assert result is user
+        mock_db.refresh.assert_awaited_once_with(user, attribute_names=['updated_at'])

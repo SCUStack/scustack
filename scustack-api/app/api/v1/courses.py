@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.models.course import Course
 from app.models.material import Material
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.services import course_service
+from app.services.course_import_service import import_courses, parse_course_workbook
 
 router = APIRouter(prefix='/courses', tags=['courses'])
 
@@ -89,6 +90,35 @@ async def list_courses_for_management(
         'code': 0,
         'data': [CourseResponse.model_validate(course).model_dump(mode='json') for course in courses],
         'message': 'ok',
+    }
+
+
+@router.post('/import')
+async def import_course_workbook(
+    file: UploadFile = File(...),
+    dry_run: bool = Query(True),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(require_permission(Permission.MATERIALS_MODERATE)),
+):
+    if not file.filename or not file.filename.lower().endswith('.xlsx'):
+        return JSONResponse(
+            {'code': 40000, 'data': None, 'message': '请上传 .xlsx 文件'},
+            status_code=400,
+        )
+    try:
+        rows = parse_course_workbook(await file.read())
+        result = await import_courses(db, rows, dry_run=dry_run)
+        if not dry_run:
+            await db.commit()
+    except ValueError as exc:
+        return JSONResponse(
+            {'code': 40000, 'data': None, 'message': str(exc)},
+            status_code=400,
+        )
+    return {
+        'code': 0,
+        'data': result,
+        'message': '校验完成' if dry_run else f'成功导入 {result["imported"]} 门课程',
     }
 
 

@@ -44,11 +44,11 @@ class Settings(BaseSettings):
 
     STORAGE_DEFAULT_PROVIDER: Literal['lfs', 'oss'] = 'lfs'
     STORAGE_TARGET_REPLICA_COUNT: int = 1
-    STORAGE_DOWNLOAD_GATEWAY: str = 'https://download.cacode.qzz.io'
+    STORAGE_DOWNLOAD_GATEWAY: str = 'https://download.cacodex.app'
     THUMBNAIL_DIR: Path = Path('data/thumbnails')
 
-    LFS_UPLOAD_URL: str = 'https://lfs.cacode.qzz.io/upload'
-    LFS_PUBLIC_BASE: str = 'https://lfs.cacode.qzz.io'
+    LFS_UPLOAD_URL: str = 'https://lfs.cacodex.app/upload'
+    LFS_PUBLIC_BASE: str = 'https://lfs.cacodex.app'
     LFS_API_TOKEN: str = ''
     LFS_AUTH_HEADER: str = 'Authorization'
     LFS_AUTH_PREFIX: str = 'Bearer'

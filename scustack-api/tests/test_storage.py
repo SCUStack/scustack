@@ -25,7 +25,7 @@ class TestLfsStorageProvider:
     @pytest.mark.asyncio
     async def test_upload_accepts_relative_src_and_returns_public_url(self):
         response = MagicMock()
-        response.json.return_value = [{'src': '/uploads/notes.pdf', 'publicUrl': 'https://lfs.cacode.qzz.io/uploads/notes.pdf'}]
+        response.json.return_value = [{'src': '/uploads/notes.pdf', 'publicUrl': 'https://lfs.cacodex.app/uploads/notes.pdf'}]
         response.raise_for_status = MagicMock()
 
         with patch('app.core.storage.settings.LFS_API_TOKEN', 'configured'), \
@@ -33,7 +33,7 @@ class TestLfsStorageProvider:
             stored = await LfsStorageProvider().upload_bytes('notes.pdf', 'application/pdf', b'%PDF-test')
 
         assert stored.locator == '/uploads/notes.pdf'
-        assert stored.access_url == 'https://lfs.cacode.qzz.io/uploads/notes.pdf'
+        assert stored.access_url == 'https://lfs.cacodex.app/uploads/notes.pdf'
         assert stored.file_size == len(b'%PDF-test')
 
     @pytest.mark.asyncio
@@ -46,7 +46,7 @@ class TestLfsStorageProvider:
              patch('app.core.storage.httpx.AsyncClient', return_value=_lfs_client(response)):
             stored = await LfsStorageProvider().upload_bytes('notes.pdf', 'application/pdf', b'%PDF-test')
 
-        assert stored.access_url == 'https://lfs.cacode.qzz.io/uploads/notes.pdf'
+        assert stored.access_url == 'https://lfs.cacodex.app/uploads/notes.pdf'
 
     @pytest.mark.asyncio
     async def test_upload_rejects_malformed_provider_response(self):
@@ -94,7 +94,7 @@ class TestUploadTickets:
                 'provider_type': 'lfs',
                 'provider_instance': 'lfs-cacode',
                 'locator': '/uploads/notes.pdf',
-                'access_url': 'https://lfs.cacode.qzz.io/uploads/notes.pdf',
+                'access_url': 'https://lfs.cacodex.app/uploads/notes.pdf',
                 'file_size': 9,
                 'content_type': 'application/pdf',
             },
@@ -122,14 +122,14 @@ class TestDownloadResolver:
         replica = MagicMock()
         replica.provider_type = 'lfs'
         replica.locator = '/uploads/notes.pdf'
-        replica.access_url = 'https://lfs.cacode.qzz.io/uploads/notes.pdf'
+        replica.access_url = 'https://lfs.cacodex.app/uploads/notes.pdf'
         result = MagicMock()
         result.scalars.return_value.first.return_value = replica
         db = MagicMock()
         db.execute = AsyncMock(return_value=result)
         version = MagicMock(id='version-id', storage_key='legacy.pdf')
 
-        with patch('app.core.storage.settings.STORAGE_DOWNLOAD_GATEWAY', 'https://download.cacode.qzz.io'):
+        with patch('app.core.storage.settings.STORAGE_DOWNLOAD_GATEWAY', 'https://download.cacodex.app'):
             url = await resolve_download_url(db, version)
 
-        assert url == 'https://download.cacode.qzz.io/https://lfs.cacode.qzz.io/uploads/notes.pdf'
+        assert url == 'https://download.cacodex.app/https://lfs.cacodex.app/uploads/notes.pdf'

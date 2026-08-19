@@ -32,6 +32,7 @@ async def update_profile(db: AsyncSession, user_id: UUID, **kwargs) -> User | No
         if v is not None:
             setattr(user, k, v)
     await db.flush()
+    await db.refresh(user, attribute_names=['updated_at'])
     return user
 
 

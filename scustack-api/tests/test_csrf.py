@@ -90,7 +90,7 @@ class TestCsrfProtection:
             provider_type='lfs',
             provider_instance='lfs-cacode',
             locator='/uploads/test.pdf',
-            access_url='https://lfs.cacode.qzz.io/uploads/test.pdf',
+            access_url='https://lfs.cacodex.app/uploads/test.pdf',
             file_size=1024,
             content_type='application/pdf',
         )

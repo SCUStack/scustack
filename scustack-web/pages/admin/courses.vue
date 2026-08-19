@@ -6,7 +6,13 @@
           <h1 class="text-xl font-semibold text-slate-900 mb-1">课程管理</h1>
           <p class="text-sm text-slate-500">共 {{ total }} 门课程</p>
         </div>
-        <button class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer" @click="openCreate">新建课程</button>
+        <div class="flex items-center gap-2">
+          <button class="h-9 px-3 rounded-md text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer inline-flex items-center gap-1.5" @click="fileInput?.click()">
+            <AppIcon name="FileSpreadsheet" :size="16" /> Excel 导入
+          </button>
+          <input ref="fileInput" type="file" accept=".xlsx" class="hidden" @change="selectImportFile" />
+          <button class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 cursor-pointer" @click="openCreate">新建课程</button>
+        </div>
       </div>
 
       <!-- Search -->
@@ -83,6 +89,33 @@
         </div>
       </div>
 
+      <!-- Import preview modal -->
+      <div v-if="showImport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="closeImport">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto">
+          <h3 class="text-base font-medium text-slate-900 mb-1">批量导入课程</h3>
+          <p class="text-xs text-slate-500 mb-4">{{ importFile?.name }}</p>
+          <div v-if="importing && !importPreview" class="flex justify-center py-12">
+            <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+          </div>
+          <template v-else-if="importPreview">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+              <div class="border border-slate-200 rounded-md p-3"><p class="text-xs text-slate-400">总行数</p><p class="text-lg font-semibold">{{ importPreview.total }}</p></div>
+              <div class="border border-emerald-200 rounded-md p-3"><p class="text-xs text-emerald-600">可导入</p><p class="text-lg font-semibold">{{ importPreview.ready }}</p></div>
+              <div class="border border-slate-200 rounded-md p-3"><p class="text-xs text-slate-400">已存在</p><p class="text-lg font-semibold">{{ importPreview.skipped }}</p></div>
+              <div class="border border-red-200 rounded-md p-3"><p class="text-xs text-red-600">错误</p><p class="text-lg font-semibold">{{ importPreview.error_count }}</p></div>
+            </div>
+            <div v-if="importPreview.errors.length" class="max-h-48 overflow-y-auto rounded-md border border-red-200 bg-red-50 p-3 mb-4">
+              <p v-for="item in importPreview.errors" :key="item.row" class="text-xs text-red-700 mb-1">第 {{ item.row }} 行 {{ item.name }}：{{ item.messages.join('；') }}</p>
+            </div>
+            <p v-else class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3 mb-4">校验通过，可以导入。</p>
+          </template>
+          <div class="flex justify-end gap-3">
+            <button class="h-9 px-4 rounded-md text-sm text-slate-600 hover:bg-slate-100 cursor-pointer" @click="closeImport">取消</button>
+            <button class="h-9 px-4 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-800 disabled:opacity-50 cursor-pointer" :disabled="!importPreview || importPreview.error_count > 0 || importPreview.ready === 0 || importing" @click="confirmImport">{{ importing ? '导入中...' : `确认导入 ${importPreview?.ready || 0} 门` }}</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Merge modal -->
       <div v-if="showMerge" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showMerge = false">
         <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
@@ -125,6 +158,11 @@ const mergeTargetId = ref('')
 const saving = ref(false)
 const merging = ref(false)
 const errorMessage = ref('')
+const fileInput = ref<HTMLInputElement | null>(null)
+const showImport = ref(false)
+const importFile = ref<File | null>(null)
+const importing = ref(false)
+const importPreview = ref<any>(null)
 const form = ref({ college_id: '', name: '', slug: '', category: '', credit: 0 })
 
 async function loadCourses() {
@@ -201,6 +239,54 @@ async function saveCourse() {
     errorMessage.value = error?.data?.message || error?.message || '保存课程失败，请重试'
   }
   saving.value = false
+}
+
+async function selectImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  importFile.value = file
+  importPreview.value = null
+  showImport.value = true
+  importing.value = true
+  errorMessage.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const resp = await $fetch<{ code: number; data: any; message?: string }>(`${apiBase}/api/v1/courses/import?dry_run=true`, {
+      method: 'POST', credentials: 'include', body: formData,
+    })
+    if (resp.code !== 0) throw new Error(resp.message || 'Excel 校验失败')
+    importPreview.value = resp.data
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || 'Excel 校验失败'
+    showImport.value = false
+  } finally { importing.value = false }
+}
+
+async function confirmImport() {
+  if (!importFile.value) return
+  importing.value = true
+  errorMessage.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+    const resp = await $fetch<{ code: number; data: any; message?: string }>(`${apiBase}/api/v1/courses/import?dry_run=false`, {
+      method: 'POST', credentials: 'include', body: formData,
+    })
+    if (resp.code !== 0) throw new Error(resp.message || '课程导入失败')
+    closeImport()
+    await loadCourses()
+  } catch (error: any) {
+    errorMessage.value = error?.data?.message || error?.message || '课程导入失败'
+  } finally { importing.value = false }
+}
+
+function closeImport() {
+  showImport.value = false
+  importFile.value = null
+  importPreview.value = null
 }
 
 async function toggleActive(c: any) {
