@@ -57,6 +57,7 @@ services:
       - /tmp/scustack-scu-cli:rw,noexec,nosuid,size=16m,mode=0700
     volumes:
       - thumbnail_data:/app/data/thumbnails
+      - preview_cache_data:/app/data/previews
     depends_on:
       postgres:
         condition: service_healthy
@@ -166,3 +167,4 @@ networks:
 
 volumes:
   thumbnail_data:
+  preview_cache_data:

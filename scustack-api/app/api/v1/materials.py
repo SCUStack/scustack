@@ -1,11 +1,11 @@
 import mimetypes
 import tempfile
+import asyncio
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
-from starlette.background import BackgroundTask
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.anti_scraping_events import log_anti_scraping_event
@@ -22,6 +22,8 @@ from app.core.storage import (
 )
 from app.core.thumbnails import delete_thumbnail, thumbnail_path
 from app.core.permissions import Permission
+from app.core.preview_cache import atomic_replace, cache_path, cleanup_cache, is_fresh
+from app.core.config import settings
 from app.dependencies import get_current_user, get_optional_user, require_permission
 from app.models.user import User
 from app.schemas.material import (
@@ -32,6 +34,7 @@ from app.schemas.report import ReportCreate
 from app.services import copyright_service, material_service, report_service, review_service, upload_service, user_service
 
 router = APIRouter(prefix='/materials', tags=['materials'])
+_preview_locks: dict[str, asyncio.Lock] = {}
 
 
 def _can_access_material(material, current_user: User | None) -> bool:
@@ -316,20 +319,26 @@ async def preview_material(
         return JSONResponse({'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404)
 
     suffix = f'.{m.format}' if m.format else ''
-    with tempfile.NamedTemporaryFile(prefix='scustack-preview-', suffix=suffix, delete=False) as output:
-        destination = Path(output.name)
-    try:
-        await download_version_to_path(db, version, destination, max_bytes=25 * 1024 * 1024)
-    except StorageError:
-        destination.unlink(missing_ok=True)
-        return JSONResponse({'code': 50300, 'data': None, 'message': 'preview temporarily unavailable'}, status_code=503)
+    destination = cache_path(m.id, version.id, version.file_hash, suffix)
+    key = destination.stem
+    lock = _preview_locks.setdefault(key, asyncio.Lock())
+    async with lock:
+        if not is_fresh(destination):
+            cleanup_cache()
+            with tempfile.NamedTemporaryFile(
+                prefix='scustack-preview-', suffix=suffix, dir=destination.parent, delete=False
+            ) as output:
+                temporary = Path(output.name)
+            try:
+                await download_version_to_path(db, version, temporary, max_bytes=25 * 1024 * 1024)
+                atomic_replace(temporary, destination)
+                cleanup_cache(preserve=destination)
+            except StorageError:
+                temporary.unlink(missing_ok=True)
+                return JSONResponse({'code': 50300, 'data': None, 'message': 'preview temporarily unavailable'}, status_code=503)
 
     media_type = mimetypes.guess_type(destination.name)[0] or 'application/octet-stream'
-    return FileResponse(
-        destination,
-        media_type=media_type,
-        background=BackgroundTask(destination.unlink, missing_ok=True),
-    )
+    return FileResponse(destination, media_type=media_type)
 
 
 @router.post('/{material_id}/ratings')

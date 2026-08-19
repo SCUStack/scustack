@@ -378,13 +378,13 @@ class TestMaterialPreview:
         assert resp.json()['code'] == 0
         delete_local_thumbnail.assert_called_once_with(UUID(MATERIAL_ID))
 
-    async def test_preview_proxies_verified_file(self, client):
+    async def test_preview_proxies_verified_file(self, client, tmp_path):
         user = MagicMock(id=USER_ID, role='student')
         material = MagicMock(
             source_type='hosted', review_status='approved', file_size=7,
             format='txt', contributor_id=USER_ID,
         )
-        version = MagicMock(file_size=7, file_hash=None)
+        version = MagicMock(id='version-1', file_size=7, file_hash='hash-1')
 
         async def write_preview(_db, _version, destination, max_bytes=None):
             assert max_bytes == 25 * 1024 * 1024
@@ -394,7 +394,9 @@ class TestMaterialPreview:
         try:
             with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
                  patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
-                 patch('app.api.v1.materials.download_version_to_path', new=write_preview):
+                 patch('app.api.v1.materials.download_version_to_path', new=write_preview), \
+                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_DIR', tmp_path / 'previews'), \
+                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_TTL_SECONDS', 900):
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
         finally:
             app.dependency_overrides.clear()
@@ -402,6 +404,32 @@ class TestMaterialPreview:
         assert resp.status_code == 200
         assert resp.headers['content-type'].startswith('text/plain')
         assert resp.content == b'preview'
+
+    async def test_preview_reuses_fresh_cached_version(self, client, tmp_path):
+        user = MagicMock(id=USER_ID, role='student')
+        material = MagicMock(source_type='hosted', review_status='approved', file_size=7, format='txt', contributor_id=USER_ID)
+        version = MagicMock(id='version-2', file_size=7, file_hash='hash-2')
+        calls = 0
+
+        async def write_preview(_db, _version, destination, max_bytes=None):
+            nonlocal calls
+            calls += 1
+            destination.write_bytes(b'cached')
+
+        app.dependency_overrides[get_current_user] = lambda: user
+        try:
+            with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
+                 patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
+                 patch('app.api.v1.materials.download_version_to_path', new=write_preview), \
+                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_DIR', tmp_path / 'previews'), \
+                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_TTL_SECONDS', 900):
+                first = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
+                second = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
+        finally:
+            app.dependency_overrides.clear()
+
+        assert first.content == second.content == b'cached'
+        assert calls == 1
 
 class TestVersionDiff:
     async def test_diff_non_text_returns_null_diff(self, client):

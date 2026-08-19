@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     STORAGE_TARGET_REPLICA_COUNT: int = 1
     STORAGE_DOWNLOAD_GATEWAY: str = 'https://download.cacodex.app'
     THUMBNAIL_DIR: Path = Path('data/thumbnails')
+    PREVIEW_CACHE_DIR: Path = Path('data/previews')
+    PREVIEW_CACHE_TTL_SECONDS: int = 900
+    PREVIEW_CACHE_MAX_BYTES: int = 1024 * 1024 * 1024
 
     LFS_UPLOAD_URL: str = 'https://lfs.cacodex.app/upload'
     LFS_PUBLIC_BASE: str = 'https://lfs.cacodex.app'
