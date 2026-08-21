@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50">
-    <div v-if="isHome" class="pointer-events-none fixed inset-x-0 top-0 z-0 lg:hidden">
-      <div class="h-40 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.14),_transparent_58%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_48%),linear-gradient(180deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.74)_72%,_rgba(248,250,252,0))]" />
+    <div v-if="isHome" class="pointer-events-none fixed inset-0 z-0 lg:hidden">
+      <div class="h-full bg-[radial-gradient(ellipse_at_top_left,_rgba(37,99,235,0.14),_transparent_72%),radial-gradient(ellipse_at_top_right,_rgba(245,158,11,0.12),_transparent_68%),linear-gradient(180deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.82)_58%,_rgba(248,250,252,0.96))]" />
     </div>
 
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary-700 focus:text-white focus:rounded-md focus:no-underline">跳到主要内容</a>

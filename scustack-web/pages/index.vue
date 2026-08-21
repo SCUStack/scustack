@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="hidden lg:block">
-      <section class="relative w-full overflow-hidden bg-slate-900" aria-label="首页横幅轮播" style="height: 20vh; min-height: 180px; max-height: 300px;">
+      <section class="relative w-full overflow-hidden bg-slate-900" aria-label="首页横幅轮播" style="height: 24vh; min-height: 220px; max-height: 360px;">
         <div
           v-for="(banner, idx) in banners" :key="idx"
           class="absolute inset-0 transition-opacity duration-500"

@@ -1,298 +1,181 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-    <h1 class="text-xl font-semibold text-slate-900 mb-2">隐私政策</h1>
-    <p class="text-sm text-slate-400 mb-2">生效日期：2026年6月17日</p>
-    <p class="text-sm text-slate-400 mb-8">版本：v1.1</p>
+  <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+    <div class="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-12">
+      <aside class="hidden lg:block">
+        <nav aria-label="隐私政策目录" class="sticky top-24 border-l border-slate-200 pl-4">
+          <p class="mb-3 text-xs font-semibold text-slate-900">本页目录</p>
+          <a v-for="item in sections" :key="item.id" :href="`#${item.id}`" class="block py-1.5 text-xs text-slate-500 no-underline transition-colors hover:text-primary-700">
+            {{ item.label }}
+          </a>
+        </nav>
+      </aside>
 
-    <div class="text-sm text-slate-700 leading-relaxed space-y-4">
-      <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-        <p class="text-amber-800 font-medium text-xs mb-1">重要提示</p>
-        <p class="text-amber-700 text-xs leading-relaxed">
-          川流课栈是由<strong>四川大学在校学生自发组织并维护的公益资料共享平台</strong>，<strong>并非四川大学的官方网站或下属机构</strong>。请您在使用本平台前仔细阅读本隐私政策，特别是以<strong>加粗</strong>或<strong>加粗下划线</strong>标注的条款。如您不同意本政策的任何内容，请立即停止使用本平台。
-        </p>
-      </div>
+      <article class="min-w-0 max-w-3xl">
+        <header class="border-b border-slate-200 pb-6">
+          <p class="mb-2 text-xs font-medium text-primary-700">川流课栈规则中心</p>
+          <h1 class="text-2xl font-semibold text-slate-950 sm:text-3xl">隐私政策</h1>
+          <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+            <span>版本：v2.0</span>
+            <span>生效日期：2026 年 8 月 22 日</span>
+          </div>
+        </header>
 
-      <p>川流课栈（以下简称"本平台"或"我们"）是由四川大学在校学生社区维护的公益资料共享平台。我们深知个人信息对您的重要性，并承诺依据《中华人民共和国个人信息保护法》（以下简称"《个保法》"）、《中华人民共和国网络安全法》、《中华人民共和国数据安全法》、《网络数据安全管理条例》及 GB/T 44588-2024《数据安全技术 互联网平台及产品服务个人信息处理规则》等法律法规和国家标准，采取合理必要的措施保护您的个人信息安全。</p>
-      <p>本隐私政策旨在向您说明我们如何收集、使用、存储、委托处理、共享、转移、公开披露和保护您的个人信息，以及您享有的相关权利和行使方式。本政策适用于本平台提供的所有产品和服务。</p>
-      <p>请您注意：<strong>本平台为公益性质，不进行商业化运营，不会将您的个人信息用于商业营销、广告推送或用户画像。</strong></p>
+        <section class="my-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <div class="flex gap-3">
+            <AppIcon name="ShieldCheck" :size="20" class="mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <h2 class="font-semibold">先看这几件事</h2>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-amber-900">
+                <li>川流课栈是学生自发维护的公益平台，不是四川大学官方网站或下属机构。</li>
+                <li>注册时会一次性使用川大账号和学校密码核验身份；学校密码不保存。</li>
+                <li>学号和绑定邮箱加密保存，课栈密码仅保存加盐哈希。</li>
+                <li>上传内容、评论、心愿和部分贡献者信息会向其他用户公开。</li>
+                <li>我们不出售个人信息，也不用于商业广告或跨站画像。</li>
+              </ul>
+            </div>
+          </div>
+        </section>
 
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">一、定义</h2>
-      <p>在本政策中，下列术语具有以下含义：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li><strong>个人信息</strong>：指以电子或其他方式记录的与已识别或可识别的自然人有关的各种信息，不包括匿名化处理后的信息。本政策中提及的个人信息种类见附录。</li>
-        <li><strong>敏感个人信息</strong>：指一旦泄露或者非法使用，容易导致自然人的人格尊严受到侵害或者人身、财产安全受到危害的个人信息，包括手机号码、学号、行踪轨迹、生物识别信息等。</li>
-        <li><strong>匿名化</strong>：指个人信息经过处理无法识别特定自然人且不能复原的过程。经匿名化处理的信息不再属于个人信息。</li>
-        <li><strong>去标识化</strong>：指个人信息经过处理，使其在不借助额外信息的情况下无法识别特定自然人的过程。</li>
-        <li><strong>用户</strong>：指注册、登录或使用本平台的任何自然人。</li>
-        <li><strong>儿童</strong>：指不满十四周岁的未成年人。</li>
-      </ul>
+        <div class="space-y-8 text-sm leading-7 text-slate-700">
+          <section id="scope" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">一、适用范围与平台身份</h2>
+            <p class="mt-3">本政策适用于川流课栈网站（scustack.com）提供的课程浏览、资料搜索与预览、账号、上传、互动、反馈和版权投诉等服务。川流课栈由四川大学学生社区志愿者维护，以下简称“平台”或“我们”。</p>
+            <p class="mt-3">第三方网站或外部资料链接由相应服务方独立运营，其信息处理规则不适用本政策。离开本站前，请查看对应服务的隐私说明。</p>
+          </section>
 
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">二、我们如何收集您的个人信息</h2>
-      <p>本平台遵循<strong>最小必要原则</strong>，仅收集实现服务功能所必需的个人信息，并在收集前告知您收集的目的、方式和范围。如您拒绝提供必要信息，将无法使用对应的服务功能，但不影响您浏览公开内容。</p>
-      <p>以下按功能场景分别说明我们收集的个人信息类型：</p>
+          <section id="collection" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">二、我们处理的信息</h2>
+            <h3 class="mt-4 font-semibold text-slate-800">2.1 浏览、搜索与安全日志</h3>
+            <p class="mt-2">您访问平台时，服务器可能接收 IP 地址、请求时间、访问路径、浏览器与操作系统信息、User-Agent、请求结果及安全事件信息，用于提供页面、限制异常请求、排查故障和保障系统安全。审计日志中的 IP 会进行哈希处理；部分限流或安全组件会在处理期间使用原始 IP。</p>
+            <p class="mt-2">您主动提交的搜索词会用于返回搜索结果。热门搜索在缓存中按词汇聚合，通常保留 7 天；无结果搜索可能写入运营日志，帮助补齐课程和资料。请勿在搜索框输入姓名、学号、联系方式等个人信息。</p>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">2.1 账号注册与登录（必要）</h3>
-      <ul class="list-disc pl-5 space-y-1">
-        <li><strong>学号</strong>（敏感个人信息）：用于四川大学统一身份校验和登录本平台。学号采用 AES-256-GCM 算法加密存储，同时使用不可逆盲索引进行唯一性校验。</li>
-        <li><strong>川大统一认证密码</strong>：仅在注册时提交给身份校验服务，校验完成后立即丢弃，不写入数据库、缓存或日志。</li>
-        <li><strong>课栈密码</strong>：用于后续登录，使用 bcrypt 加盐哈希存储，明文密码在任何环节均不落盘。</li>
-      </ul>
+            <h3 class="mt-4 font-semibold text-slate-800">2.2 注册、登录与账户</h3>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+              <li><strong>学号：</strong>用于确认四川大学学生身份和登录。数据库保存 AES-256-GCM 加密值及用于唯一性校验的不可逆盲索引。</li>
+              <li><strong>川大统一认证密码：</strong>仅在注册核验时传递给身份校验程序，完成后即丢弃，不写入数据库、缓存或业务日志。</li>
+              <li><strong>课栈密码：</strong>用于后续登录，仅保存 bcrypt 加盐哈希，不保存明文。</li>
+              <li><strong>账户资料：</strong>包括昵称、头像、角色、账户状态、信任分、认证时间，以及您可选绑定的邮箱。邮箱加密保存并建立不可逆盲索引。</li>
+              <li><strong>会话信息：</strong>包括登录时间、最近使用时间、IP、浏览器信息及刷新令牌哈希，用于保持登录、展示和撤销登录设备。</li>
+            </ul>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">2.2 其他账号信息（可选）</h3>
-      <ul class="list-disc pl-5 space-y-1">
-        <li><strong>电子邮箱</strong>（可选）：您可以选择绑定电子邮箱，用于账户恢复、接收重要安全通知和版权投诉通知。电子邮箱地址采用加密存储。</li>
-      </ul>
+            <h3 class="mt-4 font-semibold text-slate-800">2.3 您提交的内容与操作</h3>
+            <p class="mt-2">当您使用相应功能时，我们处理您上传的文件或外部链接、标题、简介、课程、学期、教师、分类与标签，以及评论、评分、心愿、举报、收藏、关注、下载和审核记录。文件可能被病毒扫描、提取文本、生成缩略图或转换为在线预览格式。</p>
+            <p class="mt-2">资料、评论、心愿、昵称、头像、徽章和信任标识可能在公开页面展示。请勿上传身份证件、成绩单原件、未脱敏名单，或含有他人姓名、学号、联系方式的内容；确有必要时，应先取得合法授权并完成脱敏。</p>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">2.3 用户生成内容（使用平台功能时自动收集）</h3>
-      <ul class="list-disc pl-5 space-y-1">
-        <li>当您上传资料、发布心愿、提交评论或进行其他互动操作时，您主动提供的内容（包括资料标题、描述、分类、标签、评论内容等）将被收集并在平台上公开展示。</li>
-        <li>上传的资料文件本身将存储在阿里云 OSS 上，并在平台上供其他用户浏览和下载。</li>
-        <li>您上传的资料中如包含他人的个人信息，您应事先取得该个人的同意或进行脱敏处理。</li>
-      </ul>
+            <h3 class="mt-4 font-semibold text-slate-800">2.4 反馈、举报与版权投诉</h3>
+            <p class="mt-2">反馈功能可能收集您填写的邮箱、反馈内容、IP 和浏览器信息。版权投诉会收集投诉人或机构名称、联系邮箱、可选电话、被投诉链接、事实说明、声明、IP 及处理结果。这些信息仅用于核实、沟通、处理争议和留存必要证据。</p>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">2.4 联系与投诉（使用投诉功能时收集）</h3>
-      <p>当您通过版权投诉页面、举报功能或联系邮箱与我们沟通时，您提供的姓名（或昵称）、联系方式、投诉或举报内容、相关证明材料等信息将被收集，用于处理您的诉求。</p>
+            <h3 class="mt-4 font-semibold text-slate-800">2.5 浏览器本地信息</h3>
+            <p class="mt-2">为方便继续浏览和填写，本站使用浏览器 localStorage 保存最近浏览（最多 20 条）、搜索历史、未提交的上传草稿和公告关闭状态。这些数据默认仅保存在当前浏览器，不随账户同步；您可通过清空搜索历史、提交或清除草稿、清理站点数据将其删除。</p>
+          </section>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">2.5 自动收集的技术信息</h3>
-      <ul class="list-decimal pl-5 space-y-2">
-        <li>
-          <strong>设备与网络信息</strong>：包括设备类型、操作系统名称及版本、浏览器类型及版本、IP 地址、网络类型（Wi-Fi / 移动网络）。用于适配页面展示、安全防护和滥用检测。IP 地址在审计日志中以 SHA-256 哈希形式存储，仅保留最近 90 天的记录。
-        </li>
-        <li>
-          <strong>操作日志</strong>：包括访问时间戳、浏览页面路径、点击行为、搜索关键词、上传及下载操作记录等，用于安全审计和平台运营分析。操作日志中的敏感个人信息（学号、邮箱）仅以哈希或掩码形式处理。
-        </li>
-        <li>
-          <strong>Session Token 与 Cookie 数据</strong>：详见本政策第五条。
-        </li>
-      </ul>
+          <section id="purpose" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">三、处理目的</h2>
+            <ul class="mt-3 list-disc space-y-1 pl-5">
+              <li>核验学生身份，创建和维护账户及登录会话；</li>
+              <li>提供课程检索、资料上传、审核、预览、下载和互动功能；</li>
+              <li>进行内容治理、版权处理、反滥用、限流、安全审计和故障排查；</li>
+              <li>基于下载量、评分、更新时间、维护者标记等非画像因素生成公开排序和推荐；</li>
+              <li>汇总匿名或聚合统计，了解课程与资料需求并改进服务；</li>
+              <li>履行法律法规要求，响应有权机关依法提出的请求。</li>
+            </ul>
+            <p class="mt-3">我们不会出售个人信息，不使用广告 Cookie，不基于个人敏感信息进行商业营销、跨站追踪或差别定价。</p>
+          </section>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">2.6 我们不会收集的信息</h3>
-      <p>为保护您的隐私，我们明确承诺<strong>不会</strong>主动收集以下信息：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li>精确地理位置信息（GPS 坐标等）</li>
-        <li>通讯录、相册、短信、剪贴板等终端本地数据</li>
-        <li>生物识别信息（人脸、指纹、声纹等）</li>
-        <li>金融账户信息（银行卡号、支付密码等）</li>
-        <li>行踪轨迹信息</li>
-        <li>任何形式的用户画像或跨站行为追踪数据</li>
-      </ul>
+          <section id="cookies" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">四、Cookie 与同类技术</h2>
+            <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200">
+              <table class="w-full min-w-[560px] text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600"><tr><th class="px-3 py-2 font-semibold">名称</th><th class="px-3 py-2 font-semibold">用途</th><th class="px-3 py-2 font-semibold">通常期限</th></tr></thead>
+                <tbody class="divide-y divide-slate-200">
+                  <tr><td class="px-3 py-2 font-mono">access_token</td><td class="px-3 py-2">验证登录身份，HttpOnly</td><td class="px-3 py-2">15 分钟</td></tr>
+                  <tr><td class="px-3 py-2 font-mono">refresh_token</td><td class="px-3 py-2">续期与管理登录会话，HttpOnly</td><td class="px-3 py-2">7 天</td></tr>
+                  <tr><td class="px-3 py-2 font-mono">csrf_token</td><td class="px-3 py-2">防止跨站请求伪造</td><td class="px-3 py-2">当前站点会话</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-3">禁用必要 Cookie 后，登录、上传和账户设置等功能可能无法使用。</p>
+          </section>
 
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">三、我们如何使用您的个人信息</h2>
-      <p>我们仅在以下明确的目的范围内使用您的个人信息。如超出以下目的使用，我们将重新取得您的同意：</p>
-      <ul class="list-decimal pl-5 space-y-2">
-        <li><strong>提供核心服务</strong>：完成注册登录、维护用户会话、展示资料列表、提供搜索和下载功能、匹配课程分类、维护资料版本历史。</li>
-        <li><strong>安全防护</strong>：检测和防御爬虫抓取、DDoS 攻击、API 异常调用、恶意文件上传、欺诈注册等安全威胁；对异常登录行为进行风险评估。</li>
-        <li><strong>内容审核</strong>：审核用户上传的资料、评论和举报，确保内容符合平台规范和法律法规。</li>
-        <li><strong>服务通知</strong>：发送账户安全提醒（包括但不限于异地登录告警、密码修改确认）、版权投诉处理结果、账户注销进度、平台重大规则变更等与服务相关的重要通知。此类通知<strong>不属于商业营销信息</strong>，即使您选择不接收其他类型的通知，此类服务通知仍会发送。</li>
-        <li><strong>匿名统计</strong>：基于匿名化或聚合后的数据（无法识别特定个人），分析平台使用趋势、热门资料类型和用户需求，以优化平台功能和改善用户体验。此类统计分析不涉及对个人的识别或画像。</li>
-        <li><strong>法律合规</strong>：响应政府部门、司法机关依据法定程序提出的合法请求；依据法律法规要求留存必要的操作记录。</li>
-      </ul>
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
-        <p class="text-blue-800 text-xs"><strong>我们明确承诺：</strong></p>
-        <ul class="list-disc pl-5 space-y-0.5 text-xs text-blue-700">
-          <li>不会将您的个人信息用于商业营销或广告推送。</li>
-          <li>不会基于您的个人信息构建用户画像或进行自动化决策（详见第十条）。</li>
-          <li>不会将您的个人信息出售给任何第三方。</li>
-          <li>不会将您的个人信息用于与上述目的无关的用途。</li>
-        </ul>
-      </div>
+          <section id="sharing" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">五、服务提供方、共享与跨境</h2>
+            <p class="mt-3">平台会根据实际部署配置使用以下服务。我们仅传递完成相应功能所必需的信息：</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+              <li><strong>四川大学统一身份认证：</strong>一次性核验您主动提交的学校账号凭据；川流课栈不保存学校密码或学校会话。</li>
+              <li><strong>文件存储服务：</strong>当前默认使用平台配置的 LFS 文件服务，也可按部署配置使用阿里云 OSS，用于保存和分发上传文件、缩略图及预览文件。</li>
+              <li><strong>Sentry（配置启用时）：</strong>接收前端或后端错误、页面与设备环境、性能追踪及抽样会话回放信息，用于定位故障。此服务可能由境外主体提供。</li>
+              <li><strong>GitHub：</strong>仅在您主动跳转并提交 Issue 时处理您提供的 GitHub 账户和 Issue 内容，适用 GitHub 自身规则。</li>
+            </ul>
+            <p class="mt-3">除获得您的单独同意、完成受托处理、保护重大合法权益或法律法规另有规定外，我们不会向其他主体提供个人信息。如服务商或存储地点变化涉及个人信息跨境，我们将依法告知并履行必要程序。</p>
+          </section>
 
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">四、我们如何存储和保护您的个人信息</h2>
+          <section id="retention" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">六、保存、删除与账户注销</h2>
+            <ul class="mt-3 list-disc space-y-1 pl-5">
+              <li>账户信息在账户存续期间保存；登录刷新令牌通常不超过 7 天，撤销或轮换后失效。</li>
+              <li>公开内容和源文件在内容存续期间保存；下架、删除或版权处理后，缓存、备份和冗余副本会按存储系统周期清理。</li>
+              <li>浏览器本地信息保存至您清理站点数据，或由对应功能主动清除。</li>
+              <li>反馈、投诉、审核和安全日志按处理争议、保障安全及法定义务所需的最短期限保存。</li>
+            </ul>
+            <div class="mt-4 border-l-4 border-primary-500 bg-primary-50 px-4 py-3 text-xs text-primary-950">
+              当前“隐私设置”中的注销功能会立即停用账户、撤销有效会话，并清除学号、邮箱、学校认证状态和第三方账号标识。为保持资料版本、评论上下文和安全审计的完整性，内部账户编号、已发布内容及必要日志可能继续保留；公开贡献会与已停用账户关联或以匿名方式呈现。注销前请先删除您不希望继续公开的内容，或联系我们协助处理。
+            </div>
+          </section>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">4.1 存储地点</h3>
-      <p>您的个人信息全部存储于<strong>中华人民共和国境内</strong>（阿里云服务器，位于华东地域）。我们不会将您的个人信息转移或传输至境外。如因业务需要确需向境外传输，我们将按照《个保法》第三十八条的要求，通过国家网信部门的安全评估或取得您的单独同意，并告知您境外接收方的名称、联系方式、处理目的和方式。</p>
+          <section id="security" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">七、安全保护</h2>
+            <p class="mt-3">我们采取 HTTPS 传输、敏感字段加密、密码哈希、最小权限、会话撤销、CSRF 防护、安全响应头、速率限制、恶意文件检测和操作审计等措施。互联网服务无法保证绝对安全；请为课栈设置独立密码，不要在资料、评论、反馈或 Issue 中公开个人敏感信息。</p>
+            <p class="mt-3">发生或可能发生个人信息泄露、篡改或丢失时，我们将依法采取补救措施，并在法律要求的范围内向有关部门和受影响用户告知。</p>
+          </section>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">4.2 存储期限</h3>
-      <p>我们仅在实现处理目的所必需的最短期限内保留您的个人信息，超出期限后将进行删除或匿名化处理。具体存储期限如下：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li><strong>账户信息</strong>（学号、邮箱等）：在账户存续期间保留。账户注销后，我们将在<strong>15 个工作日内</strong>完成个人信息删除，法律法规另有规定的除外。</li>
-        <li><strong>用户上传的资料及文件</strong>：在资料存续期间保留。资料被删除后，关联的 OSS 文件在<strong>30 天宽限期</strong>后被垃圾回收清理。</li>
-        <li><strong>审计日志</strong>（含 IP 哈希及操作记录）：保留<strong>90 天</strong>，期满后自动清理。</li>
-        <li><strong>版权投诉记录</strong>：依法保留至投诉处理完毕后<strong>6 个月</strong>，期满后删除。</li>
-      </ul>
-      <p class="text-slate-500 italic mt-1">上述存储期限届满后，我们将对个人信息进行删除或匿名化处理。法律法规另有强制性保留要求的，从其规定。</p>
+          <section id="rights" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">八、您的权利</h2>
+            <p class="mt-3">您可以在个人中心查看和修改昵称、头像、邮箱及公开贡献显示设置，管理收藏、关注、评论和上传内容，并在隐私设置中注销账户。您也可以联系我们，请求查阅、复制、更正、补充或删除个人信息，解释处理规则，或撤回基于同意开展的处理。</p>
+            <p class="mt-3">为防止冒用，我们可能先核验您的账户身份。我们通常在 15 个工作日内答复；法律规定不允许删除、请求会损害他人合法权益或无法核实身份时，我们会说明原因。</p>
+          </section>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">4.3 安全措施</h3>
-      <p>我们采取以下技术和管理措施保护您的个人信息安全：</p>
-      <ul class="list-decimal pl-5 space-y-1">
-        <li><strong>传输加密</strong>：全站启用 HTTPS/TLS 1.2+ 加密传输，对所有 API 请求强制使用 HTTPS。</li>
-        <li><strong>存储加密</strong>：学号等敏感个人信息使用 AES-256-GCM 算法加密存储于数据库。密码使用 bcrypt 加盐哈希存储（cost factor ≥ 12）。</li>
-        <li><strong>访问控制</strong>：数据库和服务器实行最小权限访问策略，按需授权。敏感数据的访问操作均记录审计日志。生产环境数据库仅限应用服务器内网访问。</li>
-        <li><strong>安全中间件</strong>：部署了安全头中间件（Content-Security-Policy、X-Frame-Options: DENY、X-Content-Type-Options: nosniff、Strict-Transport-Security 等）、API 反代防护中间件、速率限制中间件和 DDoS 防护中间件。</li>
-        <li><strong>数据备份</strong>：数据库每日定时加密备份，备份文件存储于独立的阿里云 OSS Bucket，备份保留周期为 30 天。</li>
-        <li><strong>漏洞管理</strong>：CI 流程中集成依赖漏洞扫描（pip-audit、npm audit），高危漏洞阻断部署。定期进行安全依赖更新。</li>
-        <li><strong>日志与监控</strong>：关键操作记录审计日志，异常行为触发告警。审计日志中不记录明文敏感信息。</li>
-      </ul>
+          <section id="minors" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">九、未成年人保护</h2>
+            <p class="mt-3">平台主要面向四川大学学生。未满十八周岁的用户应在监护人指导下阅读本政策和用户协议；不满十四周岁的儿童不应注册或提交个人信息。如监护人发现儿童未经同意向平台提供了信息，请立即联系我们，我们核实后将依法处理。</p>
+          </section>
 
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">4.4 个人信息安全事件的处置</h3>
-      <p>在发生或者可能发生个人信息泄露、篡改、丢失的安全事件时，我们将：</p>
-      <ul class="list-decimal pl-5 space-y-1">
-        <li>立即启动应急预案，采取补救措施防止危害扩大；</li>
-        <li><strong>在 72 小时内</strong>按照法律法规的要求，通过站内消息或邮件等有效方式及时告知您事件的基本情况、可能的影响、我们已采取或将要采取的处置措施、您可以采取的防范和降低风险的建议；</li>
-        <li>按照《个保法》第五十七条的规定，向履行个人信息保护职责的部门报告；</li>
-        <li>对事件原因进行调查并记录，采取措施防止类似事件再次发生。</li>
-      </ul>
-      <p class="text-slate-500 italic mt-2">尽管我们采取了上述合理的安全措施，需要提醒您：互联网环境并非绝对安全，没有任何安全措施是完美无缺的。您应妥善保管您的账号密码和验证码，不要将其提供给任何第三方。</p>
+          <section id="updates" class="scroll-mt-24">
+            <h2 class="text-lg font-semibold text-slate-900">十、政策更新</h2>
+            <p class="mt-3">服务功能、信息类型、处理目的或服务提供方发生变化时，我们会更新本页。重大变化会通过站内公告、登录提示或其他合理方式通知；依法需要重新取得同意的，我们会在相关处理前征得同意。</p>
+          </section>
 
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">五、Cookie、Token 与同类技术</h2>
-      <p>为保障平台基本功能的正常运行，我们使用以下必要的 Cookie 和 Token 技术：</p>
-      <ul class="list-disc pl-5 space-y-2">
-        <li><strong>access_token</strong>（HttpOnly, Secure, SameSite=Lax, 有效期 15 分钟）：JSON Web Token (JWT)，存储于 HttpOnly Cookie 中，用于验证您的登录状态和身份。JavaScript 无法读取此 Cookie，降低了 XSS 攻击下的令牌泄露风险。</li>
-        <li><strong>refresh_token</strong>（HttpOnly, Secure, SameSite=Strict, 有效期 7 天）：用于在 access_token 过期后自动续期，避免您频繁重新登录。SameSite=Strict 设置可有效防止 CSRF 攻击。</li>
-      </ul>
-      <p>我们<strong>不使用</strong>以下技术：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li>第三方分析 Cookie（如 Google Analytics、百度统计等）；</li>
-        <li>广告 Cookie 或广告标识符；</li>
-        <li>跨站追踪 Cookie 或浏览器指纹技术；</li>
-        <li>Flash Cookie、ETag 追踪等隐蔽追踪技术。</li>
-      </ul>
-      <p>您可以通过浏览器设置管理和删除 Cookie。但请注意，禁用必要的 Cookie 将导致您无法登录或使用需要身份验证的功能。大多数浏览器允许您针对特定网站设置 Cookie 例外。</p>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">六、我们如何委托处理、共享、转移和公开披露您的个人信息</h2>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">6.1 委托处理</h3>
-      <p>本平台的部分功能依赖以下第三方服务提供商（受托处理者）提供的基础设施服务：</p>
-      <ul class="list-disc pl-5 space-y-2">
-        <li><strong>阿里云计算有限公司</strong>：提供云服务器（ECS，华东地域）、对象存储（OSS）、云数据库（RDS for PostgreSQL 16）、缓存服务（Redis 7）、搜索服务（Elasticsearch 8）等基础设施。</li>
-        <li><strong>四川大学统一身份认证服务</strong>：注册时接收您主动提交的学号和学校密码，用于一次性确认在校生身份；校验完成后川流课栈不保存学校密码或学校会话凭据。</li>
-        <li><strong>GitHub, Inc.</strong>：托管项目开源代码和用户反馈（Issue）。用户在 GitHub Issues 中提交的内容受 GitHub 隐私政策约束。</li>
-      </ul>
-      <p>我们与上述服务商签订了数据处理协议，要求其按照我们的指示及法律法规要求处理个人信息，采取适当的安全措施，不得将个人信息用于其他目的。我们会定期评估服务商的安全能力和合规表现。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">6.2 共享</h3>
-      <p>我们<strong>不会</strong>主动向任何第三方共享您的个人信息，但以下情形除外：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li>在取得您的<strong>单独同意</strong>后，在授权范围内共享。</li>
-        <li>依据法律法规规定，或依据政府主管部门、司法机关的强制性要求（如法院传票、调查令等），在核实法律文书的真实性和合法性后提供。</li>
-        <li>与上述 6.1 条所述的受托处理者共享，且仅限于实现本政策所述服务功能所必需的范围。</li>
-      </ul>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">6.3 转移</h3>
-      <p>我们不会将您的个人信息转让给任何第三方。如本平台因运营主体变更、合并、分立、解散等原因需要转移个人信息，我们会：</p>
-      <ul class="list-decimal pl-5 space-y-1">
-        <li>向您告知接收方的名称（或姓名）和联系方式；</li>
-        <li>要求接收方继续履行本隐私政策的义务；</li>
-        <li>如接收方变更处理目的或方式，要求其重新取得您的同意。</li>
-      </ul>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">6.4 公开披露</h3>
-      <p>我们仅在以下情形公开披露您的个人信息：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li>在取得您的<strong>单独同意</strong>后。</li>
-        <li>根据法律法规、诉讼程序或政府主管部门的强制性要求。</li>
-      </ul>
-      <p>在任何情况下，我们不会公开披露您的学号、邮箱等敏感个人信息。</p>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">七、您的权利</h2>
-      <p>根据《个保法》第四章及相关法律法规，您对您的个人信息享有以下权利。我们将通过以下方式保障您的权利行使：</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.1 查阅权</h3>
-      <p>您可以在登录后通过「个人中心」页面查阅您已提供的个人信息（包括昵称、学号掩码、绑定的邮箱、已上传的资料列表、评论记录等）。如需查阅完整的个人信息清单，可通过第十二条所述方式联系我们，我们将在核实身份后提供。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.2 复制权与可携带权</h3>
-      <p>您有权获取您提供的个人信息的副本。如需导出您在平台上的个人信息副本（包括上传的资料、评论内容等），可通过第十二条所述方式联系我们。我们将在核实身份后<strong>15 个工作日内</strong>以结构化、通用的电子格式（JSON 或 PDF）向您提供。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.3 更正、补充权</h3>
-      <p>如您发现您的个人信息不准确或不完整，可以在「个人设置」页面自行更正昵称、绑定或更换邮箱。学号由身份校验服务确认后不可自行修改。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.4 删除权</h3>
-      <p>在以下情形下，您可以要求我们删除您的个人信息：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li>处理目的已实现、无法实现或者为实现处理目的不再必要；</li>
-        <li>我们停止提供产品或者服务，或者存储期限已届满；</li>
-        <li>您撤回同意；</li>
-        <li>我们违反法律、行政法规或者违反约定处理您的个人信息；</li>
-        <li>法律、行政法规规定的其他情形。</li>
-      </ul>
-      <p>您可以通过「个人设置」中的「注销账户」功能或联系我们行使删除权。法律、行政法规规定的保存期限未届满，或者删除个人信息从技术上难以实现的，我们将停止除存储和采取必要的安全保护措施之外的处理。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.5 注销账户权</h3>
-      <p>您可以通过以下方式注销账户：</p>
-      <ul class="list-decimal pl-5 space-y-1">
-        <li>登录后进入「个人设置」→「隐私设置」，选择「注销账户」；</li>
-        <li>提交注销申请后，账户将进入<strong>30 天冷静期</strong>，期间您可以撤销注销申请；</li>
-        <li>冷静期届满后，我们将在<strong>15 个工作日内</strong>永久删除您的学号、邮箱、密码等个人信息；</li>
-        <li>您上传的资料可选择<strong>匿名化保留</strong>（贡献者显示为「已注销用户」）或<strong>一并删除</strong>；</li>
-        <li>审核记录、版权投诉记录等依法需要保留的信息，将在法定保留期限后删除；</li>
-        <li>注销账户时，我们<strong>不会要求您额外提供</strong>超出注册时已收集范围的信息（如人脸识别、手持身份证照片等）。</li>
-      </ul>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.6 撤回同意权</h3>
-      <p>您可以通过注销账户撤回对个人信息处理的同意。对于可选的个人信息收集（如学号验证），您可在「个人设置」中撤回此前授予的同意。撤回同意不影响撤回前基于同意已进行的个人信息处理活动的合法性。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.7 解释说明权</h3>
-      <p>您有权要求我们对个人信息处理规则进行解释说明。如您对本隐私政策的任何条款有疑问，可通过第十二条所述方式联系我们，我们将予以解释。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.8 死者近亲属权利</h3>
-      <p>在符合法律法规规定的情形下，死者近亲属可对死者的相关个人信息行使查阅、复制、更正、删除等权利。行使该等权利时，近亲属需提供身份证明和亲属关系证明。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">7.9 响应机制</h3>
-      <p>您可以通过本政策第十二条所述的联系方式行使上述权利。为保障安全，我们可能会要求您提供身份验证信息。我们将在收到您的请求后<strong>15 个工作日内</strong>完成处理并回复。对于合理请求，我们不收取费用，但对多次重复、超出合理限度的请求，我们可能酌情收取成本费用。对于无正当理由重复、需要过多技术手段（如需要开发新系统或从根本上改变现行惯例）、给他人合法权益带来风险或非常不切实际的请求，我们可能予以拒绝，但将向您说明理由。</p>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">八、未成年人保护</h2>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">8.1 一般规定</h3>
-      <p>本平台主要面向四川大学在校学生（一般为年满 18 周岁的成年人）。我们高度重视未成年人的个人信息保护。如果您是未成年人，请在您的监护人的陪同下阅读本隐私政策，并在征得监护人同意的前提下使用本平台。</p>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">8.2 儿童（不满十四周岁）个人信息保护</h3>
-      <p>根据《儿童个人信息网络保护规定》，我们对不满十四周岁的儿童的个人信息实施更严格的保护：</p>
-      <ul class="list-disc pl-5 space-y-2">
-        <li>我们<strong>不会主动</strong>向儿童提供平台服务或收集儿童的个人信息。</li>
-        <li>如儿童需要使用本平台，必须由其<strong>监护人仔细阅读并明确同意</strong>本隐私政策。我们仅在取得监护人明确同意的情况下，收集该儿童提供服务所必需的个人信息。</li>
-        <li>监护人同意应以可验证的方式作出（如通过监护人手机号码进行验证）。</li>
-        <li>如监护人不同意本隐私政策，该儿童不得注册或使用本平台。</li>
-        <li>如我们发现无意中收集了儿童的个人信息且未经其监护人同意，我们将在核实后<strong>立即删除</strong>该信息。</li>
-        <li>监护人如发现被监护人在未经同意的情况下向我们提供了个人信息，或希望查阅、更正、删除被监护人的个人信息，可立即通过第十二条所述方式联系我们。</li>
-        <li>我们不会将儿童的个人信息用于任何商业目的或进行用户画像。</li>
-      </ul>
-
-      <h3 class="text-sm font-semibold text-slate-700 mt-4 mb-2">8.3 十四至十八周岁的未成年人</h3>
-      <p>对于年满十四周岁但未满十八周岁的未成年人，建议在监护人指导下使用本平台，并在注册和使用前仔细阅读本隐私政策。</p>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">九、免责声明</h2>
-      <ul class="list-disc pl-5 space-y-2">
-        <li><strong>不可抗力</strong>：因自然灾害、战争、政府行为、法律法规变更、计算机病毒大规模爆发、黑客攻击、电信部门技术调整等不可抗力事件导致的服务中断或信息泄露，我们在法律允许的范围内不承担责任，但将尽力减少您的损失，并在事件发生后按照第 4.4 条的规定及时通知您。</li>
-        <li><strong>用户自身原因</strong>：因您保管不当导致账号密码、验证码泄露，或将账号出借、出租给他人使用所造成的信息泄露和损失，由您自行承担责任。我们建议您启用设备锁屏密码、不在公共设备上保存登录状态、定期更换密码。</li>
-        <li><strong>第三方服务</strong>：本平台可能包含指向第三方网站或服务的链接。此类第三方网站的隐私政策和数据处理行为不在本平台的控制范围内。我们会在用户点击外部链接前弹出离开确认提示，但不对第三方网站的内容、隐私保护措施或数据处理行为承担责任。建议您在访问第三方网站前仔细阅读其隐私政策。</li>
-        <li><strong>学生社区运维</strong>：本平台由学生志愿者利用课余时间维护，无法提供 7×24 小时专业运维保障。服务可能出现临时中断，我们将尽力及时恢复，并通过站内公告等方式通知用户。计划内的维护将尽量安排在访问量较低的时段并提前公告。</li>
-      </ul>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">十、自动化决策</h2>
-      <p>根据《个保法》第二十四条，我们将自动化决策相关情况说明如下：</p>
-      <ul class="list-disc pl-5 space-y-2">
-        <li>本平台<strong>不进行</strong>任何形式的自动化决策。平台不通过计算机程序自动分析、评估个人的行为习惯、兴趣爱好或者经济、健康、信用状况等，也不进行自动化决策以决定是否向您推送特定内容。</li>
-        <li>平台的资料推荐和排序<strong>不基于用户个人画像</strong>，而是基于资料的公开属性（如上传时间、下载次数、评分、维护者精选标记等）和用户主动输入的搜索条件。</li>
-        <li>搜索结果和资料列表的排序规则对所有用户一视同仁，不会因用户的身份、历史行为等因素进行差异化呈现。</li>
-        <li>如未来平台功能调整涉及自动化决策，我们将按照法律法规要求进行个人信息保护影响评估，并在功能上线前更新本隐私政策以告知您决策的基本原理、处理目的和方式，同时提供拒绝自动化决策的选项。</li>
-      </ul>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">十一、本政策的更新</h2>
-      <p>我们可能根据法律法规变化、平台功能调整或运营需要不时更新本隐私政策。更新方式如下：</p>
-      <ul class="list-disc pl-5 space-y-2">
-        <li>更新后，我们将在平台上公布最新版本并更新生效日期和版本号。</li>
-        <li>对于<strong>重大变更</strong>，我们还将通过站内消息或邮件等合理方式向您发送通知，并在必要时<strong>重新征得您的同意</strong>。</li>
-        <li>重大变更包括但不限于：
-          <ul class="list-circle pl-5 space-y-0.5 mt-1">
-            <li>我们的服务模式发生重大变化，如处理个人信息的目的、类型、方式发生实质性变化；</li>
-            <li>我们在所有权结构、组织架构方面发生重大变化；</li>
-            <li>个人信息共享、转移或公开披露的主要对象发生变化；</li>
-            <li>您参与个人信息处理方面的权利及其行使方式发生重大变化；</li>
-            <li>个人信息存储期限发生重大变化；</li>
-            <li>我们负责个人信息安全的责任部门、联络方式及投诉渠道发生变化。</li>
-          </ul>
-        </li>
-      </ul>
-      <p><strong>如您不同意更新后的隐私政策，您应当停止使用本平台。在重大变更生效后继续使用本平台，即表示您同意更新后的隐私政策。</strong>如更新涉及需要重新征得同意的内容，我们将在取得您的同意后方按新的政策处理您的个人信息。</p>
-
-      <h2 class="text-base font-semibold text-slate-800 mt-8 mb-3">十二、联系我们</h2>
-      <p>如您对本隐私政策有任何疑问、意见、建议或投诉，或希望行使您的个人信息权利，请通过以下方式联系我们：</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li><strong>电子邮箱</strong>：<a href="mailto:admin@scustack.com" class="text-primary-600 hover:text-primary-700">admin@scustack.com</a>（推荐，响应最快）</li>
-        <li><strong>GitHub Issues</strong>：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener" class="text-primary-600 hover:text-primary-700">yeyixiang2007/scustack/issues</a></li>
-        <li><strong>通信地址</strong>：四川省成都市双流区川大路 四川大学江安校区</li>
-      </ul>
-      <p>我们将在收到您的请求后 <strong>15 个工作日内</strong>予以回复。如果您对我们的回复不满意，或认为我们的个人信息处理行为损害了您的合法权益，您可以向<strong>国家互联网信息办公室</strong>（举报平台：www.12377.cn）或其他履行个人信息保护职责的部门进行投诉或举报，或向有管辖权的人民法院提起诉讼。</p>
+          <section id="contact" class="scroll-mt-24 border-t border-slate-200 pt-8">
+            <h2 class="text-lg font-semibold text-slate-900">十一、联系我们</h2>
+            <p class="mt-3">隐私咨询、权利请求、投诉或安全问题可通过以下渠道提交：</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+              <li>邮箱：<a href="mailto:admin@scustack.com" class="text-primary-700 hover:text-primary-800">admin@scustack.com</a></li>
+              <li>GitHub：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener noreferrer" class="text-primary-700 hover:text-primary-800">yeyixiang2007/scustack/issues</a>（请勿公开提交个人敏感信息）</li>
+            </ul>
+            <p class="mt-3">如您认为我们的处理损害了您的合法权益，也可以向履行个人信息保护职责的部门投诉或依法向有管辖权的人民法院提起诉讼。</p>
+          </section>
+        </div>
+      </article>
     </div>
-  </div>
+  </main>
 </template>
+
+<script setup lang="ts">
+const sections = [
+  { id: 'scope', label: '适用范围' },
+  { id: 'collection', label: '处理的信息' },
+  { id: 'purpose', label: '处理目的' },
+  { id: 'cookies', label: 'Cookie' },
+  { id: 'sharing', label: '服务提供方' },
+  { id: 'retention', label: '保存与注销' },
+  { id: 'security', label: '安全保护' },
+  { id: 'rights', label: '您的权利' },
+  { id: 'minors', label: '未成年人' },
+  { id: 'updates', label: '政策更新' },
+  { id: 'contact', label: '联系我们' },
+]
+
+useSeoMeta({
+  title: '隐私政策 - 川流课栈',
+  description: '了解川流课栈如何处理和保护账号、上传内容、日志及浏览器本地信息。',
+})
+</script>
