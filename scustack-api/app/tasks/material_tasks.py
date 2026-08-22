@@ -140,6 +140,7 @@ def generate_thumbnail(material_id: str, version_id: str, file_format: str):
                     if material.thumbnail_status != 'ready':
                         material.thumbnail_status = 'ready'
                         await db.commit()
+                    await _sync_thumbnail_to_search(material.id, material.thumbnail_version_id)
                     return
 
                 material.thumbnail_status = 'processing'
@@ -153,6 +154,7 @@ def generate_thumbnail(material_id: str, version_id: str, file_format: str):
                     material.thumbnail_version_id = version.id
                     material.thumbnail_status = 'ready'
                     await db.commit()
+                    await _sync_thumbnail_to_search(material.id, material.thumbnail_version_id)
         except (StorageError, OSError, ValueError) as exc:
             async with async_session() as db:
                 material = await db.scalar(select(Material).where(Material.id == material_id))
@@ -166,6 +168,19 @@ def generate_thumbnail(material_id: str, version_id: str, file_format: str):
             await release_lock(lock_key, lock_token)
 
     run_async(_run())
+
+
+async def _sync_thumbnail_to_search(material_id, version_id) -> None:
+    from app.core import elasticsearch as es
+
+    try:
+        await es.update_material_fields(
+            str(material_id),
+            {'thumbnail_version_id': str(version_id)},
+        )
+    except Exception:
+        # The document may not exist yet; approval/index sync will create it.
+        return
 
 
 async def _set_scan_status(db, material_id: str, version_id: str, status: str):

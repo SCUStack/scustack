@@ -94,6 +94,12 @@ async def index_material(material_id: str, document: dict) -> None:
     await es.index(index=MATERIALS_INDEX, id=material_id, body=document, refresh=True)
 
 
+async def update_material_fields(material_id: str, fields: dict) -> None:
+    if es is None:
+        return
+    await es.update(index=MATERIALS_INDEX, id=material_id, doc=fields, refresh=True)
+
+
 async def delete_material_index(material_id: str) -> None:
     if es is None:
         return

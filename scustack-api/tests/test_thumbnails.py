@@ -117,7 +117,8 @@ def test_thumbnail_task_downloads_latest_version_and_writes_local_file(tmp_path,
          ), \
          patch('app.core.storage.download_version_to_path', new=download_source), \
          patch('app.core.redis.acquire_lock', new_callable=AsyncMock, return_value='token'), \
-         patch('app.core.redis.release_lock', new_callable=AsyncMock) as release_lock:
+         patch('app.core.redis.release_lock', new_callable=AsyncMock) as release_lock, \
+         patch('app.tasks.material_tasks._sync_thumbnail_to_search', new_callable=AsyncMock) as sync_search:
         generate_thumbnail(str(material_id), str(version_id), 'png')
 
     path = tmp_path / f'{material_id}.webp'
@@ -126,6 +127,7 @@ def test_thumbnail_task_downloads_latest_version_and_writes_local_file(tmp_path,
     assert material.thumbnail_version_id == version_id
     assert material.thumbnail_status == 'ready'
     assert db.commit.await_count == 2
+    sync_search.assert_awaited_once_with(material_id, version_id)
     release_lock.assert_awaited_once()
 
 
@@ -162,11 +164,13 @@ def test_thumbnail_task_skips_lfs_when_latest_version_is_ready(tmp_path, monkeyp
          ), \
          patch('app.core.storage.download_version_to_path', new_callable=AsyncMock) as download_source, \
          patch('app.core.redis.acquire_lock', new_callable=AsyncMock, return_value='token'), \
-         patch('app.core.redis.release_lock', new_callable=AsyncMock):
+         patch('app.core.redis.release_lock', new_callable=AsyncMock), \
+         patch('app.tasks.material_tasks._sync_thumbnail_to_search', new_callable=AsyncMock) as sync_search:
         generate_thumbnail(str(material_id), str(version_id), 'png')
 
     download_source.assert_not_awaited()
     db.commit.assert_not_awaited()
+    sync_search.assert_awaited_once_with(material_id, version_id)
 
 
 @pytest.mark.asyncio
