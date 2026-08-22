@@ -46,6 +46,7 @@ async def build_index_document(db, material: Material, content_text: str | None 
         'trust_status': material.trust_status,
         'review_status': material.review_status,
         'contributor_id': str(material.contributor_id) if material.contributor_id else None,
+        'thumbnail_version_id': str(material.thumbnail_version_id) if material.thumbnail_version_id else None,
         'created_at': material.created_at.isoformat(),
         'updated_at': material.updated_at.isoformat(),
         'download_count': material.download_count,

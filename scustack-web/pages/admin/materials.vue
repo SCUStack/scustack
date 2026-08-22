@@ -86,7 +86,7 @@ async function setTrust(id: string, status: string) {
 }
 
 async function removeMaterial(id: string) {
-  await $fetch(`${apiBase}/api/v1/admin/materials/${id}/review`, {
+  await $fetch(`${apiBase}/api/v1/admin/review/${id}`, {
     method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'removed' }),
   })

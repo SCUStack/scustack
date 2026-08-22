@@ -63,5 +63,6 @@ class TestMaterialModel:
         )
         material.id = uuid.uuid4()
 
-        with patch('app.core.thumbnails.thumbnail_url', return_value=None):
+        with patch('app.core.thumbnails.thumbnail_url', return_value=None) as thumbnail_url:
             assert material.thumbnail_url is None
+            thumbnail_url.assert_called_once_with(material.id, None)

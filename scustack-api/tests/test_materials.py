@@ -65,11 +65,13 @@ class TestMaterialListAPI:
         material.contributor_id = None
         material.contributor = None
         material.thumbnail_url = None
+        material.thumbnail_status = 'ready'
+        material.thumbnail_version_id = version_id = UUID('00000000-0000-0000-0000-000000000002')
         material.created_at = datetime.now(timezone.utc)
         material.updated_at = datetime.now(timezone.utc)
 
         version = MagicMock()
-        version.id = UUID('00000000-0000-0000-0000-000000000002')
+        version.id = version_id
         version.material_id = UUID(MATERIAL_ID)
         version.version_number = 1
         version.file_hash = 'a' * 64
@@ -351,14 +353,26 @@ class TestMaterialPreview:
     async def test_thumbnail_returns_local_webp_for_public_material(self, client, tmp_path):
         thumbnail = tmp_path / f'{MATERIAL_ID}.webp'
         thumbnail.write_bytes(b'RIFF0000WEBPthumbnail')
-        material = MagicMock(review_status='approved', contributor_id=None)
-        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
+        version_id = UUID('00000000-0000-0000-0000-000000000002')
+        material = MagicMock(
+            review_status='approved',
+            contributor_id=None,
+            thumbnail_version_id=version_id,
+        )
+        with patch('app.api.v1.materials.material_service.get_material_thumbnail_access', new_callable=AsyncMock, return_value=material), \
              patch('app.api.v1.materials.thumbnail_path', return_value=thumbnail):
-            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/thumbnail')
+            resp = await client.get(
+                f'/api/v1/materials/{MATERIAL_ID}/thumbnail?v={version_id}'
+            )
 
         assert resp.status_code == 200
         assert resp.headers['content-type'] == 'image/webp'
         assert resp.content == b'RIFF0000WEBPthumbnail'
+
+    async def test_thumbnail_requires_version(self, client):
+        resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/thumbnail')
+
+        assert resp.status_code == 422
 
     async def test_delete_material_removes_local_thumbnail(self, client):
         user = MagicMock(id=UUID(USER_ID), role='contributor', is_active=True)

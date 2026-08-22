@@ -38,24 +38,18 @@ describe('admin API feedback plugin', () => {
     expect(toast.error).toHaveBeenCalledWith('course not found')
   })
 
-  it('refreshes an expired admin session and retries the request', async () => {
-    let attempts = 0
-    vi.stubGlobal('$fetch', vi.fn(async (request: string) => {
-      if (request.includes('/auth/refresh')) return { code: 0 }
-      attempts += 1
-      if (attempts === 1) {
-        const error = new Error('expired') as Error & { status: number }
-        error.status = 401
-        throw error
-      }
-      return { code: 0 }
-    }))
+  it('reports an expired session without handling token refresh', async () => {
+    const expired = new Error('expired') as Error & { status: number }
+    expired.status = 401
+    const fetchMock = vi.fn(async () => { throw expired })
+    vi.stubGlobal('$fetch', fetchMock)
     const { default: plugin } = await import('../plugins/admin-api-feedback.client')
     plugin({} as never)
 
-    await globalThis.$fetch('/api/v1/courses/manage', { credentials: 'include' })
+    await expect(globalThis.$fetch('/api/v1/courses/manage', { credentials: 'include' }))
+      .rejects.toThrow('expired')
 
-    expect(attempts).toBe(2)
-    expect(toast.error).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(toast.error).toHaveBeenCalledWith('登录已过期，请重新登录')
   })
 })

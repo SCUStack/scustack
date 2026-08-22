@@ -70,6 +70,8 @@ class MaterialResponse(BaseModel):
     contributor_id: UUID | None
     contributor: ContributorInfo | None = None
     thumbnail_url: str | None = None
+    thumbnail_status: str = 'missing'
+    thumbnail_version_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -107,41 +107,63 @@ def generate_thumbnail(material_id: str, version_id: str, file_format: str):
     from sqlalchemy import select
 
     from app.core.database import async_session
+    from app.core.redis import acquire_lock, release_lock
     from app.core.storage import StorageError, download_version_to_path
-    from app.core.thumbnails import render_thumbnail, save_thumbnail
+    from app.core.thumbnails import render_thumbnail, save_thumbnail, thumbnail_exists
     from app.models.material import Material, MaterialVersion
     from app.services.material_service import get_latest_version
 
     logger = logging.getLogger(__name__)
 
     async def _run():
-        async with async_session() as db:
-            version = await db.scalar(
-                select(MaterialVersion).where(MaterialVersion.id == version_id)
-            )
-            if version is None or str(version.material_id) != material_id:
-                return
-            latest_version = await get_latest_version(db, version.material_id)
-            material = await db.scalar(select(Material).where(Material.id == version.material_id))
-            if (
-                latest_version is None
-                or str(latest_version.id) != version_id
-                or material is None
-                or material.review_status == 'removed'
-            ):
-                return
-            with tempfile.TemporaryDirectory(prefix='scustack-thumbnail-') as directory:
-                normalized_format = re.sub(r'[^a-z0-9]+', '', (file_format or '').lower())[:12]
-                path = Path(directory) / f'source.{normalized_format or "bin"}'
-                try:
+        lock_key = f'lock:thumbnail:{material_id}:{version_id}'
+        lock_token = await acquire_lock(lock_key, ttl=300)
+        if lock_token is None:
+            return
+        try:
+            async with async_session() as db:
+                version = await db.scalar(
+                    select(MaterialVersion).where(MaterialVersion.id == version_id)
+                )
+                if version is None or str(version.material_id) != material_id:
+                    return
+                latest_version = await get_latest_version(db, version.material_id)
+                material = await db.scalar(select(Material).where(Material.id == version.material_id))
+                if (
+                    latest_version is None
+                    or str(latest_version.id) != version_id
+                    or material is None
+                    or material.review_status == 'removed'
+                ):
+                    return
+                if material.thumbnail_version_id == version.id and thumbnail_exists(material.id):
+                    if material.thumbnail_status != 'ready':
+                        material.thumbnail_status = 'ready'
+                        await db.commit()
+                    return
+
+                material.thumbnail_status = 'processing'
+                await db.commit()
+                with tempfile.TemporaryDirectory(prefix='scustack-thumbnail-') as directory:
+                    normalized_format = re.sub(r'[^a-z0-9]+', '', (file_format or '').lower())[:12]
+                    path = Path(directory) / f'source.{normalized_format or "bin"}'
                     await download_version_to_path(db, version, path)
                     data = await asyncio.to_thread(render_thumbnail, path, normalized_format)
                     await asyncio.to_thread(save_thumbnail, material_id, data)
-                except (StorageError, OSError, ValueError) as exc:
-                    logger.error(
-                        'Thumbnail generation failed for material %s: %s', material_id, exc
-                    )
-                    return
+                    material.thumbnail_version_id = version.id
+                    material.thumbnail_status = 'ready'
+                    await db.commit()
+        except (StorageError, OSError, ValueError) as exc:
+            async with async_session() as db:
+                material = await db.scalar(select(Material).where(Material.id == material_id))
+                if material is not None:
+                    material.thumbnail_status = 'failed'
+                    await db.commit()
+            logger.error(
+                'Thumbnail generation failed for material %s: %s', material_id, exc
+            )
+        finally:
+            await release_lock(lock_key, lock_token)
 
     run_async(_run())
 

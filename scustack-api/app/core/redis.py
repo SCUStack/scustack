@@ -1,4 +1,5 @@
 import time
+from secrets import token_urlsafe
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -33,6 +34,30 @@ async def cache_delete(key: str) -> None:
 async def cache_getdel(key: str) -> str | None:
     value = await redis.getdel(key)
     return value.decode('utf-8') if value else None
+
+
+async def acquire_lock(key: str, ttl: int) -> str | None:
+    token = token_urlsafe(24)
+    try:
+        acquired = await redis.set(key, token, ex=ttl, nx=True)
+        return token if acquired else None
+    except Exception:
+        return f'local:{token}'
+
+
+async def release_lock(key: str, token: str) -> None:
+    if token.startswith('local:'):
+        return
+    script = """
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+      return redis.call('del', KEYS[1])
+    end
+    return 0
+    """
+    try:
+        await redis.eval(script, 1, key, token)
+    except Exception:
+        return
 
 
 # ── Recommendation exposure tracking ──────────────────────────────

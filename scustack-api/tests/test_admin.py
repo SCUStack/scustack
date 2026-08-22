@@ -115,6 +115,39 @@ class TestReviewQueue:
                 )
                 assert resp.status_code == 200
 
+    async def test_review_remove(self):
+        user = _make_user()
+        app.dependency_overrides[get_current_user] = lambda: user
+        mat = MagicMock(course_id=uuid.uuid4(), title='Test', id=uuid.uuid4())
+        with patch('app.api.v1.admin.review_service.review_material', new_callable=AsyncMock, return_value=mat) as review, \
+             patch('app.api.v1.admin.audit_service.log_action', new_callable=AsyncMock):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url='http://test') as client:
+                resp = await client.post(
+                    f'/api/v1/admin/review/{mat.id}',
+                    json={'action': 'removed'},
+                )
+
+        assert resp.status_code == 200
+        assert review.await_args.args[1:] == (mat.id, user.id, 'removed', None)
+
+    async def test_update_user_active_status(self):
+        user = _make_user(role='admin')
+        target = _make_user(role='student', is_active=False)
+        app.dependency_overrides[get_current_user] = lambda: user
+        with patch('app.api.v1.admin.user_service.update_profile', new_callable=AsyncMock, return_value=target) as update, \
+             patch('app.api.v1.admin.audit_service.log_action', new_callable=AsyncMock):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url='http://test') as client:
+                resp = await client.patch(
+                    f'/api/v1/admin/users/{target.id}?is_active=false',
+                )
+
+        assert resp.status_code == 200
+        assert resp.json()['data']['is_active'] is False
+        assert update.await_args.args[1] == target.id
+        assert update.await_args.kwargs == {'is_active': False}
+
     async def test_review_not_found(self):
         user = _make_user()
         app.dependency_overrides[get_current_user] = lambda: user
@@ -302,6 +335,12 @@ class TestAuditLogs:
 
 
 class TestReviewService:
+    def test_review_log_action_supports_longest_trust_status(self):
+        from app.models.review_log import ReviewLog
+
+        action_column = ReviewLog.__table__.c.action
+        assert action_column.type.length >= len('trust:maintainer_picked')
+
     @pytest.mark.asyncio
     async def test_pin_and_unpin(self):
         from app.services.review_service import pin_material, unpin_material
@@ -335,6 +374,19 @@ class TestReviewService:
         result = await review_material(mock_db, uuid.uuid4(), uuid.uuid4(), 'approved')
         assert result.review_status == 'approved'
         assert result.trust_status == 'unverified'
+
+    @pytest.mark.asyncio
+    async def test_review_material_removed(self):
+        from app.services.review_service import review_material
+        mock_db = MagicMock(flush=AsyncMock(), add=MagicMock())
+        mat = MagicMock(review_status='approved')
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mat
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        result = await review_material(mock_db, uuid.uuid4(), uuid.uuid4(), 'removed')
+
+        assert result.review_status == 'removed'
 
     def test_report_service_create(self):
         import asyncio

@@ -7,6 +7,10 @@ export default defineNuxtConfig({
     appManifest: false,
   },
 
+  features: {
+    inlineStyles: false,
+  },
+
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
 
   app: {

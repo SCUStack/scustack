@@ -143,7 +143,7 @@
             <ul class="mt-3 list-disc space-y-1 pl-5">
               <li>一般咨询、申诉和安全问题：<a href="mailto:admin@scustack.com" class="text-primary-700 hover:text-primary-800">admin@scustack.com</a></li>
               <li>版权问题：使用<a href="/copyright" class="text-primary-700 hover:text-primary-800">版权投诉页面</a></li>
-              <li>公开技术问题：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener noreferrer" class="text-primary-700 hover:text-primary-800">GitHub Issues</a>（请勿提交账号、密码、学号等敏感信息）</li>
+              <li>公开技术问题：<a href="https://github.com/SCUStack/scustack/issues" target="_blank" rel="noopener noreferrer" class="text-primary-700 hover:text-primary-800">GitHub Issues</a>（请勿提交账号、密码、学号等敏感信息）</li>
             </ul>
           </section>
         </div>

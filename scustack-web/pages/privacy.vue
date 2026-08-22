@@ -149,7 +149,7 @@
             <p class="mt-3">隐私咨询、权利请求、投诉或安全问题可通过以下渠道提交：</p>
             <ul class="mt-2 list-disc space-y-1 pl-5">
               <li>邮箱：<a href="mailto:admin@scustack.com" class="text-primary-700 hover:text-primary-800">admin@scustack.com</a></li>
-              <li>GitHub：<a href="https://github.com/yeyixiang2007/scustack/issues" target="_blank" rel="noopener noreferrer" class="text-primary-700 hover:text-primary-800">yeyixiang2007/scustack/issues</a>（请勿公开提交个人敏感信息）</li>
+              <li>GitHub：<a href="https://github.com/SCUStack/scustack/issues" target="_blank" rel="noopener noreferrer" class="text-primary-700 hover:text-primary-800">SCUStack/scustack/issues</a>（请勿公开提交个人敏感信息）</li>
             </ul>
             <p class="mt-3">如您认为我们的处理损害了您的合法权益，也可以向履行个人信息保护职责的部门投诉或依法向有管辖权的人民法院提起诉讼。</p>
           </section>

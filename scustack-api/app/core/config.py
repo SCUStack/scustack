@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     PUBLIC_API_BASE: str = 'http://localhost:8403'
     TRUSTED_HOSTS: list[str] = []
     COOKIE_SECURE: bool | None = None
+    CSRF_COOKIE_DOMAIN: str | None = None
 
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
         'JWT_SECRET_KEY',

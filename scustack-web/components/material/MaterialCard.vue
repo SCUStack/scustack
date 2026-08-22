@@ -7,8 +7,12 @@
       v-if="coverSrc"
       :src="coverSrc"
       :alt="item.title"
+      width="512"
+      height="640"
       class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-      loading="lazy"
+      :loading="priority ? 'eager' : 'lazy'"
+      :fetchpriority="priority ? 'high' : 'auto'"
+      decoding="async"
       @error="onCoverError"
     />
     <div
@@ -74,7 +78,14 @@ import { coverTagsData } from '~/data/coverRules'
 
 import type { MaterialItem } from '~/types/api'
 
-const props = defineProps<{ item: MaterialItem; highlight?: string }>()
+const props = withDefaults(defineProps<{
+  item: MaterialItem
+  highlight?: string
+  priority?: boolean
+}>(), {
+  highlight: '',
+  priority: false,
+})
 
 const coverSrc = ref(
   props.item.thumbnail_url || resolveCoverSync({

@@ -7,7 +7,16 @@
           class="absolute inset-0 transition-opacity duration-500"
           :class="idx === activeBanner ? 'opacity-100' : 'opacity-0 pointer-events-none'"
         >
-          <img :src="banner.image" :alt="banner.title" class="w-full h-full object-cover" loading="eager" />
+          <img
+            :src="banner.image"
+            :alt="banner.title"
+            width="1920"
+            height="480"
+            class="w-full h-full object-cover"
+            :loading="idx === 0 ? 'eager' : 'lazy'"
+            :fetchpriority="idx === 0 ? 'high' : 'low'"
+            decoding="async"
+          />
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30" />
           <div class="absolute bottom-4 left-6 right-6">
             <h3 class="text-white font-semibold text-base sm:text-lg">{{ banner.title }}</h3>
@@ -26,8 +35,7 @@
         </div>
       </section>
 
-      <ClientOnly>
-        <div>
+      <div>
           <section v-if="hotCourses.length" class="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 py-6">
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-lg font-semibold text-slate-800">热门课程</h2>
@@ -69,7 +77,7 @@
                   idx === 7 ? 'lg:col-span-2 col-span-1' : '',
                 ]"
               >
-                <MaterialCard :item="item" :style="{ height: cardHeight(idx) }" />
+                <MaterialCard :item="item" :priority="idx === 0" :style="{ height: cardHeight(idx) }" />
               </div>
             </div>
           </section>
@@ -113,8 +121,7 @@
               </NuxtLink>
             </div>
           </section>
-        </div>
-      </ClientOnly>
+      </div>
     </div>
 
     <div class="lg:hidden">
@@ -154,16 +161,6 @@ const prefersReducedMotion = typeof window !== 'undefined' ? window.matchMedia('
 
 function nextBanner() { activeBanner.value = (activeBanner.value + 1) % banners.value.length }
 
-async function refreshCollegeLinks() {
-  try {
-    const resp = await $fetch<{ code: number; data: { id: string; name: string }[] }>(
-      `${apiBase}/api/v1/colleges?homepage_refresh=${Date.now()}`,
-      { cache: 'no-store' },
-    )
-    if (resp.code === 0) colleges.value = resp.data
-  } catch { /* keep the SSR/SWR payload when the refresh is unavailable */ }
-}
-
 const { data: homepagePayload } = await useAsyncData('homepage-index', async () => {
   try {
     const [homeResp, collegeResp] = await Promise.all([
@@ -191,9 +188,14 @@ if (initialPayload?.collegeResp?.code === 0) {
   colleges.value = initialPayload.collegeResp.data
 }
 
-onMounted(async () => {
+useHead(() => ({
+  link: calendarItems.value[0]?.thumbnail_url
+    ? [{ rel: 'preload', as: 'image', href: calendarItems.value[0].thumbnail_url, fetchpriority: 'high' }]
+    : [],
+}))
+
+onMounted(() => {
   if (!prefersReducedMotion) bannerTimer = setInterval(nextBanner, 5000)
-  await refreshCollegeLinks()
 })
 
 const MAX_RECENT = 89

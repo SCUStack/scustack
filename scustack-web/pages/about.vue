@@ -237,7 +237,7 @@
             <p class="text-xs text-slate-400">使用条款与行为规范</p>
           </div>
         </NuxtLink>
-        <a href="https://github.com/yeyixiang2007/scustack" target="_blank" rel="noopener"
+        <a href="https://github.com/SCUStack/scustack" target="_blank" rel="noopener"
            class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 hover:border-primary-200 hover:bg-primary-50/50 no-underline transition-all group">
           <AppIcon name="Code2" :size="20" class="text-slate-400 group-hover:text-primary-500 transition-colors" />
           <div>

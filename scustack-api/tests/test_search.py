@@ -166,6 +166,42 @@ class TestSearchAPI:
 
 class TestSearchService:
     @pytest.mark.asyncio
+    async def test_search_uses_versioned_thumbnail_url(self):
+        from app.services.search_service import search
+
+        material_id = '00000000-0000-0000-0000-000000000001'
+        version_id = '00000000-0000-0000-0000-000000000002'
+        with patch('app.services.search_service.es.search_materials', new_callable=AsyncMock, return_value={
+            'hits': {
+                'hits': [{
+                    '_id': material_id,
+                    '_source': {'title': 'Test', 'thumbnail_version_id': version_id},
+                }],
+                'total': {'value': 1},
+            },
+        }):
+            result = await search('Test')
+
+        assert result['items'][0]['thumbnail_url'] == (
+            f'/api/v1/materials/{material_id}/thumbnail?v={version_id}'
+        )
+
+    @pytest.mark.asyncio
+    async def test_search_does_not_expose_unversioned_thumbnail_url(self):
+        from app.services.search_service import search
+
+        material_id = '00000000-0000-0000-0000-000000000001'
+        with patch('app.services.search_service.es.search_materials', new_callable=AsyncMock, return_value={
+            'hits': {
+                'hits': [{'_id': material_id, '_source': {'title': 'Legacy'}}],
+                'total': {'value': 1},
+            },
+        }):
+            result = await search('Legacy')
+
+        assert result['items'][0]['thumbnail_url'] is None
+
+    @pytest.mark.asyncio
     async def test_search_delegates_to_es(self):
         from app.services.search_service import search
         with patch('app.services.search_service.es.search_materials', new_callable=AsyncMock, return_value={

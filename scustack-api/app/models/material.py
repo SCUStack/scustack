@@ -59,6 +59,15 @@ class Material(Base):
     virus_scan_status: Mapped[str | None] = mapped_column(
         String(20), nullable=True
     )
+    thumbnail_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, insert_default='missing', server_default='missing'
+    )
+    thumbnail_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey('material_versions.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     parts: Mapped[list | None] = mapped_column(
         JSONB, nullable=True
     )
@@ -73,7 +82,10 @@ class Material(Base):
     )
 
     versions: Mapped[list['MaterialVersion']] = relationship(
-        'MaterialVersion', back_populates='material', cascade='all, delete-orphan'
+        'MaterialVersion',
+        back_populates='material',
+        cascade='all, delete-orphan',
+        foreign_keys='MaterialVersion.material_id',
     )
 
     # Non-mapped — populated at query time by get_material
@@ -83,7 +95,7 @@ class Material(Base):
     def thumbnail_url(self) -> str | None:
         try:
             from app.core.thumbnails import thumbnail_url
-            return thumbnail_url(self.id)
+            return thumbnail_url(self.id, self.thumbnail_version_id)
         except Exception:
             return None
 
@@ -109,7 +121,9 @@ class MaterialVersion(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    material: Mapped[Material] = relationship('Material', back_populates='versions')
+    material: Mapped[Material] = relationship(
+        'Material', back_populates='versions', foreign_keys=[material_id]
+    )
 
 
 class MaterialFileReplica(Base):

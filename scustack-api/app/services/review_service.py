@@ -69,6 +69,8 @@ async def review_material(
         material.review_status = 'rejected'
     elif action == 'returned':
         material.review_status = 'returned'
+    elif action == 'removed':
+        material.review_status = 'removed'
 
     log = ReviewLog(
         material_id=material_id,

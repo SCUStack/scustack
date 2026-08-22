@@ -35,6 +35,7 @@ ACCESS_COOKIE = 'access_token'
 REFRESH_COOKIE = 'refresh_token'
 CSRF_COOKIE = 'csrf_token'
 SECURE = settings.session_cookie_secure
+CSRF_COOKIE_DOMAIN = settings.CSRF_COOKIE_DOMAIN
 
 
 def _get_ip(request: Request) -> str:
@@ -72,13 +73,17 @@ def _set_token_cookies(response: Response, access_token: str, refresh_token: str
 def _clear_token_cookies(response: Response) -> None:
     response.delete_cookie(ACCESS_COOKIE, path='/')
     response.delete_cookie(REFRESH_COOKIE, path='/api/v1/auth')
-    response.delete_cookie(CSRF_COOKIE, path='/')
+    if CSRF_COOKIE_DOMAIN:
+        response.delete_cookie(CSRF_COOKIE, path='/')
+    response.delete_cookie(CSRF_COOKIE, path='/', domain=CSRF_COOKIE_DOMAIN)
 
 
 def _set_csrf_cookie(response: Response) -> str:
     import secrets
 
     token = secrets.token_urlsafe(32)
+    if CSRF_COOKIE_DOMAIN:
+        response.delete_cookie(CSRF_COOKIE, path='/')
     response.set_cookie(
         CSRF_COOKIE,
         token,
@@ -86,6 +91,7 @@ def _set_csrf_cookie(response: Response) -> str:
         secure=SECURE,
         samesite='lax',
         path='/',
+        domain=CSRF_COOKIE_DOMAIN,
     )
     return token
 

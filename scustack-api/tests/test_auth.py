@@ -188,6 +188,13 @@ class TestCsrfToken:
         assert resp.json()['code'] == 0
         assert 'csrf_token' in resp.cookies
 
+    async def test_csrf_cookie_supports_shared_parent_domain(self, client):
+        with patch('app.api.v1.auth.CSRF_COOKIE_DOMAIN', '.scustack.cn'):
+            resp = await client.get('/api/v1/auth/csrf')
+
+        assert 'Domain=.scustack.cn' in resp.headers['set-cookie']
+        assert 'Max-Age=0' in resp.headers['set-cookie']
+
 
 class TestJwtTokens:
     def test_create_and_decode(self):

@@ -94,24 +94,30 @@ async def get_material(
 @router.get('/{material_id}/thumbnail')
 async def get_material_thumbnail(
     material_id: UUID,
+    version: UUID = Query(..., alias='v'),
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_optional_user),
 ):
-    material = await material_service.get_material(db, material_id)
+    material = await material_service.get_material_thumbnail_access(db, material_id)
     if (
         material is None
         or material.review_status == 'removed'
         or not _can_access_material(material, current_user)
     ):
         raise HTTPException(status_code=404, detail='thumbnail not found')
+    if version != material.thumbnail_version_id:
+        raise HTTPException(status_code=404, detail='thumbnail version not found')
     path = thumbnail_path(material_id)
     if not path.is_file():
         raise HTTPException(status_code=404, detail='thumbnail not found')
     return FileResponse(
         path,
         media_type='image/webp',
-        filename=f'{material_id}.webp',
-        headers={'Cache-Control': 'public, max-age=300'},
+        headers={
+            'Cache-Control': 'public, max-age=2592000, immutable',
+            'Content-Disposition': f'inline; filename="{material_id}.webp"',
+            'Vary': 'Authorization, Cookie',
+        },
     )
 
 
@@ -165,6 +171,7 @@ async def create_material(
     m = await material_service.create_material(db, current_user.id, **kwargs)
     await db.flush()
     if m.source_type == 'hosted':
+        m.thumbnail_status = 'queued'
         latest_version = await material_service.get_latest_version(db, m.id)
         if latest_version is not None:
             await add_primary_replica(db, latest_version.id, stored, checksum)
@@ -390,6 +397,7 @@ async def create_version(
         file_size=stored.file_size,
         change_note=body.change_note,
     )
+    m.thumbnail_status = 'queued'
     await add_primary_replica(db, v.id, stored, checksum)
     await db.commit()
     try:

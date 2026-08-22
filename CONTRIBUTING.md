@@ -15,7 +15,7 @@
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/yeyixiang2007/scustack.git
+git clone https://github.com/SCUStack/scustack.git
 cd scustack
 ```
 

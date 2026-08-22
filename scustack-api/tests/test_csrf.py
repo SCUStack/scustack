@@ -83,6 +83,8 @@ class TestCsrfProtection:
         material.contributor_id = None
         material.contributor = None
         material.thumbnail_url = None
+        material.thumbnail_status = 'queued'
+        material.thumbnail_version_id = None
         material.created_at = __import__('datetime').datetime.now()
         material.updated_at = __import__('datetime').datetime.now()
         version = MagicMock(id=uuid4())

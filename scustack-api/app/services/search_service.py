@@ -11,6 +11,14 @@ from app.models.college import College
 from app.models.course import Course
 from app.models.material import Material
 
+
+def _thumbnail_url(material_id: str, version_id: str | None) -> str | None:
+    if version_id is None:
+        return None
+    url = f'/api/v1/materials/{material_id}/thumbnail'
+    return f'{url}?v={version_id}'
+
+
 async def get_search_filter_config() -> dict:
     semester_options = await _get_semester_options()
     options_by_key = {
@@ -81,7 +89,9 @@ async def search(
             'items': [
                 {
                     'id': h['_id'],
-                    'thumbnail_url': f'/api/v1/materials/{h["_id"]}/thumbnail',
+                    'thumbnail_url': _thumbnail_url(
+                        h['_id'], h['_source'].get('thumbnail_version_id')
+                    ),
                     **h['_source'],
                 }
                 for h in hits['hits']
@@ -195,7 +205,10 @@ async def _fallback_search(
         for material, course_name, course_aliases, college_name in rows:
             item = {
                 'id': str(material.id),
-                'thumbnail_url': f'/api/v1/materials/{material.id}/thumbnail',
+                'thumbnail_url': _thumbnail_url(
+                    str(material.id),
+                    str(material.thumbnail_version_id) if material.thumbnail_version_id else None,
+                ),
                 'course_id': str(material.course_id),
                 'title': material.title,
                 'description': material.description,

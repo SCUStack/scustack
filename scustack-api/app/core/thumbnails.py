@@ -32,11 +32,12 @@ def thumbnail_exists(material_id: str | UUID) -> bool:
         return False
 
 
-def thumbnail_url(material_id: str | UUID) -> str | None:
-    if not thumbnail_exists(material_id):
+def thumbnail_url(material_id: str | UUID, version_id: str | UUID | None = None) -> str | None:
+    if version_id is None or not thumbnail_exists(material_id):
         return None
     base = settings.PUBLIC_API_BASE.rstrip('/')
-    return f'{base}/api/v1/materials/{UUID(str(material_id))}/thumbnail'
+    url = f'{base}/api/v1/materials/{UUID(str(material_id))}/thumbnail'
+    return f'{url}?v={UUID(str(version_id))}'
 
 
 def save_thumbnail(material_id: str | UUID, data: bytes) -> Path:

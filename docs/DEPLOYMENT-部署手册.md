@@ -39,7 +39,7 @@ Official links:
 Clone the repo on each app host:
 
 ```bash
-git clone https://github.com/yeyixiang2007/scustack.git
+git clone https://github.com/SCUStack/scustack.git
 cd scustack
 ```
 
@@ -78,10 +78,11 @@ Backend production `.env`:
 cat > scustack-api/.env <<'EOF'
 SCUSTACK_APP_ENV=prod
 SCUSTACK_DEBUG=false
-SCUSTACK_PUBLIC_API_BASE=https://api.scustack.cn
-SCUSTACK_CORS_ORIGINS=["https://scustack.cn","https://www.scustack.cn"]
-SCUSTACK_TRUSTED_HOSTS=["api.scustack.cn"]
+SCUSTACK_PUBLIC_API_BASE=https://scustack.top
+SCUSTACK_CORS_ORIGINS=["https://scustack.top","https://www.scustack.top"]
+SCUSTACK_TRUSTED_HOSTS=["scustack.top","www.scustack.top"]
 SCUSTACK_COOKIE_SECURE=true
+SCUSTACK_CSRF_COOKIE_DOMAIN=.scustack.top
 SCUSTACK_DB_HOST=<postgres-host>
 SCUSTACK_DB_PORT=5432
 SCUSTACK_DB_USER=<db-user>

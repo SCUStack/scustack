@@ -69,6 +69,7 @@ MATERIALS_MAPPING = {
             'trust_status': {'type': 'keyword'},
             'review_status': {'type': 'keyword'},
             'contributor_id': {'type': 'keyword'},
+            'thumbnail_version_id': {'type': 'keyword'},
             'created_at': {'type': 'date'},
             'updated_at': {'type': 'date'},
             'download_count': {'type': 'long'},

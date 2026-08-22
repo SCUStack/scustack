@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,6 +20,35 @@ TEXT_EXTENSIONS = {
     'kt', 'rb', 'php', 'pl', 'lua', 'vue', 'svelte', 'jsx', 'tsx',
     'csv', 'log', 'tex', 'sty',
 }
+
+
+@dataclass(frozen=True)
+class MaterialThumbnailAccess:
+    review_status: str
+    contributor_id: UUID | None
+    thumbnail_version_id: UUID | None
+
+
+async def get_material_thumbnail_access(
+    db: AsyncSession,
+    material_id: UUID,
+) -> MaterialThumbnailAccess | None:
+    row = (
+        await db.execute(
+            select(
+                Material.review_status,
+                Material.contributor_id,
+                Material.thumbnail_version_id,
+            ).where(Material.id == material_id)
+        )
+    ).one_or_none()
+    if row is None:
+        return None
+    return MaterialThumbnailAccess(
+        review_status=row.review_status,
+        contributor_id=row.contributor_id,
+        thumbnail_version_id=row.thumbnail_version_id,
+    )
 
 
 async def list_materials(db: AsyncSession, course_id: UUID | None = None,

@@ -8,4 +8,4 @@ def test_migration_history_has_one_unique_head():
     revision_ids = [revision.revision for revision in revisions]
 
     assert len(revision_ids) == len(set(revision_ids))
-    assert script.get_heads() == ['033']
+    assert script.get_heads() == ['035']

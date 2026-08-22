@@ -61,6 +61,8 @@ def _material():
     material.contributor_id = uuid4()
     material.contributor = None
     material.thumbnail_url = None
+    material.thumbnail_status = 'queued'
+    material.thumbnail_version_id = None
     material.created_at = datetime.now()
     material.updated_at = datetime.now()
     return material

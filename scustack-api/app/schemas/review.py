@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ReviewAction(BaseModel):
-    action: str = Field(pattern='^(approved|rejected|returned)$')
+    action: str = Field(pattern='^(approved|rejected|returned|removed)$')
     comment: str | None = None
 
 

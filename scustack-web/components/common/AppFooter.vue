@@ -39,7 +39,7 @@
           <h4 class="text-sm font-semibold text-slate-800 mb-3">社区</h4>
           <ul class="space-y-2">
             <li>
-              <a href="https://github.com/yeyixiang2007/scustack" target="_blank" rel="noopener"
+              <a href="https://github.com/SCUStack/scustack" target="_blank" rel="noopener"
                  class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 no-underline transition-colors">
                 <AppIcon name="Code2" :size="12" /> GitHub
               </a>
