@@ -15,7 +15,7 @@ from app.core.redis import RateLimiter
 from app.core.request_identity import build_request_identity
 from app.core.storage import (
     StorageError,
-    add_primary_replica,
+    add_replica,
     consume_uploaded_object,
     download_version_to_path,
     resolve_download_url,
@@ -161,9 +161,10 @@ async def create_material(
         if not body.upload_id:
             return {'code': 40000, 'data': None, 'message': 'hosted materials require an uploaded file'}
         try:
-            stored, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
+            stored_objects, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
         except StorageError as e:
             return {'code': 40000, 'data': None, 'message': str(e)}
+        stored = stored_objects[0]
         kwargs.update(storage_key=stored.locator, file_hash=checksum, file_size=stored.file_size)
         kwargs['review_status'] = 'pending'
         kwargs['virus_scan_status'] = 'queued'
@@ -174,7 +175,8 @@ async def create_material(
         m.thumbnail_status = 'queued'
         latest_version = await material_service.get_latest_version(db, m.id)
         if latest_version is not None:
-            await add_primary_replica(db, latest_version.id, stored, checksum)
+            for index, stored_object in enumerate(stored_objects):
+                await add_replica(db, latest_version.id, stored_object, checksum, 'primary' if index == 0 else 'replica')
     try:
         await user_service.notify_course_followers(db, m.course_id, m.title, m.id)
     except Exception:
@@ -227,6 +229,11 @@ async def delete_material(
         return {'code': 40400, 'data': None, 'message': 'material not found or forbidden'}
     await db.commit()
     delete_thumbnail(material_id)
+    try:
+        from app.tasks.index_sync import delete_material_from_es
+        delete_material_from_es.delay(str(material_id))
+    except Exception:
+        pass
     return {'code': 0, 'data': None, 'message': 'material removed'}
 
 
@@ -387,18 +394,19 @@ async def create_version(
     if str(m.contributor_id) != str(current_user.id) and current_user.role not in ('maintainer', 'admin'):
         return {'code': 40300, 'data': None, 'message': 'forbidden'}
     try:
-        stored, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
+        stored_objects, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
     except StorageError as e:
         return {'code': 40000, 'data': None, 'message': str(e)}
     v = await material_service.add_version(
         db, material_id, current_user.id,
-        storage_key=stored.locator,
+        storage_key=stored_objects[0].locator,
         file_hash=checksum,
-        file_size=stored.file_size,
+        file_size=stored_objects[0].file_size,
         change_note=body.change_note,
     )
     m.thumbnail_status = 'queued'
-    await add_primary_replica(db, v.id, stored, checksum)
+    for index, stored_object in enumerate(stored_objects):
+        await add_replica(db, v.id, stored_object, checksum, 'primary' if index == 0 else 'replica')
     await db.commit()
     try:
         from app.tasks.material_tasks import generate_thumbnail, pre_screen_content, virus_scan

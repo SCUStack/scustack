@@ -40,6 +40,14 @@
             <p class="text-xs text-slate-400 mt-1">
               <AppIcon name="Download" :size="10" class="inline" /> {{ item.download_count }}
             </p>
+            <button
+              v-if="item.review_status !== 'removed'"
+              type="button"
+              class="mt-2 inline-flex h-8 items-center gap-1 rounded-md border border-red-200 px-2 text-xs text-red-500 hover:bg-red-50 cursor-pointer"
+              @click="removeMaterial(item)"
+            >
+              <AppIcon name="ArchiveX" :size="13" /> 下架
+            </button>
           </div>
         </div>
       </div>
@@ -55,6 +63,23 @@ definePageMeta({ middleware: ['auth'] })
 const items = ref<any[]>([])
 const total = ref(0)
 const loading = ref(true)
+const apiBase = useApiBase()
+
+async function removeMaterial(item: { id: string; title: string }) {
+  if (!window.confirm(`确定下架《${item.title}》吗？下架后其他用户将无法访问。`)) return
+  try {
+    const response = await $fetch<{ code: number }>(`${apiBase}/api/v1/materials/${item.id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    if (response.code === 0) {
+      const target = items.value.find((entry) => entry.id === item.id)
+      if (target) target.review_status = 'removed'
+    }
+  } catch {
+    // Keep the item visible when the request fails.
+  }
+}
 
 onMounted(async () => {
   const { getContributions } = useAuth()

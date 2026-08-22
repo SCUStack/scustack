@@ -90,14 +90,15 @@ class TestUploadTickets:
     async def test_consumed_ticket_cannot_be_reused(self):
         payload = json.dumps({
             'ticket': {'user_id': 'owner-id'},
-            'stored': {
+            'stored_objects': [{
                 'provider_type': 'lfs',
                 'provider_instance': 'lfs-cacode',
                 'locator': '/uploads/notes.pdf',
                 'access_url': 'https://lfs.cacodex.app/uploads/notes.pdf',
                 'file_size': 9,
                 'content_type': 'application/pdf',
-            },
+                'channel_name': 'SCUStack',
+            }],
             'sha256': 'a' * 64,
         })
         with patch('app.core.storage.cache_getdel', new_callable=AsyncMock, side_effect=[payload, None]):

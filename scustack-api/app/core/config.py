@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     LFS_AUTH_HEADER: str = 'Authorization'
     LFS_AUTH_PREFIX: str = 'Bearer'
     LFS_UPLOAD_FIELD: str = 'file'
+    LFS_PRIMARY_CHANNEL_NAME: str = 'SCUStack'
+    LFS_BACKUP_CHANNEL_NAMES: list[str] = ['SCUStack2']
 
     # Encryption (AES-256-GCM for PII fields)
     ENCRYPTION_KEY: str = 'change-me-in-production'

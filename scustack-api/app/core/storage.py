@@ -27,6 +27,7 @@ class StoredObject:
     access_url: str
     file_size: int
     content_type: str
+    channel_name: str | None = None
 
 
 class LfsStorageProvider:
@@ -34,25 +35,39 @@ class LfsStorageProvider:
     provider_instance = 'lfs-cacode'
 
     async def upload_bytes(self, file_name: str, content_type: str, content: bytes) -> StoredObject:
+        return (await self.upload_bytes_to_channels(file_name, content_type, content))[0]
+
+    async def upload_bytes_to_channels(self, file_name: str, content_type: str, content: bytes) -> list[StoredObject]:
         if not settings.LFS_API_TOKEN:
             raise StorageError('LFS storage is not configured')
         headers = {settings.LFS_AUTH_HEADER: f'{settings.LFS_AUTH_PREFIX} {settings.LFS_API_TOKEN}'.strip()}
         files = {settings.LFS_UPLOAD_FIELD: (file_name, content, content_type)}
-        try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                response = await client.post(settings.LFS_UPLOAD_URL, headers=headers, files=files)
-            response.raise_for_status()
-            payload = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise StorageError('LFS upload failed') from exc
-        if not isinstance(payload, list) or not payload or not isinstance(payload[0], dict):
-            raise StorageError('LFS returned an invalid upload response')
-        item = payload[0]
-        locator = item.get('src')
-        if not isinstance(locator, str):
-            raise StorageError('LFS returned an invalid file URL')
-        access_url = _lfs_access_url(locator, item.get('publicUrl'))
-        return StoredObject(self.provider_type, self.provider_instance, locator, access_url, len(content), content_type)
+        objects: list[StoredObject] = []
+        channels = [settings.LFS_PRIMARY_CHANNEL_NAME, *settings.LFS_BACKUP_CHANNEL_NAMES]
+        async with httpx.AsyncClient(timeout=60) as client:
+            for channel_name in channels:
+                try:
+                    params = {
+                        'uploadChannel': 'huggingface',
+                        'channelName': channel_name,
+                        'autoRetry': 'false',
+                    }
+                    response = await client.post(settings.LFS_UPLOAD_URL, params=params, headers=headers, files=files)
+                    response.raise_for_status()
+                    payload = response.json()
+                except (httpx.HTTPError, ValueError) as exc:
+                    raise StorageError(f'LFS upload failed for channel {channel_name}') from exc
+                if not isinstance(payload, list) or not payload or not isinstance(payload[0], dict):
+                    raise StorageError(f'LFS returned an invalid upload response for channel {channel_name}')
+                item = payload[0]
+                locator = item.get('src')
+                if not isinstance(locator, str):
+                    raise StorageError(f'LFS returned an invalid file URL for channel {channel_name}')
+                objects.append(StoredObject(
+                    self.provider_type, f'{self.provider_instance}:{channel_name}', locator,
+                    _lfs_access_url(locator, item.get('publicUrl')), len(content), content_type, channel_name,
+                ))
+        return objects
 
 
 class OssStorageProvider:
@@ -128,7 +143,7 @@ async def create_upload_ticket(user_id: str, file_name: str, content_type: str, 
     return {'upload_id': upload_id, 'upload_url': f'/api/v1/upload/{upload_id}/file', 'method': 'POST'}
 
 
-async def upload_ticket_file(upload_id: str, user_id: str, content: bytes) -> StoredObject:
+async def upload_ticket_file(upload_id: str, user_id: str, content: bytes) -> list[StoredObject]:
     raw_ticket = await cache_get(_pending_key(upload_id, user_id))
     if raw_ticket is None:
         raise StorageError('upload ticket expired or invalid')
@@ -142,13 +157,21 @@ async def upload_ticket_file(upload_id: str, user_id: str, content: bytes) -> St
     passed, warnings = security_scan(ticket['file_name'], content)
     if not passed:
         raise StorageError('; '.join(warnings))
-    stored = await _provider().upload_bytes(ticket['file_name'], ticket['content_type'], content)
-    payload = {'ticket': ticket, 'stored': asdict(stored), 'sha256': hashlib.sha256(content).hexdigest()}
+    provider = _provider()
+    if not isinstance(provider, LfsStorageProvider):
+        stored_objects = [await provider.upload_bytes(ticket['file_name'], ticket['content_type'], content)]
+    else:
+        stored_objects = await provider.upload_bytes_to_channels(ticket['file_name'], ticket['content_type'], content)
+    payload = {
+        'ticket': ticket,
+        'stored_objects': [asdict(stored) for stored in stored_objects],
+        'sha256': hashlib.sha256(content).hexdigest(),
+    }
     await cache_set(_pending_key(upload_id, user_id), json.dumps(payload), ttl=900)
     return stored
 
 
-async def consume_uploaded_object(upload_id: str, user_id: str) -> tuple[StoredObject, str]:
+async def consume_uploaded_object(upload_id: str, user_id: str) -> tuple[list[StoredObject], str]:
     raw_payload = await cache_getdel(_pending_key(upload_id, user_id))
     if raw_payload is None:
         raise StorageError('upload ticket expired or invalid')
@@ -157,13 +180,17 @@ async def consume_uploaded_object(upload_id: str, user_id: str) -> tuple[StoredO
     except (TypeError, ValueError) as exc:
         raise StorageError('upload ticket is invalid') from exc
     ticket = payload.get('ticket')
-    stored = payload.get('stored')
-    if not isinstance(ticket, dict) or not isinstance(stored, dict) or ticket.get('user_id') != user_id:
+    stored_objects = payload.get('stored_objects')
+    if not isinstance(ticket, dict) or not isinstance(stored_objects, list) or not stored_objects or ticket.get('user_id') != user_id:
         raise StorageError('upload has not completed')
-    return StoredObject(**stored), payload['sha256']
+    return [StoredObject(**stored) for stored in stored_objects], payload['sha256']
 
 
 async def add_primary_replica(db: AsyncSession, version_id, stored: StoredObject, checksum: str) -> MaterialFileReplica:
+    return await add_replica(db, version_id, stored, checksum, role='primary')
+
+
+async def add_replica(db: AsyncSession, version_id, stored: StoredObject, checksum: str, role: str) -> MaterialFileReplica:
     replica = MaterialFileReplica(
         material_version_id=version_id,
         provider_type=stored.provider_type,
@@ -171,7 +198,7 @@ async def add_primary_replica(db: AsyncSession, version_id, stored: StoredObject
         locator=stored.locator,
         access_url=stored.access_url,
         status='ready',
-        role='primary',
+        role=role,
         checksum=checksum,
         file_size=stored.file_size,
         content_type=stored.content_type,

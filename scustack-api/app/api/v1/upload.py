@@ -49,14 +49,19 @@ async def upload_file(
     try:
         expected_size = await get_upload_ticket_size(upload_id, str(current_user.id))
         content = await file.read(expected_size + 1)
-        stored = await upload_ticket_file(upload_id, str(current_user.id), content)
+        stored_objects = await upload_ticket_file(upload_id, str(current_user.id), content)
     except StorageError as e:
         return {'code': 40000, 'data': None, 'message': str(e)}
     finally:
         await file.close()
     return {
         'code': 0,
-        'data': {'upload_id': upload_id, 'storage_key': stored.locator, 'file_size': stored.file_size},
+        'data': {
+            'upload_id': upload_id,
+            'storage_key': stored_objects[0].locator,
+            'file_size': stored_objects[0].file_size,
+            'replica_count': len(stored_objects),
+        },
         'message': 'file uploaded',
     }
 

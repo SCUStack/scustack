@@ -100,11 +100,11 @@ class TestCsrfProtection:
         with patch(
             'app.api.v1.materials.consume_uploaded_object',
             new_callable=AsyncMock,
-            return_value=(stored, 'a' * 64),
+            return_value=([stored], 'a' * 64),
         ), \
              patch('app.api.v1.materials.material_service.create_material', new_callable=AsyncMock, return_value=material), \
              patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
-             patch('app.api.v1.materials.add_primary_replica', new_callable=AsyncMock), \
+             patch('app.api.v1.materials.add_replica', new_callable=AsyncMock), \
              patch('app.api.v1.materials.user_service.notify_course_followers', new_callable=AsyncMock), \
              patch('app.api.v1.materials.copyright_service.check_title_blocklist', new_callable=AsyncMock, return_value=False), \
              patch('app.tasks.material_tasks.virus_scan.delay', create=True), \
