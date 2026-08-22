@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MaterialDraftRequest(BaseModel):
@@ -16,6 +16,13 @@ class MaterialDraft(BaseModel):
     teacher: str | None = Field(default=None, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
     confidence: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator('confidence', mode='before')
+    @classmethod
+    def normalize_confidence(cls, value):
+        if isinstance(value, (int, float)):
+            return {'overall': float(value)}
+        return value or {}
 
 
 class MaterialDraftResponse(BaseModel):

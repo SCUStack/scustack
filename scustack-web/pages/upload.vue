@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8" :class="fileUploading ? 'pointer-events-none select-none' : ''" :aria-busy="fileUploading">
     <h1 class="text-xl font-semibold text-slate-900 mb-6">贡献资料</h1>
 
     <div class="flex gap-4 mb-6">
@@ -11,18 +11,7 @@
       </label>
     </div>
 
-    <form @submit.prevent="submit" class="space-y-5">
-      <div v-if="!batchMode && selectedFile" class="flex justify-end">
-        <button
-          type="button"
-          :disabled="aiFilling"
-          class="inline-flex h-9 items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50 cursor-pointer"
-          @click="fillWithAi"
-        >
-          <AppIcon name="Sparkles" :size="16" />
-          {{ aiFilling ? '正在填写...' : 'AI 填写' }}
-        </button>
-      </div>
+    <form @submit.prevent="submit" class="space-y-5" :inert="fileUploading ? true : undefined">
       <!-- Title (single mode only) -->
       <div v-if="!batchMode">
         <label class="block text-sm font-medium text-slate-700 mb-1">资料标题 *</label>
@@ -179,6 +168,19 @@
 
       <p v-if="errorMsg" class="text-sm text-red-500">{{ errorMsg }}</p>
     </form>
+
+    <div v-if="showAiDialog" role="dialog" aria-modal="true" aria-label="AI 自动填写" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div class="w-full max-w-sm rounded-lg bg-white p-6 text-center">
+        <div v-if="aiFilling" class="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <AppIcon v-else name="CircleAlert" :size="36" class="mx-auto mb-4 text-amber-500" />
+        <h2 class="text-base font-semibold text-slate-900">{{ aiFilling ? 'AI 正在整理资料' : 'AI 填写未完成' }}</h2>
+        <p class="mt-2 text-sm text-slate-500">{{ aiFilling ? '正在生成标题、分类、学期和描述' : aiError }}</p>
+        <div class="mt-5 flex justify-center gap-2">
+          <button v-if="!aiFilling" type="button" class="h-9 rounded-md border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer" @click="fillWithAi">重试</button>
+          <button type="button" class="h-9 rounded-md px-4 text-sm text-slate-500 hover:bg-slate-50 cursor-pointer" @click="skipAi">不使用 AI</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -217,6 +219,12 @@ const dropZoneRef = ref()
 const submitting = ref(false)
 const errorMsg = ref('')
 const aiFilling = ref(false)
+const showAiDialog = ref(false)
+const aiError = ref('')
+const uploadedFileId = ref('')
+const fileUploading = ref(false)
+let fileSelectionVersion = 0
+let aiRequestVersion = 0
 const openWishes = ref<any[]>([])
 const batchResult = ref<{ success: number; failed: number } | null>(null)
 const { apiBase } = useRuntimeConfig().public
@@ -237,7 +245,7 @@ const canSubmit = computed(() => {
     return batchFiles.value.every(f => f.title && f.category)
   }
   if (!form.title || !form.courseId || !form.category || !form.semester) return false
-  if (form.sourceType === 'hosted' && !selectedFile.value) return false
+  if (form.sourceType === 'hosted' && (!selectedFile.value || !uploadedFileId.value || fileUploading.value || showAiDialog.value)) return false
   if (form.sourceType === 'external' && !form.externalUrl) return false
   return true
 })
@@ -257,14 +265,49 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function onFileChange(file: File | null) {
+async function onFileChange(file: File | null) {
+  const selectionVersion = ++fileSelectionVersion
+  aiRequestVersion++
   selectedFile.value = file
+  uploadedFileId.value = ''
+  showAiDialog.value = false
+  aiError.value = ''
+  if (!file) return
+  fileUploading.value = true
+  errorMsg.value = ''
+  dropZoneRef.value?.setUploading(true, 10)
+  try {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+    const fileHash = Array.from(new Uint8Array(hashBuffer)).map(byte => byte.toString(16).padStart(2, '0')).join('')
+    const duplicate = await $fetch<{ code: number; data: { is_duplicate: boolean; existing_title?: string } }>(`${apiBase}/api/v1/upload/check-duplicate`, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file_hash: fileHash }),
+    })
+    if (duplicate.code === 0 && duplicate.data?.is_duplicate) throw new Error(`该文件已存在：${duplicate.data.existing_title || '未知资料'}`)
+    dropZoneRef.value?.setUploading(true, 40)
+    const uploadId = await uploadHostedFile(apiBase, file, progress => dropZoneRef.value?.setUploading(true, Math.max(10, progress)))
+    if (selectionVersion !== fileSelectionVersion) return
+    uploadedFileId.value = uploadId
+    dropZoneRef.value?.setUploading(true, 100)
+    fileUploading.value = false
+    await nextTick()
+    dropZoneRef.value?.setUploading(false, 0)
+    showAiDialog.value = true
+    await fillWithAi()
+  } catch (error) {
+    if (selectionVersion === fileSelectionVersion) errorMsg.value = error instanceof Error ? error.message : '文件上传失败'
+  } finally {
+    if (selectionVersion === fileSelectionVersion) {
+      fileUploading.value = false
+      dropZoneRef.value?.setUploading(false, 0)
+    }
+  }
 }
 
 async function fillWithAi() {
   if (!selectedFile.value) return
+  const requestVersion = ++aiRequestVersion
   aiFilling.value = true
-  errorMsg.value = ''
+  aiError.value = ''
   try {
     const response = await $fetch<{ code: number; message: string; data?: { draft: Record<string, any> } }>(
       `${apiBase}/api/v1/ai/material-draft`,
@@ -280,6 +323,7 @@ async function fillWithAi() {
       },
     )
     if (response.code !== 0 || !response.data?.draft) throw new Error(response.message)
+    if (requestVersion !== aiRequestVersion) return
     const draft = response.data.draft
     if (draft.title) form.title = draft.title
     if (draft.category && categories.includes(draft.category)) form.category = draft.category
@@ -287,11 +331,20 @@ async function fillWithAi() {
     if (draft.teacher) form.teacher = draft.teacher
     if (draft.description) form.description = draft.description
     toast.success('AI 已填写，请确认后提交')
+    showAiDialog.value = false
   } catch (error) {
-    errorMsg.value = error instanceof Error ? error.message : 'AI 填写失败'
+    if (requestVersion !== aiRequestVersion) return
+    aiError.value = error instanceof Error ? error.message : 'AI 填写失败'
   } finally {
-    aiFilling.value = false
+    if (requestVersion === aiRequestVersion) aiFilling.value = false
   }
+}
+
+function skipAi() {
+  aiRequestVersion++
+  showAiDialog.value = false
+  aiFilling.value = false
+  aiError.value = ''
 }
 
 function onFilesChange(files: File[]) {
@@ -355,25 +408,8 @@ async function submitSingle() {
   try {
     const { apiBase } = useRuntimeConfig().public
 
-    if (form.sourceType === 'hosted' && selectedFile.value) {
+    if (form.sourceType === 'hosted' && selectedFile.value && uploadedFileId.value) {
       const f = selectedFile.value
-      const hashBuffer = await crypto.subtle.digest('SHA-256', await f.arrayBuffer())
-      const fileHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
-
-      const dupResp = await $fetch<{ code: number; data: { is_duplicate: boolean; existing_material_id?: string; existing_title?: string } }>(`${apiBase}/api/v1/upload/check-duplicate`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_hash: fileHash }),
-      })
-      if (dupResp.code === 0 && dupResp.data?.is_duplicate) {
-        errorMsg.value = `该文件已存在：${dupResp.data.existing_title || '未知资料'}`
-        submitting.value = false
-        return
-      }
-
-      dropZoneRef.value?.setUploading(true, 0)
-      const uploadId = await uploadHostedFile(apiBase, f)
-      dropZoneRef.value?.setUploading(true, 100)
-
       const ext = f.name.split('.').pop()?.toLowerCase() || ''
       const materialResp = await $fetch<{ code: number; message: string; data?: { id: string } }>(`${apiBase}/api/v1/materials`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
@@ -381,7 +417,7 @@ async function submitSingle() {
           title: form.title, course_id: form.courseId, category: form.category,
           semester: form.semester, teacher: form.teacher || undefined,
           source_type: 'hosted', description: form.description || undefined,
-          upload_id: uploadId, format: ext,
+          upload_id: uploadedFileId.value, format: ext,
         }),
       })
       if (materialResp.code !== 0) { errorMsg.value = materialResp.message; submitting.value = false; return }

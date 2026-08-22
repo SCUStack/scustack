@@ -9,7 +9,16 @@
   >
     <input ref="inputRef" type="file" class="hidden" :accept="accept" :multiple="multiple" @change="onFileSelect" />
 
-    <template v-if="!multiple && file">
+    <template v-if="uploading">
+      <div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      <p v-if="file" class="truncate text-sm font-medium text-slate-700">{{ file.name }}</p>
+      <p class="mt-1 text-sm text-primary-600">正在上传 {{ progress }}%</p>
+      <div class="mx-auto mt-3 h-2 w-full max-w-sm overflow-hidden rounded-full bg-slate-200">
+        <div class="h-full rounded-full bg-primary-500 transition-all duration-200" :style="{ width: `${progress}%` }" />
+      </div>
+    </template>
+
+    <template v-else-if="!multiple && file">
       <AppIcon :name="fileIcon(file)" :size="32" class="text-primary-500 mx-auto mb-2" />
       <p class="text-sm font-medium text-slate-700">{{ file.name }}</p>
       <p class="text-xs text-slate-400 mt-1">{{ formatSize(file.size) }}</p>
@@ -31,11 +40,6 @@
       <button class="text-xs text-primary-600 hover:text-primary-700 cursor-pointer" @click.stop="triggerInput">
         + 继续添加
       </button>
-    </template>
-
-    <template v-else-if="uploading">
-      <div class="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto mb-2" />
-      <p class="text-sm text-slate-500">{{ progress }}%</p>
     </template>
 
     <template v-else>
@@ -87,10 +91,12 @@ function fileIcon(f: File): string {
 }
 
 function triggerInput() {
+  if (uploading.value) return
   if (props.multiple || !file.value) inputRef.value?.click()
 }
 
 function onDrop(e: DragEvent) {
+  if (uploading.value) return
   dragover.value = false
   const dropped = e.dataTransfer?.files
   if (!dropped?.length) return

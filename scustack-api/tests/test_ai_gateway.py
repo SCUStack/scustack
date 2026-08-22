@@ -13,6 +13,11 @@ def _db_with_config(config):
     return db
 
 
+def test_numeric_confidence_is_normalized():
+    draft = MaterialDraft.model_validate({'title': '资料', 'confidence': 0.7})
+    assert draft.confidence == {'overall': 0.7}
+
+
 @pytest.mark.asyncio
 async def test_no_provider_returns_rule_based_draft():
     result = await create_material_draft(

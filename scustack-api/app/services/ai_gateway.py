@@ -151,5 +151,5 @@ async def create_material_draft(db: AsyncSession, request: MaterialDraftRequest)
         except Exception:
             continue
     if providers:
-        raise AiGatewayError('all AI providers are unavailable')
+        raise AiGatewayError('所有 AI Provider 均不可用')
     return MaterialDraftResponse(provider='fallback', model='rules', draft=_fallback_draft(request))
