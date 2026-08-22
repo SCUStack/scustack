@@ -5,10 +5,12 @@ import pytest
 
 from app.core.storage import (
     LfsStorageProvider,
+    StoredObject,
     StorageError,
     consume_uploaded_object,
     create_upload_ticket,
     resolve_download_url,
+    upload_ticket_file,
 )
 
 
@@ -78,6 +80,26 @@ class TestLfsStorageProvider:
 
 
 class TestUploadTickets:
+    @pytest.mark.asyncio
+    async def test_ticket_upload_returns_all_stored_objects(self):
+        ticket = json.dumps({
+            'user_id': 'owner-id', 'file_name': 'notes.pdf',
+            'content_type': 'application/pdf', 'file_size': 9,
+        })
+        stored = StoredObject(
+            provider_type='oss', provider_instance='oss-main', locator='notes.pdf',
+            access_url='https://example.com/notes.pdf', file_size=9,
+            content_type='application/pdf',
+        )
+        provider = MagicMock(upload_bytes=AsyncMock(return_value=stored))
+        with patch('app.core.storage.cache_get', new_callable=AsyncMock, return_value=ticket), \
+             patch('app.core.storage.cache_set', new_callable=AsyncMock), \
+             patch('app.core.storage._provider', return_value=provider), \
+             patch('app.core.storage.settings.FILE_UPLOAD_SCAN_ENABLED', False):
+            result = await upload_ticket_file('upload-id', 'owner-id', b'%PDF-test')
+
+        assert result == [stored]
+
     @pytest.mark.asyncio
     async def test_ticket_key_is_bound_to_its_owner(self):
         with patch('app.core.storage.cache_set', new_callable=AsyncMock) as cache_set:

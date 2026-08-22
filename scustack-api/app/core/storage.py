@@ -169,7 +169,7 @@ async def upload_ticket_file(upload_id: str, user_id: str, content: bytes) -> li
         'sha256': hashlib.sha256(content).hexdigest(),
     }
     await cache_set(_pending_key(upload_id, user_id), json.dumps(payload), ttl=900)
-    return stored
+    return stored_objects
 
 
 async def consume_uploaded_object(upload_id: str, user_id: str) -> tuple[list[StoredObject], str]:
