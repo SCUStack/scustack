@@ -19,6 +19,10 @@ class StorageError(Exception):
     pass
 
 
+UPLOAD_TICKET_TTL_SECONDS = 900
+COMPLETED_UPLOAD_TTL_SECONDS = 86400
+
+
 @dataclass(frozen=True)
 class StoredObject:
     provider_type: str
@@ -138,7 +142,7 @@ async def create_upload_ticket(user_id: str, file_name: str, content_type: str, 
     await cache_set(
         _pending_key(upload_id, user_id),
         json.dumps({'user_id': user_id, 'file_name': file_name, 'content_type': content_type, 'file_size': file_size}),
-        ttl=900,
+        ttl=UPLOAD_TICKET_TTL_SECONDS,
     )
     return {'upload_id': upload_id, 'upload_url': f'/api/v1/upload/{upload_id}/file', 'method': 'POST'}
 
@@ -168,7 +172,11 @@ async def upload_ticket_file(upload_id: str, user_id: str, content: bytes) -> li
         'stored_objects': [asdict(stored) for stored in stored_objects],
         'sha256': hashlib.sha256(content).hexdigest(),
     }
-    await cache_set(_pending_key(upload_id, user_id), json.dumps(payload), ttl=900)
+    await cache_set(
+        _pending_key(upload_id, user_id),
+        json.dumps(payload),
+        ttl=COMPLETED_UPLOAD_TTL_SECONDS,
+    )
     return stored_objects
 
 

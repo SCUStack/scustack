@@ -93,12 +93,13 @@ class TestUploadTickets:
         )
         provider = MagicMock(upload_bytes=AsyncMock(return_value=stored))
         with patch('app.core.storage.cache_get', new_callable=AsyncMock, return_value=ticket), \
-             patch('app.core.storage.cache_set', new_callable=AsyncMock), \
+             patch('app.core.storage.cache_set', new_callable=AsyncMock) as cache_set, \
              patch('app.core.storage._provider', return_value=provider), \
              patch('app.core.storage.settings.FILE_UPLOAD_SCAN_ENABLED', False):
             result = await upload_ticket_file('upload-id', 'owner-id', b'%PDF-test')
 
         assert result == [stored]
+        assert cache_set.await_args.kwargs['ttl'] == 86400
 
     @pytest.mark.asyncio
     async def test_ticket_key_is_bound_to_its_owner(self):

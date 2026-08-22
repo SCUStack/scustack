@@ -394,6 +394,7 @@ function saveDraft() {
 }
 
 async function submit() {
+  if (submitting.value) return
   errorMsg.value = ''
   if (batchMode.value) {
     await submitBatch()
