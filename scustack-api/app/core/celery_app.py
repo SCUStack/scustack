@@ -29,6 +29,7 @@ app = Celery(
     backend=settings.REDIS_URL,
     include=[
         'app.tasks.achievement',
+        'app.tasks.ai_health',
         'app.tasks.cleanup',
         'app.tasks.content_extract',
         'app.tasks.counter_sync',
@@ -53,6 +54,7 @@ app.conf.update(
     task_routes={
         'app.tasks.counter_sync.*': {'queue': 'default'},
         'app.tasks.cleanup.*': {'queue': 'default'},
+        'app.tasks.ai_health.*': {'queue': 'default'},
     },
     # scan and thumbnail queues are routed via explicit queue= parameter in material_tasks.py
     beat_schedule={
@@ -66,6 +68,10 @@ app.conf.update(
         },
         'sync-download-counters': {
             'task': 'app.tasks.counter_sync.sync_download_counters',
+            'schedule': crontab(minute='*/5'),
+        },
+        'check-ai-providers': {
+            'task': 'app.tasks.ai_health.check_ai_providers',
             'schedule': crontab(minute='*/5'),
         },
         'database-backup-daily': {

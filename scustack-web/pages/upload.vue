@@ -12,6 +12,17 @@
     </div>
 
     <form @submit.prevent="submit" class="space-y-5">
+      <div v-if="!batchMode && selectedFile" class="flex justify-end">
+        <button
+          type="button"
+          :disabled="aiFilling"
+          class="inline-flex h-9 items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50 cursor-pointer"
+          @click="fillWithAi"
+        >
+          <AppIcon name="Sparkles" :size="16" />
+          {{ aiFilling ? '正在填写...' : 'AI 填写' }}
+        </button>
+      </div>
       <!-- Title (single mode only) -->
       <div v-if="!batchMode">
         <label class="block text-sm font-medium text-slate-700 mb-1">资料标题 *</label>
@@ -205,6 +216,7 @@ const batchDefaultCategory = ref('')
 const dropZoneRef = ref()
 const submitting = ref(false)
 const errorMsg = ref('')
+const aiFilling = ref(false)
 const openWishes = ref<any[]>([])
 const batchResult = ref<{ success: number; failed: number } | null>(null)
 const { apiBase } = useRuntimeConfig().public
@@ -247,6 +259,39 @@ function formatSize(bytes: number): string {
 
 function onFileChange(file: File | null) {
   selectedFile.value = file
+}
+
+async function fillWithAi() {
+  if (!selectedFile.value) return
+  aiFilling.value = true
+  errorMsg.value = ''
+  try {
+    const response = await $fetch<{ code: number; message: string; data?: { draft: Record<string, any> } }>(
+      `${apiBase}/api/v1/ai/material-draft`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_name: selectedFile.value.name,
+          semester: form.semester || undefined,
+          category: form.category || undefined,
+        }),
+      },
+    )
+    if (response.code !== 0 || !response.data?.draft) throw new Error(response.message)
+    const draft = response.data.draft
+    if (draft.title) form.title = draft.title
+    if (draft.category && categories.includes(draft.category)) form.category = draft.category
+    if (draft.semester && semesters.includes(draft.semester)) form.semester = draft.semester
+    if (draft.teacher) form.teacher = draft.teacher
+    if (draft.description) form.description = draft.description
+    toast.success('AI 已填写，请确认后提交')
+  } catch (error) {
+    errorMsg.value = error instanceof Error ? error.message : 'AI 填写失败'
+  } finally {
+    aiFilling.value = false
+  }
 }
 
 function onFilesChange(files: File[]) {

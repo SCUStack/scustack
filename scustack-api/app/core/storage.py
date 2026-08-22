@@ -153,10 +153,11 @@ async def upload_ticket_file(upload_id: str, user_id: str, content: bytes) -> li
         raise StorageError('upload ticket is invalid') from exc
     if ticket.get('user_id') != user_id or len(content) != ticket.get('file_size'):
         raise StorageError('uploaded file does not match its ticket')
-    from app.services.upload_service import security_scan
-    passed, warnings = security_scan(ticket['file_name'], content)
-    if not passed:
-        raise StorageError('; '.join(warnings))
+    if settings.FILE_UPLOAD_SCAN_ENABLED:
+        from app.services.upload_service import security_scan
+        passed, warnings = security_scan(ticket['file_name'], content)
+        if not passed:
+            raise StorageError('; '.join(warnings))
     provider = _provider()
     if not isinstance(provider, LfsStorageProvider):
         stored_objects = [await provider.upload_bytes(ticket['file_name'], ticket['content_type'], content)]

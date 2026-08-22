@@ -54,9 +54,10 @@ interface NavItem {
   label: string
   to: string
   badge?: number
+  adminOnly?: boolean
 }
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { label: '数据分析', to: '/admin/analytics' },
   { label: '审核队列', to: '/admin/review', badge: 0 },
   { label: '举报处理', to: '/admin/reports', badge: 0 },
@@ -73,10 +74,12 @@ const navItems: NavItem[] = [
   { label: '搜索分析', to: '/admin/search-analytics' },
   { label: '上传统计', to: '/admin/upload-stats' },
   { label: '存储监控', to: '/admin/storage' },
+  { label: 'AI Provider', to: '/admin/ai-providers', adminOnly: true },
   { label: '安全监控', to: '/admin/security' },
   { label: '重复检测', to: '/admin/duplicates' },
   { label: '审计日志', to: '/admin/audit-logs' },
 ]
+const navItems = computed(() => allNavItems.filter(item => !item.adminOnly || auth.user?.role === 'admin'))
 
 function isActive(to: string) {
   return route.path.startsWith(to)

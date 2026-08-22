@@ -15,11 +15,72 @@ from app.schemas.review import ReviewAction, ReviewBatchAction, ReviewLogRespons
 from app.schemas.feedback import FeedbackHandle, FeedbackResponse
 from app.models.feedback import Feedback
 from app.schemas.user import UserResponse
+from app.schemas.ai import AiProviderUpsert
 from app.services import audit_service, calendar_service, homepage_presentation_service, report_service, review_service, user_service
 from sqlalchemy import select, func
 from app.services.homepage_service import get_stats
+from app.services import ai_gateway
 
 router = APIRouter(prefix='/admin', tags=['admin'])
+
+
+@router.get('/ai-providers')
+async def get_ai_providers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USERS_MANAGE)),
+):
+    return {'code': 0, 'data': [item.model_dump() for item in await ai_gateway.list_providers(db)], 'message': 'ok'}
+
+
+@router.post('/ai-providers')
+async def create_ai_provider(
+    body: AiProviderUpsert,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USERS_MANAGE)),
+):
+    try:
+        item = await ai_gateway.upsert_provider(db, None, body, current_user.id)
+    except ai_gateway.AiGatewayError as exc:
+        return {'code': 40000, 'data': None, 'message': str(exc)}
+    await db.commit()
+    return {'code': 0, 'data': item.model_dump(), 'message': 'AI provider created'}
+
+
+@router.patch('/ai-providers/{provider_id}')
+async def update_ai_provider(
+    provider_id: str,
+    body: AiProviderUpsert,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USERS_MANAGE)),
+):
+    try:
+        item = await ai_gateway.upsert_provider(db, provider_id, body, current_user.id)
+    except ai_gateway.AiGatewayError as exc:
+        return {'code': 40400, 'data': None, 'message': str(exc)}
+    await db.commit()
+    return {'code': 0, 'data': item.model_dump(), 'message': 'AI provider updated'}
+
+
+@router.delete('/ai-providers/{provider_id}')
+async def remove_ai_provider(
+    provider_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USERS_MANAGE)),
+):
+    if not await ai_gateway.delete_provider(db, provider_id):
+        return {'code': 40400, 'data': None, 'message': 'AI provider not found'}
+    await db.commit()
+    return {'code': 0, 'data': None, 'message': 'AI provider deleted'}
+
+
+@router.post('/ai-providers/health')
+async def check_ai_provider_health(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USERS_MANAGE)),
+):
+    items = await ai_gateway.probe_providers(db)
+    await db.commit()
+    return {'code': 0, 'data': [item.model_dump() for item in items], 'message': 'health checked'}
 
 @router.get('/feedback')
 async def list_feedback(

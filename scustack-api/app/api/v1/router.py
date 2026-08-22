@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.about import router as about_router
+from app.api.v1.ai import router as ai_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.bookmarks import router as bookmarks_router
@@ -32,6 +33,7 @@ router.include_router(upload_router, tags=['upload'])
 router.include_router(search_router, tags=['search'])
 router.include_router(homepage_router, tags=['homepage'])
 router.include_router(about_router, tags=['about'])
+router.include_router(ai_router, tags=['ai'])
 router.include_router(corrections_router, tags=['corrections'])
 router.include_router(admin_router, tags=['admin'])
 router.include_router(copyright_router, tags=['copyright'])

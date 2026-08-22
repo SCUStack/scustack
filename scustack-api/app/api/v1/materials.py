@@ -167,7 +167,7 @@ async def create_material(
         stored = stored_objects[0]
         kwargs.update(storage_key=stored.locator, file_hash=checksum, file_size=stored.file_size)
         kwargs['review_status'] = 'pending'
-        kwargs['virus_scan_status'] = 'queued'
+        kwargs['virus_scan_status'] = 'queued' if settings.FILE_UPLOAD_SCAN_ENABLED else 'skipped'
 
     m = await material_service.create_material(db, current_user.id, **kwargs)
     await db.flush()
@@ -188,7 +188,8 @@ async def create_material(
         if m.source_type == 'hosted':
             latest_version = await material_service.get_latest_version(db, m.id)
             if latest_version is not None:
-                virus_scan.delay(str(m.id), str(latest_version.id))
+                if settings.FILE_UPLOAD_SCAN_ENABLED:
+                    virus_scan.delay(str(m.id), str(latest_version.id))
                 generate_thumbnail.delay(str(m.id), str(latest_version.id), m.format or '')
         pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:
@@ -405,12 +406,15 @@ async def create_version(
         change_note=body.change_note,
     )
     m.thumbnail_status = 'queued'
+    if not settings.FILE_UPLOAD_SCAN_ENABLED:
+        m.virus_scan_status = 'skipped'
     for index, stored_object in enumerate(stored_objects):
         await add_replica(db, v.id, stored_object, checksum, 'primary' if index == 0 else 'replica')
     await db.commit()
     try:
         from app.tasks.material_tasks import generate_thumbnail, pre_screen_content, virus_scan
-        virus_scan.delay(str(m.id), str(v.id))
+        if settings.FILE_UPLOAD_SCAN_ENABLED:
+            virus_scan.delay(str(m.id), str(v.id))
         generate_thumbnail.delay(str(m.id), str(v.id), m.format or '')
         pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:

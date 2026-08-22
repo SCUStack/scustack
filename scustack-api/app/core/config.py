@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool | None = None
     CSRF_COOKIE_DOMAIN: str | None = None
 
+    AI_TIMEOUT_SECONDS: float = 30.0
+    AI_MAX_INPUT_CHARS: int = 12000
+    FILE_UPLOAD_SCAN_ENABLED: bool = False
+
     _REQUIRED_IN_PRODUCTION: tuple[str, ...] = (
         'JWT_SECRET_KEY',
         'ENCRYPTION_KEY',

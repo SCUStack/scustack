@@ -15,6 +15,7 @@ def test_worker_registers_application_tasks():
 
     expected_tasks = {
         'app.tasks.achievement.check_achievements_after_approval',
+        'app.tasks.ai_health.check_ai_providers',
         'app.tasks.cleanup.gc_orphan_files',
         'app.tasks.content_extract.extract_material_content_to_es',
         'app.tasks.counter_sync.sync_download_counters',
