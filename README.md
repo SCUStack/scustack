@@ -38,7 +38,7 @@
 | 后端 | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Pydantic v2, Celery |
 | 数据库 | PostgreSQL 16 |
 | 缓存与队列 | Redis 7 |
-| 搜索 | Elasticsearch 8 + IK 分词，MVP 阶段可回退到 PostgreSQL 基础搜索 |
+| 搜索 | Elasticsearch 8 + IK 分词；生产 Compose 的 MVP 部署包含 Elasticsearch，具体以 [部署手册](docs/DEPLOYMENT-部署手册.md) 和 `docker-compose.production.yml` 为准 |
 | 文件存储 | 阿里云 OSS / 兼容对象存储 / 外部链接 |
 | 预览 | PDF.js, 原生图片/文本/代码预览，OnlyOffice 作为可选组件 |
 | 部署 | Docker Compose，单机低成本部署优先 |
@@ -80,6 +80,8 @@ scustack/
 - Docker Desktop 或 Docker Compose v2
 
 ### 安装依赖
+
+本仓库支持路径以根目录 pnpm workspace 为准：本地开发从仓库根目录运行 `pnpm install`、`pnpm dev` 等命令。前端 CI 当前单独使用 `scustack-web/package-lock.json` 执行 `npm ci`；不要在本地混用锁文件或据此替代 workspace 安装。
 
 ```bash
 git clone https://github.com/SCUStack/scustack.git

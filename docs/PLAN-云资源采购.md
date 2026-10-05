@@ -25,7 +25,7 @@
 当前 MVP 组件范围：
 
 - 保留：`Nuxt 3`、`FastAPI`、`PostgreSQL`、`Redis`、`Celery`、`对象存储`
-- 暂缓：`Elasticsearch`
+- 保留：`Elasticsearch`（生产 Compose 服务，API 和 Worker 依赖其健康状态）
 - 暂缓：`OnlyOffice`
 - 不采购：`独立 RDS`、`独立 Redis`、`CDN`、`SLB`
 
@@ -137,7 +137,7 @@
 
 - 独立 RDS PostgreSQL
 - 独立 Redis 实例
-- Elasticsearch 独立节点
+- Elasticsearch 独立节点（生产 MVP 仍使用同机 Compose 服务）
 - OnlyOffice 专用机器
 - CDN
 - SLB
@@ -168,10 +168,10 @@
 - 缩略图
 - 后续静态衍生资源
 
-MVP 不启用：
+MVP 不启用 OnlyOffice；生产 Compose 保持其 `development` profile 且不发布端口。
 
-- `Elasticsearch`
-- `OnlyOffice`
+MVP 必须启用 Elasticsearch：由 `docker-compose.production.yml` 提供，并作为 API 和 Worker 的健康依赖。
+
 
 ## 7. 风险与控制措施
 
@@ -208,7 +208,7 @@ MVP 不启用：
 控制措施：
 
 - MVP 阶段先接受基础搜索能力
-- 当资料量和搜索投诉明显增多后，再升级 Elasticsearch
+- 生产 MVP 已使用同机 Elasticsearch；仅在资料量和搜索负载明显增大后，再考虑独立节点或扩容
 
 ## 8. 最终采购清单
 

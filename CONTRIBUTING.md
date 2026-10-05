@@ -14,9 +14,12 @@
 
 ### 1. Clone and install
 
+本仓库支持的本地前端开发路径是根目录 pnpm workspace：在仓库根目录运行 `pnpm install`，再使用 workspace 命令。CI 前端任务目前使用 `scustack-web/package-lock.json` 执行 `npm ci`；这是 CI 的独立安装流程，不应与本地 workspace 锁文件混用。
+
 ```bash
 git clone https://github.com/SCUStack/scustack.git
 cd scustack
+pnpm install
 ```
 
 ### 2. Start infrastructure services
@@ -44,7 +47,6 @@ Swagger UI is available at <http://localhost:8403/docs>.
 
 ```bash
 cd scustack-web
-pnpm install
 cp .env.example .env       # set API_BASE=http://localhost:8403
 pnpm dev                   # starts at http://localhost:3000
 ```
