@@ -74,24 +74,30 @@ class TestWishService:
         assert items[0]['vote_count'] == 3
 
     @pytest.mark.asyncio
-    async def test_list_wishes_shows_has_voted(self):
+    async def test_list_wishes_batches_vote_state_lookup(self):
         from app.services.wish_service import list_wishes
-        from app.models.wish import Wish, WishVote
+        from app.models.wish import Wish
 
-        w = Wish(
-            id=WISH_ID, user_id=USER_ID, course_id=COURSE_ID,
-            title='求笔记', status='open', vote_count=1,
-        )
+        second_wish_id = uuid4()
+        wishes = [
+            Wish(
+                id=WISH_ID, user_id=USER_ID, course_id=COURSE_ID,
+                title='求笔记', status='open', vote_count=1,
+            ),
+            Wish(
+                id=second_wish_id, user_id=USER_ID, course_id=COURSE_ID,
+                title='求题库', status='open', vote_count=2,
+            ),
+        ]
         db = _make_mock_db()
-        # First call: wishes query
-        mock_wishes = _mock_execute_result([w])
-        # Second call: vote check
-        mock_vote = MagicMock()
-        mock_vote.scalar_one_or_none.return_value = WishVote(wish_id=WISH_ID, user_id=USER_ID)
-        db.execute = AsyncMock(side_effect=[mock_wishes, mock_vote])
+        mock_wishes = _mock_execute_result(wishes)
+        mock_votes = _mock_execute_result([WISH_ID])
+        db.execute = AsyncMock(side_effect=[mock_wishes, mock_votes])
 
         items = await list_wishes(db, course_id=COURSE_ID, current_user_id=USER_ID)
-        assert items[0]['has_voted'] is True
+
+        assert [item['has_voted'] for item in items] == [True, False]
+        assert db.execute.await_count == 2
 
     @pytest.mark.asyncio
     async def test_vote_wish_toggle_on(self):
