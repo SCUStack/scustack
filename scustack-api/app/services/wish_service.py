@@ -64,17 +64,18 @@ async def list_wishes(
     result = await db.execute(stmt)
     wishes = list(result.scalars().all())
 
+    voted_wish_ids: set[UUID] = set()
+    if current_user_id and wishes:
+        vote_result = await db.execute(
+            select(WishVote.wish_id).where(
+                WishVote.wish_id.in_([wish.id for wish in wishes]),
+                WishVote.user_id == current_user_id,
+            )
+        )
+        voted_wish_ids = set(vote_result.scalars().all())
+
     output = []
     for w in wishes:
-        has_voted = False
-        if current_user_id:
-            vote_result = await db.execute(
-                select(WishVote).where(
-                    WishVote.wish_id == w.id,
-                    WishVote.user_id == current_user_id,
-                )
-            )
-            has_voted = vote_result.scalar_one_or_none() is not None
         output.append({
             'id': w.id,
             'user_id': w.user_id,
@@ -85,7 +86,7 @@ async def list_wishes(
             'status': w.status,
             'fulfill_material_id': w.fulfill_material_id,
             'vote_count': w.vote_count,
-            'has_voted': has_voted,
+            'has_voted': w.id in voted_wish_ids,
             'created_at': w.created_at,
         })
     return output
