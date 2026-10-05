@@ -46,3 +46,8 @@ coverage/
 # Docker
 docker-compose.override.yml
 docker/elasticsearch/analysis-ik/
+
+# 派发队列的本地产物（worktree / 结果文件 / 日志）
+worktrees/
+tools/scustack_results.json
+.pi/
