@@ -1,8 +1,7 @@
 import type { UserProfile, MaterialItem, NotificationList, PaginatedItems, Course } from '~/types/api'
 
 export function useAuth() {
-  const config = useRuntimeConfig()
-  const base = config.public.apiBase as string
+  const base = useApiBase()
 
   async function refresh() {
     return $fetch<{ code: number; data: null; message: string }>(
