@@ -65,8 +65,13 @@ pytest --cov=app --cov-report=term-missing   # with coverage
 cd scustack-web
 pnpm test                       # unit tests (vitest)
 pnpm test:coverage              # with coverage
-pnpm test:e2e                   # E2E tests (Playwright)
 ```
+
+Playwright E2E is currently not part of the PR CI gate. The repository does not
+contain a `playwright.config.*` file or a maintained API/frontend startup
+orchestration for E2E, so the workflow omits the job rather than reporting a
+check that cannot run. Re-enable it only after adding the configuration and
+startup steps, and document the command here.
 
 ## Pull request process
 
