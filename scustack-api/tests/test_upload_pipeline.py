@@ -122,6 +122,10 @@ class TestUploadPipeline:
             'app.api.v1.materials.consume_uploaded_object',
             new_callable=AsyncMock,
             side_effect=StorageError('upload ticket expired or invalid'),
+        ), patch(
+            'app.api.v1.materials.copyright_service.check_title_blocklist',
+            new_callable=AsyncMock,
+            return_value=False,
         ):
             resp = await client.post(
                 '/api/v1/materials',
