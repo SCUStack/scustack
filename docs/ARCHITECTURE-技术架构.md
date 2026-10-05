@@ -49,10 +49,10 @@
 | **UI 组件库** | Element Plus | 中文 UI 组件库中维护最活跃，文档完善 |
 | **后端框架** | Python FastAPI | Pydantic 自动校验 + Swagger 自动生成，MVP 开发速度最快；Python 生态为后续 AI 功能铺路 |
 | **数据库** | PostgreSQL 16 | JSONB 灵活元数据、递归 CTE 树形查询、zhparser 中文分词、pgvector 向量检索预留 |
-| **搜索引擎** | PostgreSQL 基础搜索（MVP） / Elasticsearch 8.x + IK（后续升级） | 400 元预算内先不上独立 ES，等数据规模和搜索质量需求上来后再升级 |
+| **搜索引擎** | Elasticsearch 8.x + IK（生产 MVP 必需） / PostgreSQL 基础搜索（本地或回退场景） | 生产 Compose 的 MVP 已包含 ES；以 `docker-compose.production.yml` 的服务与依赖关系为准 |
 | **缓存** | Redis 7 | 会话管理、热点数据缓存、速率限制计数器 |
 | **文件存储** | 多后端存储编排层（OSS / COS / R2 / 私有上传网关 / 外部链接） | 前期允许低成本异构接入，平台持有统一副本元数据，后续可平滑迁移到高耐久对象存储 |
-| **文档预览** | PDF.js + 原生图片/文本预览（MVP） / OnlyOffice（后续升级） | 400 元预算内不单独部署 OnlyOffice |
+| **文档预览** | PDF.js + 原生图片/文本预览（MVP） / OnlyOffice（可选外部服务） | 生产 Compose 不发布 OnlyOffice；启用 `NUXT_PUBLIC_OFFICE_PREVIEW_BASE` 时须另行部署安全且浏览器可访问的预览网关，当前仓库不提供该服务 |
 | **消息队列** | Celery (Redis broker) | 异步任务（病毒扫描、缩略图生成、搜索索引更新、内容提取） |
 
 ### 1.3 系统架构图
@@ -108,8 +108,8 @@ graph TB
 单机 MVP 上线时的组件边界：
 
 - 保留：`Nuxt 3`、`FastAPI`、`PostgreSQL`、`Redis`、`Celery`、`托管对象存储`
-- 暂缓：`Elasticsearch`
-- 暂缓：`OnlyOffice`
+- 保留：`Elasticsearch`（生产 Compose 服务，API 和 Worker 依赖其健康状态）
+- 暂缓：`OnlyOffice`（生产 Compose 保持 `development` profile 且不发布端口）
 - 不采用：`独立 RDS`、`独立 Redis`、`CDN`、`SLB`、`多机弹性扩容`
 
 成本控制原则：
@@ -117,7 +117,7 @@ graph TB
 - 文件上传优先走托管存储或上传网关，避免占满系统盘
 - 下载限额必须开启，优先控制外网下行费用
 - Office 文档先走下载或弱预览，不为预览单独养一台机器
-- 搜索先接受 MVP 级体验，后续再迁移到 Elasticsearch
+- 生产 MVP 使用 Elasticsearch；低资源本地或回退场景才使用 PostgreSQL 基础搜索
 
 ---
 

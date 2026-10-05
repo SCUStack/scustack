@@ -19,8 +19,8 @@ Recommended MVP baseline for the current codebase and a first-year budget around
 - `1 x PostgreSQL 16` running on the same host via Docker
 - `1 x Redis 7` running on the same host via Docker
 - `1 x external LFS service` for uploads and downloads
-- `0 x Elasticsearch` in MVP
-- `0 x OnlyOffice` in MVP
+- `1 x Elasticsearch 8` running via the production Compose stack (required by the API and worker)
+- OnlyOffice is not started in the MVP; the production Compose service remains development-profile only and publishes no port
 - `0 x RDS / CDN / SLB` in MVP
 
 Recommended purchase path:
@@ -43,7 +43,7 @@ git clone https://github.com/SCUStack/scustack.git
 cd scustack
 ```
 
-Do not deploy Elasticsearch or OnlyOffice in the `¥400` MVP profile. They are deferred upgrade items.
+The `¥400` MVP profile must deploy Elasticsearch: `docker-compose.production.yml` includes it as a production service, and the `api` and `worker` services depend on its healthy status. OnlyOffice remains deferred and is not exposed by the production Compose stack. This conclusion is based on `docker-compose.production.yml`.
 
 ## 2. DNS And SSL
 
@@ -52,9 +52,11 @@ Create DNS records:
 ```text
 scustack.cn              A      <server public IP>
 www.scustack.cn          CNAME  scustack.cn
-api.scustack.cn          CNAME  scustack.cn
+api.scustack.cn          CNAME  scustack.cn   # requires external LB/reverse proxy routing
 download.scustack.cn     CNAME  <LFS download gateway domain>
 ```
+
+`docker/nginx/scustack.conf` currently contains one default `server` (`server_name _`) and routes `/api/` to the internal API. It does not define an `api.scustack.cn` virtual host. Therefore `api.scustack.cn` in `NUXT_PUBLIC_API_BASE` must be provided by a load balancer or reverse proxy outside this repository, or replaced with the externally published hostname that routes to this ingress.
 
 If using Let's Encrypt on Nginx:
 
@@ -143,9 +145,10 @@ NUXT_PUBLIC_SENTRY_DSN=<frontend-sentry-dsn>
 EOF
 ```
 
-`NUXT_PUBLIC_OFFICE_PREVIEW_BASE` must point to a browser-reachable OnlyOffice-compatible
-preview gateway. The production Compose file does not publish the development OnlyOffice
-container, so configure a separately secured service or an ingress route before launch.
+`NUXT_PUBLIC_OFFICE_PREVIEW_BASE` must point to a browser-reachable and securely configured
+OnlyOffice-compatible preview gateway. The production Compose file keeps OnlyOffice in the
+`development` profile and publishes no port for it. The current repository does not provide this
+gateway; deploy it separately outside this repository before setting this variable.
 
 Store secrets in your cloud secret store or GitHub Actions secrets. Do not commit `.env`.
 
@@ -211,7 +214,7 @@ Initialize the database and seed baseline data:
 python scripts/seed_colleges.py
 ```
 
-If you later enable Elasticsearch as an upgrade item, initialize the index manually:
+The production Compose stack starts Elasticsearch as a required service. Initialize its index manually:
 
 ```bash
 python - <<'PY'
@@ -255,7 +258,7 @@ redis-cli -h <redis-host> ping
 psql "postgresql://<db-user>:<db-password>@<rds-host>:5432/scustack" -c "select 1;"
 ```
 
-For the MVP profile, skip Elasticsearch and OnlyOffice checks. Verify app + storage instead:
+For the MVP profile, verify Elasticsearch as well as the app and storage. OnlyOffice is optional; verify it only when a separately deployed preview gateway is configured:
 
 ```bash
 curl -fsS https://scustack.cn
@@ -297,7 +300,16 @@ Manual critical-path checklist:
 - Office files load via `NUXT_PUBLIC_OFFICE_PREVIEW_BASE` when enabled; otherwise the MVP shows the download fallback
 - `/api/v1/health`, `/api/v1/health/live`, and `/api/v1/health/ready` all return 200
 
-## 7. Rollback
+## 7. 文档与配置对照
+
+| 文档路径 | 对应配置路径 | 对齐结论 |
+|---|---|---|
+| `docs/DEPLOYMENT-部署手册.md` | `docker-compose.production.yml` | 生产 MVP 启动 Elasticsearch；`api` 和 `worker` 等待其 healthy；OnlyOffice 仅保留 `development` profile 且不发布端口 |
+| `docs/DEPLOYMENT-部署手册.md` | `docker/nginx/scustack.conf` | 仓库只有默认 `server`，`/api/` 代理到内部 API；`api.scustack.cn` 需由仓库外部负载均衡或反向代理提供 |
+| `README.md`、`CONTRIBUTING.md` | `.github/workflows/pr-checks.yml`、`pnpm-lock.yaml`、`scustack-web/package-lock.json` | 本地支持根目录 pnpm workspace；前端 CI 使用 `npm ci` 和前端 package-lock，二者不混用 |
+| `README.md` | `LICENSE`、SCUSTACK-3 | 当前无 `LICENSE` 文件，SCUSTACK-3 尚未落地，README 保留未加入仓库的说明并交叉引用工单 |
+
+## 8. Rollback
 
 Application rollback to previous image:
 
