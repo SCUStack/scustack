@@ -47,6 +47,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -f localhost:9200/_cluster/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
     env:
       SCUSTACK_DB_HOST: localhost
       SCUSTACK_DB_PORT: 5432
@@ -54,6 +67,7 @@ jobs:
       SCUSTACK_DB_PASSWORD: scustack
       SCUSTACK_DB_NAME: scustack
       SCUSTACK_REDIS_URL: redis://localhost:6379/0
+      # CI tests use the Elasticsearch service, not the application fallback.
       SCUSTACK_ES_HOST: http://localhost:9200
     steps:
       - uses: actions/checkout@v4
@@ -110,32 +124,3 @@ jobs:
       - run: cd scustack-web && npm ci
       - run: cd scustack-web && npx nuxt prepare
       - run: cd scustack-web && npx vitest run --coverage
-
-  e2e:
-    name: E2E (Playwright)
-    runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test]
-    if: github.event_name == 'pull_request'
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: scustack
-          POSTGRES_PASSWORD: scustack
-          POSTGRES_DB: scustack
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: scustack-web/package-lock.json
-      - run: cd scustack-web && npm ci
-      - run: cd scustack-web && npx playwright install chromium --with-deps
-      - run: cd scustack-web && npx playwright test

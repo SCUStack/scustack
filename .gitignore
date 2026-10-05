@@ -9,6 +9,10 @@ dist/
 
 # Python
 __pycache__/
+.pytest_cache/
+.ruff_cache/
+pyright-*/
+pi-lens-probe-home/
 *.py[cod]
 *.egg-info/
 .venv/
