@@ -1,24 +1,57 @@
 from dataclasses import dataclass
+from difflib import unified_diff
 from uuid import UUID
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import set_committed_value
-from difflib import unified_diff
 
-import httpx
-
-from app.core.storage import resolve_access_url
 from app.core.redis import get_download_delta
+from app.core.storage import resolve_access_url
 from app.models.course import Course
 from app.models.material import Material, MaterialVersion
 
 TEXT_EXTENSIONS = {
-    'txt', 'md', 'py', 'js', 'ts', 'java', 'c', 'cpp', 'h', 'hpp',
-    'css', 'html', 'xml', 'json', 'yaml', 'yml', 'toml',
-    'ini', 'cfg', 'sh', 'bash', 'sql', 'r', 'go', 'rs', 'swift',
-    'kt', 'rb', 'php', 'pl', 'lua', 'vue', 'svelte', 'jsx', 'tsx',
-    'csv', 'log', 'tex', 'sty',
+    'txt',
+    'md',
+    'py',
+    'js',
+    'ts',
+    'java',
+    'c',
+    'cpp',
+    'h',
+    'hpp',
+    'css',
+    'html',
+    'xml',
+    'json',
+    'yaml',
+    'yml',
+    'toml',
+    'ini',
+    'cfg',
+    'sh',
+    'bash',
+    'sql',
+    'r',
+    'go',
+    'rs',
+    'swift',
+    'kt',
+    'rb',
+    'php',
+    'pl',
+    'lua',
+    'vue',
+    'svelte',
+    'jsx',
+    'tsx',
+    'csv',
+    'log',
+    'tex',
+    'sty',
 }
 
 
@@ -51,13 +84,19 @@ async def get_material_thumbnail_access(
     )
 
 
-async def list_materials(db: AsyncSession, course_id: UUID | None = None,
-                         category: str | None = None, semester: str | None = None,
-                         source_type: str | None = None,
-                         format: str | None = None,
-                         trust_status: str | None = None,
-                         review_status: str = 'approved', limit: int = 20,
-                         offset: int = 0, sort: str = 'newest') -> list[Material]:
+async def list_materials(
+    db: AsyncSession,
+    course_id: UUID | None = None,
+    category: str | None = None,
+    semester: str | None = None,
+    source_type: str | None = None,
+    format: str | None = None,
+    trust_status: str | None = None,
+    review_status: str = 'approved',
+    limit: int = 20,
+    offset: int = 0,
+    sort: str = 'newest',
+) -> list[Material]:
     stmt = select(Material).where(Material.review_status == review_status)
     if course_id:
         stmt = stmt.where(Material.course_id == course_id)
@@ -71,17 +110,23 @@ async def list_materials(db: AsyncSession, course_id: UUID | None = None,
         stmt = stmt.where(Material.format == format)
     if trust_status:
         stmt = stmt.where(Material.trust_status == trust_status)
-    stmt = stmt.order_by(Material.is_pinned.desc(), *_material_sort(sort)).offset(offset).limit(limit)
+    stmt = (
+        stmt.order_by(Material.is_pinned.desc(), *_material_sort(sort)).offset(offset).limit(limit)
+    )
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
-async def count_materials(db: AsyncSession, course_id: UUID | None = None,
-                          category: str | None = None, semester: str | None = None,
-                          source_type: str | None = None,
-                          format: str | None = None,
-                          trust_status: str | None = None,
-                          review_status: str = 'approved') -> int:
+async def count_materials(
+    db: AsyncSession,
+    course_id: UUID | None = None,
+    category: str | None = None,
+    semester: str | None = None,
+    source_type: str | None = None,
+    format: str | None = None,
+    trust_status: str | None = None,
+    review_status: str = 'approved',
+) -> int:
     stmt = select(func.count(Material.id)).where(Material.review_status == review_status)
     if course_id:
         stmt = stmt.where(Material.course_id == course_id)
@@ -102,15 +147,16 @@ def _material_sort(sort: str):
     if sort == 'downloads':
         return (Material.download_count.desc(), Material.created_at.desc())
     if sort == 'rating':
-        return (Material.average_rating.desc(), Material.rating_count.desc(), Material.created_at.desc())
+        return (
+            Material.average_rating.desc(),
+            Material.rating_count.desc(),
+            Material.created_at.desc(),
+        )
     return (Material.created_at.desc(),)
 
 
 async def get_material(db: AsyncSession, material_id: UUID) -> Material | None:
-    result = await db.execute(
-        select(Material)
-        .where(Material.id == material_id)
-    )
+    result = await db.execute(select(Material).where(Material.id == material_id))
     m = result.scalar_one_or_none()
     if m is not None:
         delta = await get_download_delta(str(m.id))
@@ -118,16 +164,21 @@ async def get_material(db: AsyncSession, material_id: UUID) -> Material | None:
             set_committed_value(m, 'download_count', (m.download_count or 0) + delta)
         if m.contributor_id:
             from app.models.user import User
+
             user_result = await db.execute(select(User).where(User.id == m.contributor_id))
             user = user_result.scalar_one_or_none()
             if user is not None:
                 from app.services.badge_service import get_user_badges
+
                 user_badges = await get_user_badges(db, user.id)
                 user.badges = user_badges
             m.contributor = user
         from sqlalchemy import text as sa_text
+
         dist_result = await db.execute(
-            sa_text('SELECT score, COUNT(*) FROM ratings WHERE material_id = :mid GROUP BY score ORDER BY score'),
+            sa_text(
+                'SELECT score, COUNT(*) FROM ratings WHERE material_id = :mid GROUP BY score ORDER BY score'
+            ),
             {'mid': material_id},
         )
         dist = {str(r[0]): r[1] for r in dist_result.fetchall()}
@@ -161,8 +212,9 @@ async def create_material(db: AsyncSession, user_id: UUID, **kwargs) -> Material
     return material
 
 
-async def update_material(db: AsyncSession, material_id: UUID, user_id: UUID,
-                          role: str, **kwargs) -> Material | None:
+async def update_material(
+    db: AsyncSession, material_id: UUID, user_id: UUID, role: str, **kwargs
+) -> Material | None:
     material = await get_material(db, material_id)
     if material is None:
         return None
@@ -175,8 +227,9 @@ async def update_material(db: AsyncSession, material_id: UUID, user_id: UUID,
     return material
 
 
-async def soft_delete_material(db: AsyncSession, material_id: UUID, user_id: UUID,
-                               role: str) -> bool:
+async def soft_delete_material(
+    db: AsyncSession, material_id: UUID, user_id: UUID, role: str
+) -> bool:
     material = await get_material(db, material_id)
     if material is None:
         return False
@@ -189,22 +242,32 @@ async def soft_delete_material(db: AsyncSession, material_id: UUID, user_id: UUI
 
 async def get_latest_version(db: AsyncSession, material_id: UUID) -> MaterialVersion | None:
     result = await db.execute(
-        select(MaterialVersion).where(MaterialVersion.material_id == material_id)
-        .order_by(MaterialVersion.version_number.desc()).limit(1)
+        select(MaterialVersion)
+        .where(MaterialVersion.material_id == material_id)
+        .order_by(MaterialVersion.version_number.desc())
+        .limit(1)
     )
     return result.scalar_one_or_none()
 
 
-async def add_version(db: AsyncSession, material_id: UUID, user_id: UUID,
-                      storage_key: str, file_hash: str, file_size: int,
-                      change_note: str | None = None) -> MaterialVersion | None:
+async def add_version(
+    db: AsyncSession,
+    material_id: UUID,
+    user_id: UUID,
+    storage_key: str,
+    file_hash: str,
+    file_size: int,
+    change_note: str | None = None,
+) -> MaterialVersion | None:
     material = await get_material(db, material_id)
     if material is None:
         return None
 
     result = await db.execute(
-        select(MaterialVersion).where(MaterialVersion.material_id == material_id)
-        .order_by(MaterialVersion.version_number.desc()).limit(1)
+        select(MaterialVersion)
+        .where(MaterialVersion.material_id == material_id)
+        .order_by(MaterialVersion.version_number.desc())
+        .limit(1)
     )
     latest = result.scalar_one_or_none()
     next_num = (latest.version_number + 1) if latest else 1
@@ -232,14 +295,10 @@ async def rate_material(db: AsyncSession, material_id: UUID, user_id: UUID, scor
     if score < 1 or score > 5:
         raise ValueError('score must be between 1 and 5')
 
-    from app.models.user import User
-    from app.models.material import Material
-    from sqlalchemy import and_
-
-    # Check existing rating
-    from app.models.material import Material  # noqa: F811
     # Use raw SQL to upsert
     from sqlalchemy import text
+
+    # Check existing rating
     await db.execute(
         text("""
             INSERT INTO ratings (material_id, user_id, score, created_at)
@@ -263,17 +322,30 @@ async def rate_material(db: AsyncSession, material_id: UUID, user_id: UUID, scor
         m.rating_count = cnt
 
 
-async def list_versions(db: AsyncSession, material_id: UUID) -> list[MaterialVersion]:
-    result = await db.execute(
-        select(MaterialVersion).where(MaterialVersion.material_id == material_id)
+async def list_versions(
+    db: AsyncSession, material_id: UUID, limit: int | None = None
+) -> list[MaterialVersion]:
+    stmt = (
+        select(MaterialVersion)
+        .where(MaterialVersion.material_id == material_id)
         .order_by(MaterialVersion.version_number.desc())
     )
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_material_discovery_context(db: AsyncSession, material_id: UUID) -> UUID | None:
+    result = await db.execute(select(Material.course_id).where(Material.id == material_id))
+    return result.scalar_one_or_none()
 
 
 async def get_version_diff(db: AsyncSession, material_id: UUID, version_id: UUID) -> dict:
     target = await db.execute(
-        select(MaterialVersion).where(MaterialVersion.id == version_id, MaterialVersion.material_id == material_id)
+        select(MaterialVersion).where(
+            MaterialVersion.id == version_id, MaterialVersion.material_id == material_id
+        )
     )
     target_v = target.scalar_one_or_none()
     if not target_v:
@@ -321,11 +393,14 @@ async def get_version_diff(db: AsyncSession, material_id: UUID, version_id: UUID
 
     old_label = f'v{prev_v.version_number}' if prev_v else '(empty)'
     new_label = f'v{target_v.version_number}'
-    diff_lines = list(unified_diff(
-        old_content.splitlines(keepends=True),
-        new_content.splitlines(keepends=True),
-        fromfile=old_label, tofile=new_label,
-    ))
+    diff_lines = list(
+        unified_diff(
+            old_content.splitlines(keepends=True),
+            new_content.splitlines(keepends=True),
+            fromfile=old_label,
+            tofile=new_label,
+        )
+    )
 
     return {
         'version_id': str(target_v.id),
@@ -337,13 +412,18 @@ async def get_version_diff(db: AsyncSession, material_id: UUID, version_id: UUID
     }
 
 
-async def get_related(db: AsyncSession, course_id: UUID, exclude_id: UUID, limit: int = 3) -> list[Material]:
+async def get_related(
+    db: AsyncSession, course_id: UUID, exclude_id: UUID, limit: int = 3
+) -> list[Material]:
     result = await db.execute(
-        select(Material).where(
+        select(Material)
+        .where(
             Material.course_id == course_id,
             Material.id != exclude_id,
             Material.review_status == 'approved',
-        ).order_by(Material.download_count.desc()).limit(limit)
+        )
+        .order_by(Material.download_count.desc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 
@@ -353,13 +433,13 @@ async def get_material_detail_first_screen(db: AsyncSession, material_id: UUID) 
     if material is None or material.review_status == 'removed':
         return None
 
-    versions = await list_versions(db, material_id)
+    versions = await list_versions(db, material_id, limit=3)
     related = await get_related(db, material.course_id, material_id, limit=3)
     course_name = await db.scalar(select(Course.name).where(Course.id == material.course_id)) or ''
 
     return {
         'material': material,
-        'versions_preview': versions[:3],
+        'versions_preview': versions,
         'related': related,
         'course_name': course_name,
         'first_screen_request_count': 1,
