@@ -1,8 +1,10 @@
 """Tests for material service — CRUD, versions, ratings, download, pin/unpin."""
-import pytest
+
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 from uuid import UUID
+
+import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.redis import RateLimiter
@@ -24,15 +26,27 @@ USER_ID = '00000000-0000-0000-0000-000000000001'
 
 class TestMaterialListAPI:
     async def test_list_empty(self, client):
-        with patch('app.api.v1.materials.material_service.list_materials', new_callable=AsyncMock, return_value=[]):
-            with patch('app.api.v1.materials.material_service.count_materials', new_callable=AsyncMock, return_value=0):
+        with patch(
+            'app.api.v1.materials.material_service.list_materials',
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            with patch(
+                'app.api.v1.materials.material_service.count_materials',
+                new_callable=AsyncMock,
+                return_value=0,
+            ):
                 resp = await client.get('/api/v1/materials')
                 assert resp.json()['code'] == 0
                 assert resp.json()['data'] == []
                 assert resp.json()['total'] == 0
 
     async def test_get_material_not_found(self, client):
-        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
+        with patch(
+            'app.api.v1.materials.material_service.get_material',
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}')
             assert resp.json()['code'] == 40400
 
@@ -67,8 +81,8 @@ class TestMaterialListAPI:
         material.thumbnail_url = None
         material.thumbnail_status = 'ready'
         material.thumbnail_version_id = version_id = UUID('00000000-0000-0000-0000-000000000002')
-        material.created_at = datetime.now(timezone.utc)
-        material.updated_at = datetime.now(timezone.utc)
+        material.created_at = datetime.now(UTC)
+        material.updated_at = datetime.now(UTC)
 
         version = MagicMock()
         version.id = version_id
@@ -78,40 +92,97 @@ class TestMaterialListAPI:
         version.file_size = 1024
         version.change_note = 'init'
         version.uploaded_by = UUID(USER_ID)
-        version.created_at = datetime.now(timezone.utc)
+        version.created_at = datetime.now(UTC)
 
-        with patch('app.api.v1.materials.material_service.get_material_detail_first_screen', new_callable=AsyncMock, return_value={
-            'material': material,
-            'versions_preview': [version],
-            'related': [],
-            'course_name': '线性代数',
-            'first_screen_request_count': 1,
-        }):
+        with patch(
+            'app.api.v1.materials.material_service.get_material_detail_first_screen',
+            new_callable=AsyncMock,
+            return_value={
+                'material': material,
+                'versions_preview': [version],
+                'related': [],
+                'course_name': '线性代数',
+                'first_screen_request_count': 1,
+            },
+        ):
             resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/detail')
             data = resp.json()['data']
+            assert set(data) == {
+                'material',
+                'versions_preview',
+                'related',
+                'course_name',
+                'first_screen_request_count',
+            }
             assert data['material']['title'] == '线性代数笔记'
+            assert data['material']['review_status'] == 'approved'
             assert data['course_name'] == '线性代数'
             assert data['first_screen_request_count'] == 1
 
     async def test_list_versions(self, client):
         v = MagicMock()
-        v.id = '00000000-0000-0000-0000-000000000002'; v.material_id = MATERIAL_ID
-        v.version_number = 1; v.file_hash = 'a' * 64; v.file_size = 1024
-        v.change_note = 'init'; v.uploaded_by = USER_ID
-        with patch('app.api.v1.materials.material_service.list_versions', new_callable=AsyncMock, return_value=[v]):
+        v.id = '00000000-0000-0000-0000-000000000002'
+        v.material_id = MATERIAL_ID
+        v.version_number = 1
+        v.file_hash = 'a' * 64
+        v.file_size = 1024
+        v.change_note = 'init'
+        v.uploaded_by = USER_ID
+        with patch(
+            'app.api.v1.materials.material_service.list_versions',
+            new_callable=AsyncMock,
+            return_value=[v],
+        ):
             resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/versions')
             data = resp.json()['data']
             assert len(data) == 1
             assert data[0]['version_number'] == 1
+
+    async def test_related_uses_context_without_loading_material(self, client):
+        with (
+            patch(
+                'app.api.v1.materials.enforce_discovery_rate_limit',
+                new_callable=AsyncMock,
+                return_value=(True, {}, MagicMock()),
+            ),
+            patch(
+                'app.api.v1.materials.material_service.get_material_discovery_context',
+                new_callable=AsyncMock,
+                return_value=UUID(COURSE_ID),
+            ) as get_context,
+            patch(
+                'app.api.v1.materials.material_service.get_material',
+                new_callable=AsyncMock,
+            ) as get_material,
+            patch(
+                'app.api.v1.materials.material_service.get_related',
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as get_related,
+        ):
+            response = await client.get(f'/api/v1/materials/{MATERIAL_ID}/related')
+
+        assert response.json()['data'] == []
+        get_context.assert_awaited_once()
+        get_material.assert_not_awaited()
+        get_related.assert_awaited_once_with(
+            get_related.await_args.args[0], UUID(COURSE_ID), UUID(MATERIAL_ID), limit=3
+        )
 
     async def test_rate_material_unauthorized(self, client):
         resp = await client.post(f'/api/v1/materials/{MATERIAL_ID}/ratings', json={'score': 4})
         assert resp.status_code == 401
 
     async def test_create_material_unauthorized(self, client):
-        resp = await client.post('/api/v1/materials', json={
-            'title': 'Test', 'course_id': COURSE_ID, 'category': 'notes', 'semester': '2024-2025-1',
-        })
+        resp = await client.post(
+            '/api/v1/materials',
+            json={
+                'title': 'Test',
+                'course_id': COURSE_ID,
+                'category': 'notes',
+                'semester': '2024-2025-1',
+            },
+        )
         assert resp.status_code == 401
 
 
@@ -119,6 +190,7 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_list_materials(self):
         from app.services.material_service import list_materials
+
         mock_db = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
@@ -129,6 +201,7 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_get_material(self):
         from app.services.material_service import get_material
+
         mock_db = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -152,8 +225,14 @@ class TestMaterialService:
         ratings_result.fetchall.return_value = []
         mock_db.execute = AsyncMock(side_effect=[material_result, ratings_result])
 
-        with patch('app.services.material_service.get_download_delta', new_callable=AsyncMock, return_value=3), \
-             patch('app.services.material_service.set_committed_value') as set_committed:
+        with (
+            patch(
+                'app.services.material_service.get_download_delta',
+                new_callable=AsyncMock,
+                return_value=3,
+            ),
+            patch('app.services.material_service.set_committed_value') as set_committed,
+        ):
             result = await get_material(mock_db, MATERIAL_ID)
 
         assert result is material
@@ -162,12 +241,17 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_create_material(self):
         from app.services.material_service import create_material
+
         mock_db = MagicMock()
         mock_db.add = MagicMock()
         mock_db.flush = AsyncMock()
         m = await create_material(
-            mock_db, USER_ID, title='Test', course_id=COURSE_ID,
-            category='notes', semester='2024-2025-1',
+            mock_db,
+            USER_ID,
+            title='Test',
+            course_id=COURSE_ID,
+            category='notes',
+            semester='2024-2025-1',
         )
         assert m.title == 'Test'
         assert m.contributor_id == USER_ID
@@ -176,26 +260,39 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_create_material_with_storage(self):
         from app.services.material_service import create_material
+
         mock_db = MagicMock()
         mock_db.add = MagicMock()
         mock_db.flush = AsyncMock()
         m = await create_material(
-            mock_db, USER_ID, title='PDF Notes', course_id=COURSE_ID,
-            category='notes', semester='2024-2025-1',
-            storage_key='materials/abc.pdf', file_hash='a' * 64, file_size=1024, format='pdf',
+            mock_db,
+            USER_ID,
+            title='PDF Notes',
+            course_id=COURSE_ID,
+            category='notes',
+            semester='2024-2025-1',
+            storage_key='materials/abc.pdf',
+            file_hash='a' * 64,
+            file_size=1024,
+            format='pdf',
         )
         assert m.file_hash == 'a' * 64
 
     @pytest.mark.asyncio
     async def test_rate_material(self):
         from app.services.material_service import rate_material
+
         mock_db = MagicMock()
         mock_material = MagicMock()
         mock_material.average_rating = 3.0
         mock_material.rating_count = 1
         rating_result = MagicMock()
         rating_result.fetchone.return_value = (4.5, 2)
-        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=mock_material):
+        with patch(
+            'app.services.material_service.get_material',
+            new_callable=AsyncMock,
+            return_value=mock_material,
+        ):
             mock_db.execute = AsyncMock(side_effect=[None, rating_result])
             await rate_material(mock_db, MATERIAL_ID, USER_ID, 5)
         assert mock_material.average_rating == 4.5
@@ -204,6 +301,7 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_add_version(self):
         from app.services.material_service import add_version
+
         mock_db = MagicMock()
         mock_db.add = MagicMock()
         mock_db.flush = AsyncMock()
@@ -212,15 +310,22 @@ class TestMaterialService:
         latest_result = MagicMock()
         latest_result.scalar_one_or_none.return_value = latest
         material = MagicMock()
-        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=material):
+        with patch(
+            'app.services.material_service.get_material',
+            new_callable=AsyncMock,
+            return_value=material,
+        ):
             mock_db.execute = AsyncMock(return_value=latest_result)
-            v = await add_version(mock_db, MATERIAL_ID, USER_ID, 'materials/abc.pdf', 'a' * 64, 2048, 'updated')
+            v = await add_version(
+                mock_db, MATERIAL_ID, USER_ID, 'materials/abc.pdf', 'a' * 64, 2048, 'updated'
+            )
         assert v.version_number == 2
         assert v.file_size == 2048
 
     @pytest.mark.asyncio
     async def test_list_versions(self):
         from app.services.material_service import list_versions
+
         mock_db = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
@@ -229,14 +334,33 @@ class TestMaterialService:
         assert result == []
 
     @pytest.mark.asyncio
+    async def test_list_versions_applies_sql_limit(self):
+        from app.services.material_service import list_versions
+
+        mock_db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        await list_versions(mock_db, UUID(MATERIAL_ID), limit=3)
+
+        statement = mock_db.execute.await_args.args[0]
+        assert 'LIMIT' in str(statement.compile(compile_kwargs={'literal_binds': True}))
+
+    @pytest.mark.asyncio
     async def test_soft_delete_material(self):
         from app.services.material_service import soft_delete_material
+
         mock_db = MagicMock()
         mock_material = MagicMock()
         mock_material.contributor_id = USER_ID
         mock_material.review_status = 'approved'
         mock_db.flush = AsyncMock()
-        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=mock_material):
+        with patch(
+            'app.services.material_service.get_material',
+            new_callable=AsyncMock,
+            return_value=mock_material,
+        ):
             result = await soft_delete_material(mock_db, MATERIAL_ID, USER_ID, 'contributor')
         assert result is True
         assert mock_material.review_status == 'removed'
@@ -244,32 +368,46 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_soft_delete_material_forbidden(self):
         from app.services.material_service import soft_delete_material
+
         mock_db = MagicMock()
         mock_material = MagicMock()
         mock_material.contributor_id = 'other-user-id'
-        with patch('app.services.material_service.get_material', new_callable=AsyncMock, return_value=mock_material):
+        with patch(
+            'app.services.material_service.get_material',
+            new_callable=AsyncMock,
+            return_value=mock_material,
+        ):
             result = await soft_delete_material(mock_db, MATERIAL_ID, USER_ID, 'student')
         assert result is False
 
     @pytest.mark.asyncio
     async def test_get_version_diff_text(self):
         from app.services.material_service import get_version_diff
+
         mock_db = MagicMock()
 
         target = MagicMock()
-        target.id = 'v2'; target.material_id = MATERIAL_ID
-        target.version_number = 2; target.storage_key = 'materials/v2.txt'
+        target.id = 'v2'
+        target.material_id = MATERIAL_ID
+        target.version_number = 2
+        target.storage_key = 'materials/v2.txt'
         target.change_note = 'update'
 
         prev = MagicMock()
-        prev.id = 'v1'; prev.material_id = MATERIAL_ID
-        prev.version_number = 1; prev.storage_key = 'materials/v1.txt'
+        prev.id = 'v1'
+        prev.material_id = MATERIAL_ID
+        prev.version_number = 1
+        prev.storage_key = 'materials/v1.txt'
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.side_effect = [target, prev]
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        with patch('app.services.material_service.resolve_access_url', new_callable=AsyncMock, return_value='http://fake.url/file'):
+        with patch(
+            'app.services.material_service.resolve_access_url',
+            new_callable=AsyncMock,
+            return_value='http://fake.url/file',
+        ):
             with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
                 mock_resp = MagicMock()
                 mock_resp.status_code = 200
@@ -282,6 +420,7 @@ class TestMaterialService:
     @pytest.mark.asyncio
     async def test_get_related(self):
         from app.services.material_service import get_related
+
         mock_db = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
@@ -297,10 +436,22 @@ class TestMaterialDownload:
 
     async def test_download_not_found(self, client):
         app.dependency_overrides[get_current_user] = lambda: MagicMock()
-        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
+        allow_decision = RateLimiter.Decision(
+            allowed=True, source='redis', remaining=10, retry_after=0, degraded=False
+        )
         try:
-            with patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[allow_decision, allow_decision]), \
-                 patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=None):
+            with (
+                patch(
+                    'app.api.v1.materials.RateLimiter.check',
+                    new_callable=AsyncMock,
+                    side_effect=[allow_decision, allow_decision],
+                ),
+                patch(
+                    'app.api.v1.materials.material_service.get_material',
+                    new_callable=AsyncMock,
+                    return_value=None,
+                ),
+            ):
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download')
                 assert resp.json()['code'] == 40400
         finally:
@@ -317,15 +468,37 @@ class TestMaterialDownload:
         material.contributor_id = None
         version = MagicMock()
         version.storage_key = 'materials/demo.pdf'
-        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
+        allow_decision = RateLimiter.Decision(
+            allowed=True, source='redis', remaining=10, retry_after=0, degraded=False
+        )
         try:
-            with patch('app.api.v1.materials.build_request_identity', return_value=identity), \
-                 patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
-                 patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
-                 patch('app.api.v1.materials.resolve_download_url', new_callable=AsyncMock, return_value='https://example.com/file'), \
-                 patch('app.core.redis.incr_download', new_callable=AsyncMock) as increment_download, \
-                 patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[allow_decision, allow_decision]) as check_mock:
-                resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
+            with (
+                patch('app.api.v1.materials.build_request_identity', return_value=identity),
+                patch(
+                    'app.api.v1.materials.material_service.get_material',
+                    new_callable=AsyncMock,
+                    return_value=material,
+                ),
+                patch(
+                    'app.api.v1.materials.material_service.get_latest_version',
+                    new_callable=AsyncMock,
+                    return_value=version,
+                ),
+                patch(
+                    'app.api.v1.materials.resolve_download_url',
+                    new_callable=AsyncMock,
+                    return_value='https://example.com/file',
+                ),
+                patch('app.core.redis.incr_download', new_callable=AsyncMock) as increment_download,
+                patch(
+                    'app.api.v1.materials.RateLimiter.check',
+                    new_callable=AsyncMock,
+                    side_effect=[allow_decision, allow_decision],
+                ) as check_mock,
+            ):
+                resp = await client.get(
+                    f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False
+                )
                 assert resp.status_code == 302
                 assert check_mock.await_args_list[1].args[0] == 'download:identity-key'
                 increment_download.assert_awaited_once_with(MATERIAL_ID)
@@ -334,11 +507,21 @@ class TestMaterialDownload:
 
     async def test_download_denies_when_redis_protection_is_unavailable(self, client):
         app.dependency_overrides[get_current_user] = lambda: MagicMock(id='user-1')
-        deny_decision = RateLimiter.Decision(allowed=False, source='deny_without_redis', remaining=0, retry_after=60, degraded=True)
-        allow_decision = RateLimiter.Decision(allowed=True, source='redis', remaining=10, retry_after=0, degraded=False)
+        deny_decision = RateLimiter.Decision(
+            allowed=False, source='deny_without_redis', remaining=0, retry_after=60, degraded=True
+        )
+        allow_decision = RateLimiter.Decision(
+            allowed=True, source='redis', remaining=10, retry_after=0, degraded=False
+        )
         try:
-            with patch('app.api.v1.materials.RateLimiter.check', new_callable=AsyncMock, side_effect=[deny_decision, allow_decision]):
-                resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False)
+            with patch(
+                'app.api.v1.materials.RateLimiter.check',
+                new_callable=AsyncMock,
+                side_effect=[deny_decision, allow_decision],
+            ):
+                resp = await client.get(
+                    f'/api/v1/materials/{MATERIAL_ID}/download', follow_redirects=False
+                )
                 assert resp.status_code == 503
                 assert resp.json()['code'] == 50310
         finally:
@@ -359,11 +542,15 @@ class TestMaterialPreview:
             contributor_id=None,
             thumbnail_version_id=version_id,
         )
-        with patch('app.api.v1.materials.material_service.get_material_thumbnail_access', new_callable=AsyncMock, return_value=material), \
-             patch('app.api.v1.materials.thumbnail_path', return_value=thumbnail):
-            resp = await client.get(
-                f'/api/v1/materials/{MATERIAL_ID}/thumbnail?v={version_id}'
-            )
+        with (
+            patch(
+                'app.api.v1.materials.material_service.get_material_thumbnail_access',
+                new_callable=AsyncMock,
+                return_value=material,
+            ),
+            patch('app.api.v1.materials.thumbnail_path', return_value=thumbnail),
+        ):
+            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/thumbnail?v={version_id}')
 
         assert resp.status_code == 200
         assert resp.headers['content-type'] == 'image/webp'
@@ -380,8 +567,14 @@ class TestMaterialPreview:
         client.cookies.set('access_token', 'fake-access')
         client.cookies.set('csrf_token', 'csrf-token')
         try:
-            with patch('app.api.v1.materials.material_service.soft_delete_material', new_callable=AsyncMock, return_value=True), \
-                 patch('app.api.v1.materials.delete_thumbnail') as delete_local_thumbnail:
+            with (
+                patch(
+                    'app.api.v1.materials.material_service.soft_delete_material',
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ),
+                patch('app.api.v1.materials.delete_thumbnail') as delete_local_thumbnail,
+            ):
                 resp = await client.delete(
                     f'/api/v1/materials/{MATERIAL_ID}',
                     headers={'X-CSRF-Token': 'csrf-token'},
@@ -395,8 +588,11 @@ class TestMaterialPreview:
     async def test_preview_proxies_verified_file(self, client, tmp_path):
         user = MagicMock(id=USER_ID, role='student')
         material = MagicMock(
-            source_type='hosted', review_status='approved', file_size=7,
-            format='txt', contributor_id=USER_ID,
+            source_type='hosted',
+            review_status='approved',
+            file_size=7,
+            format='txt',
+            contributor_id=USER_ID,
         )
         version = MagicMock(id='version-1', file_size=7, file_hash='hash-1')
 
@@ -406,11 +602,21 @@ class TestMaterialPreview:
 
         app.dependency_overrides[get_current_user] = lambda: user
         try:
-            with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
-                 patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
-                 patch('app.api.v1.materials.download_version_to_path', new=write_preview), \
-                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_DIR', tmp_path / 'previews'), \
-                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_TTL_SECONDS', 900):
+            with (
+                patch(
+                    'app.api.v1.materials.material_service.get_material',
+                    new_callable=AsyncMock,
+                    return_value=material,
+                ),
+                patch(
+                    'app.api.v1.materials.material_service.get_latest_version',
+                    new_callable=AsyncMock,
+                    return_value=version,
+                ),
+                patch('app.api.v1.materials.download_version_to_path', new=write_preview),
+                patch('app.api.v1.materials.settings.PREVIEW_CACHE_DIR', tmp_path / 'previews'),
+                patch('app.api.v1.materials.settings.PREVIEW_CACHE_TTL_SECONDS', 900),
+            ):
                 resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
         finally:
             app.dependency_overrides.clear()
@@ -421,7 +627,13 @@ class TestMaterialPreview:
 
     async def test_preview_reuses_fresh_cached_version(self, client, tmp_path):
         user = MagicMock(id=USER_ID, role='student')
-        material = MagicMock(source_type='hosted', review_status='approved', file_size=7, format='txt', contributor_id=USER_ID)
+        material = MagicMock(
+            source_type='hosted',
+            review_status='approved',
+            file_size=7,
+            format='txt',
+            contributor_id=USER_ID,
+        )
         version = MagicMock(id='version-2', file_size=7, file_hash='hash-2')
         calls = 0
 
@@ -432,11 +644,21 @@ class TestMaterialPreview:
 
         app.dependency_overrides[get_current_user] = lambda: user
         try:
-            with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
-                 patch('app.api.v1.materials.material_service.get_latest_version', new_callable=AsyncMock, return_value=version), \
-                 patch('app.api.v1.materials.download_version_to_path', new=write_preview), \
-                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_DIR', tmp_path / 'previews'), \
-                 patch('app.api.v1.materials.settings.PREVIEW_CACHE_TTL_SECONDS', 900):
+            with (
+                patch(
+                    'app.api.v1.materials.material_service.get_material',
+                    new_callable=AsyncMock,
+                    return_value=material,
+                ),
+                patch(
+                    'app.api.v1.materials.material_service.get_latest_version',
+                    new_callable=AsyncMock,
+                    return_value=version,
+                ),
+                patch('app.api.v1.materials.download_version_to_path', new=write_preview),
+                patch('app.api.v1.materials.settings.PREVIEW_CACHE_DIR', tmp_path / 'previews'),
+                patch('app.api.v1.materials.settings.PREVIEW_CACHE_TTL_SECONDS', 900),
+            ):
                 first = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
                 second = await client.get(f'/api/v1/materials/{MATERIAL_ID}/preview')
         finally:
@@ -445,15 +667,30 @@ class TestMaterialPreview:
         assert first.content == second.content == b'cached'
         assert calls == 1
 
+
 class TestVersionDiff:
     async def test_diff_non_text_returns_null_diff(self, client):
         material = MagicMock()
         material.review_status = 'approved'
-        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material), \
-             patch('app.api.v1.materials.material_service.get_version_diff', new_callable=AsyncMock, return_value={
-            'diff': None, 'version_number': 1, 'message': 'diff available for text files only',
-        }):
-            resp = await client.get(f'/api/v1/materials/{MATERIAL_ID}/versions/00000000-0000-0000-0000-000000000002/diff')
+        with (
+            patch(
+                'app.api.v1.materials.material_service.get_material',
+                new_callable=AsyncMock,
+                return_value=material,
+            ),
+            patch(
+                'app.api.v1.materials.material_service.get_version_diff',
+                new_callable=AsyncMock,
+                return_value={
+                    'diff': None,
+                    'version_number': 1,
+                    'message': 'diff available for text files only',
+                },
+            ),
+        ):
+            resp = await client.get(
+                f'/api/v1/materials/{MATERIAL_ID}/versions/00000000-0000-0000-0000-000000000002/diff'
+            )
             data = resp.json()['data']
             assert data['diff'] is None
 
@@ -461,7 +698,11 @@ class TestVersionDiff:
         material = MagicMock()
         material.review_status = 'pending'
         material.contributor_id = 'owner-id'
-        with patch('app.api.v1.materials.material_service.get_material', new_callable=AsyncMock, return_value=material):
+        with patch(
+            'app.api.v1.materials.material_service.get_material',
+            new_callable=AsyncMock,
+            return_value=material,
+        ):
             resp = await client.get(
                 f'/api/v1/materials/{MATERIAL_ID}/versions/00000000-0000-0000-0000-000000000002/diff',
             )

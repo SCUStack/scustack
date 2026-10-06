@@ -1,16 +1,19 @@
+import asyncio
 import mimetypes
 import tempfile
-import asyncio
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.anti_scraping_events import log_anti_scraping_event
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.discovery_protection import enforce_discovery_rate_limit
+from app.core.permissions import Permission
+from app.core.preview_cache import atomic_replace, cache_path, cleanup_cache, is_fresh
 from app.core.redis import RateLimiter
 from app.core.request_identity import build_request_identity
 from app.core.storage import (
@@ -21,17 +24,26 @@ from app.core.storage import (
     resolve_download_url,
 )
 from app.core.thumbnails import delete_thumbnail, thumbnail_path
-from app.core.permissions import Permission
-from app.core.preview_cache import atomic_replace, cache_path, cleanup_cache, is_fresh
-from app.core.config import settings
 from app.dependencies import get_current_user, get_optional_user, require_permission
 from app.models.user import User
 from app.schemas.material import (
-    MaterialCreate, MaterialResponse, MaterialUpdate,
-    MaterialDetailResponse, RatingRequest, VersionCreate, VersionResponse,
+    MaterialCreate,
+    MaterialDetailResponse,
+    MaterialResponse,
+    MaterialUpdate,
+    RatingRequest,
+    VersionCreate,
+    VersionResponse,
 )
 from app.schemas.report import ReportCreate
-from app.services import copyright_service, material_service, report_service, review_service, upload_service, user_service
+from app.services import (
+    copyright_service,
+    material_service,
+    report_service,
+    review_service,
+    upload_service,
+    user_service,
+)
 
 router = APIRouter(prefix='/materials', tags=['materials'])
 _preview_locks: dict[str, asyncio.Lock] = {}
@@ -42,9 +54,9 @@ def _can_access_material(material, current_user: User | None) -> bool:
         return True
     if current_user is None:
         return False
-    return (
-        str(material.contributor_id) == str(current_user.id)
-        or current_user.role in ('maintainer', 'admin')
+    return str(material.contributor_id) == str(current_user.id) or current_user.role in (
+        'maintainer',
+        'admin',
     )
 
 
@@ -63,18 +75,36 @@ async def list_materials(
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_optional_user),
 ):
-    allowed, headers, _ = await enforce_discovery_rate_limit('materials_list', request, current_user)
+    allowed, headers, _ = await enforce_discovery_rate_limit(
+        'materials_list', request, current_user
+    )
     if not allowed:
-        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
+        return JSONResponse(
+            {'code': 42900, 'data': None, 'message': 'too many discovery requests'},
+            status_code=429,
+            headers=headers,
+        )
     items = await material_service.list_materials(
-        db, course_id=course_id, category=category, semester=semester,
-        source_type=source_type, format=format, trust_status=trust_status,
-        sort=sort, limit=limit, offset=offset,
+        db,
+        course_id=course_id,
+        category=category,
+        semester=semester,
+        source_type=source_type,
+        format=format,
+        trust_status=trust_status,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     data = [MaterialResponse.model_validate(m).model_dump(mode='json') for m in items]
     total = await material_service.count_materials(
-        db, course_id=course_id, category=category, semester=semester,
-        source_type=source_type, format=format, trust_status=trust_status,
+        db,
+        course_id=course_id,
+        category=category,
+        semester=semester,
+        source_type=source_type,
+        format=format,
+        trust_status=trust_status,
     )
     return {'code': 0, 'data': data, 'total': total, 'message': 'ok'}
 
@@ -88,7 +118,11 @@ async def get_material(
     m = await material_service.get_material(db, material_id)
     if m is None or m.review_status == 'removed' or not _can_access_material(m, current_user):
         return {'code': 40400, 'data': None, 'message': 'material not found'}
-    return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'ok'}
+    return {
+        'code': 0,
+        'data': MaterialResponse.model_validate(m).model_dump(mode='json'),
+        'message': 'ok',
+    }
 
 
 @router.get('/{material_id}/thumbnail')
@@ -144,7 +178,9 @@ async def create_material(
     current_user: User = Depends(get_current_user),
 ):
     if body.source_type == 'external' and body.external_url:
-        err = await upload_service.validate_external_url(db, body.external_url, str(current_user.id))
+        err = await upload_service.validate_external_url(
+            db, body.external_url, str(current_user.id)
+        )
         if err:
             return {'code': 40000, 'data': None, 'message': err}
         is_new = await upload_service.check_new_user_review(db, str(current_user.id))
@@ -159,9 +195,15 @@ async def create_material(
 
     if body.source_type == 'hosted':
         if not body.upload_id:
-            return {'code': 40000, 'data': None, 'message': 'hosted materials require an uploaded file'}
+            return {
+                'code': 40000,
+                'data': None,
+                'message': 'hosted materials require an uploaded file',
+            }
         try:
-            stored_objects, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
+            stored_objects, checksum = await consume_uploaded_object(
+                body.upload_id, str(current_user.id)
+            )
         except StorageError as e:
             return {'code': 40000, 'data': None, 'message': str(e)}
         stored = stored_objects[0]
@@ -176,7 +218,13 @@ async def create_material(
         latest_version = await material_service.get_latest_version(db, m.id)
         if latest_version is not None:
             for index, stored_object in enumerate(stored_objects):
-                await add_replica(db, latest_version.id, stored_object, checksum, 'primary' if index == 0 else 'replica')
+                await add_replica(
+                    db,
+                    latest_version.id,
+                    stored_object,
+                    checksum,
+                    'primary' if index == 0 else 'replica',
+                )
     try:
         await user_service.notify_course_followers(db, m.course_id, m.title, m.id)
     except Exception:
@@ -185,6 +233,7 @@ async def create_material(
     # Trigger async upload validation pipeline before anything becomes publicly visible.
     try:
         from app.tasks.material_tasks import generate_thumbnail, pre_screen_content, virus_scan
+
         if m.source_type == 'hosted':
             latest_version = await material_service.get_latest_version(db, m.id)
             if latest_version is not None:
@@ -209,14 +258,25 @@ async def update_material(
     current_user: User = Depends(get_current_user),
 ):
     m = await material_service.update_material(
-        db, material_id, current_user.id, current_user.role, **body.model_dump(exclude_none=True),
+        db,
+        material_id,
+        current_user.id,
+        current_user.role,
+        **body.model_dump(exclude_none=True),
     )
     if m is None:
         return {'code': 40400, 'data': None, 'message': 'material not found'}
-    if str(m.contributor_id) != str(current_user.id) and current_user.role not in ('maintainer', 'admin'):
+    if str(m.contributor_id) != str(current_user.id) and current_user.role not in (
+        'maintainer',
+        'admin',
+    ):
         return {'code': 40300, 'data': None, 'message': 'forbidden'}
     await db.commit()
-    return {'code': 0, 'data': MaterialResponse.model_validate(m).model_dump(mode='json'), 'message': 'material updated'}
+    return {
+        'code': 0,
+        'data': MaterialResponse.model_validate(m).model_dump(mode='json'),
+        'message': 'material updated',
+    }
 
 
 @router.delete('/{material_id}')
@@ -225,13 +285,16 @@ async def delete_material(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    ok = await material_service.soft_delete_material(db, material_id, current_user.id, current_user.role)
+    ok = await material_service.soft_delete_material(
+        db, material_id, current_user.id, current_user.role
+    )
     if not ok:
         return {'code': 40400, 'data': None, 'message': 'material not found or forbidden'}
     await db.commit()
     delete_thumbnail(material_id)
     try:
         from app.tasks.index_sync import delete_material_from_es
+
         delete_material_from_es.delay(str(material_id))
     except Exception:
         pass
@@ -267,9 +330,20 @@ async def download_material(
             user_agent=request.headers.get('user-agent', ''),
         )
         if user_check.source == 'deny_without_redis':
-            return JSONResponse({'code': 50310, 'data': None, 'message': 'download protection temporarily unavailable'}, status_code=503)
+            return JSONResponse(
+                {
+                    'code': 50310,
+                    'data': None,
+                    'message': 'download protection temporarily unavailable',
+                },
+                status_code=503,
+            )
         headers = await user_limiter.limit_headers(f'download:user:{current_user.id}')
-        return JSONResponse({'code': 42900, 'data': None, 'message': 'daily download limit reached'}, status_code=429, headers=headers)
+        return JSONResponse(
+            {'code': 42900, 'data': None, 'message': 'daily download limit reached'},
+            status_code=429,
+            headers=headers,
+        )
 
     ip_limiter = RateLimiter(
         max_requests=200,
@@ -291,27 +365,47 @@ async def download_material(
             user_agent=request.headers.get('user-agent', ''),
         )
         if ip_check.source == 'deny_without_redis':
-            return JSONResponse({'code': 50310, 'data': None, 'message': 'download protection temporarily unavailable'}, status_code=503)
-        return JSONResponse({'code': 42900, 'data': None, 'message': 'download rate limit exceeded'}, status_code=429)
+            return JSONResponse(
+                {
+                    'code': 50310,
+                    'data': None,
+                    'message': 'download protection temporarily unavailable',
+                },
+                status_code=503,
+            )
+        return JSONResponse(
+            {'code': 42900, 'data': None, 'message': 'download rate limit exceeded'},
+            status_code=429,
+        )
 
     m = await material_service.get_material(db, material_id)
     if m is None or m.source_type != 'hosted' or not _can_access_material(m, current_user):
-        return JSONResponse({'code': 40400, 'data': None, 'message': 'file not available for download'}, status_code=404)
+        return JSONResponse(
+            {'code': 40400, 'data': None, 'message': 'file not available for download'},
+            status_code=404,
+        )
 
     version = await material_service.get_latest_version(db, material_id)
     if version is None:
-        return JSONResponse({'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404)
+        return JSONResponse(
+            {'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404
+        )
 
     try:
         url = await resolve_download_url(db, version)
     except StorageError:
-        return JSONResponse({'code': 50300, 'data': None, 'message': 'storage temporarily unavailable'}, status_code=503)
+        return JSONResponse(
+            {'code': 50300, 'data': None, 'message': 'storage temporarily unavailable'},
+            status_code=503,
+        )
 
     from app.core.redis import incr_download
+
     await incr_download(str(m.id))
 
     if m.contributor_id:
         from app.tasks.achievement import check_achievements_after_download
+
         check_achievements_after_download.delay(str(m.contributor_id), str(m.id))
 
     return RedirectResponse(url=url, status_code=302)
@@ -325,13 +419,20 @@ async def preview_material(
 ):
     m = await material_service.get_material(db, material_id)
     if m is None or m.source_type != 'hosted' or not _can_access_material(m, current_user):
-        return JSONResponse({'code': 40400, 'data': None, 'message': 'file not available for preview'}, status_code=404)
+        return JSONResponse(
+            {'code': 40400, 'data': None, 'message': 'file not available for preview'},
+            status_code=404,
+        )
     if m.file_size and m.file_size > 25 * 1024 * 1024:
-        return JSONResponse({'code': 41300, 'data': None, 'message': 'file too large for preview'}, status_code=413)
+        return JSONResponse(
+            {'code': 41300, 'data': None, 'message': 'file too large for preview'}, status_code=413
+        )
 
     version = await material_service.get_latest_version(db, material_id)
     if version is None:
-        return JSONResponse({'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404)
+        return JSONResponse(
+            {'code': 40400, 'data': None, 'message': 'file not found'}, status_code=404
+        )
 
     suffix = f'.{m.format}' if m.format else ''
     destination = cache_path(m.id, version.id, version.file_hash, suffix)
@@ -350,7 +451,10 @@ async def preview_material(
                 cleanup_cache(preserve=destination)
             except StorageError:
                 temporary.unlink(missing_ok=True)
-                return JSONResponse({'code': 50300, 'data': None, 'message': 'preview temporarily unavailable'}, status_code=503)
+                return JSONResponse(
+                    {'code': 50300, 'data': None, 'message': 'preview temporarily unavailable'},
+                    status_code=503,
+                )
 
     media_type = mimetypes.guess_type(destination.name)[0] or 'application/octet-stream'
     return FileResponse(destination, media_type=media_type)
@@ -371,7 +475,9 @@ async def rate_material(
     m = await material_service.get_material(db, material_id)
     return {
         'code': 0,
-        'data': {'average_rating': float(m.average_rating), 'rating_count': m.rating_count} if m else {},
+        'data': {'average_rating': float(m.average_rating), 'rating_count': m.rating_count}
+        if m
+        else {},
         'message': 'ok',
     }
 
@@ -379,7 +485,11 @@ async def rate_material(
 @router.get('/{material_id}/versions')
 async def list_versions(material_id: UUID, db: AsyncSession = Depends(get_db)):
     versions = await material_service.list_versions(db, material_id)
-    return {'code': 0, 'data': [VersionResponse.model_validate(v).model_dump(mode='json') for v in versions], 'message': 'ok'}
+    return {
+        'code': 0,
+        'data': [VersionResponse.model_validate(v).model_dump(mode='json') for v in versions],
+        'message': 'ok',
+    }
 
 
 @router.post('/{material_id}/versions')
@@ -392,14 +502,21 @@ async def create_version(
     m = await material_service.get_material(db, material_id)
     if m is None:
         return {'code': 40400, 'data': None, 'message': 'material not found'}
-    if str(m.contributor_id) != str(current_user.id) and current_user.role not in ('maintainer', 'admin'):
+    if str(m.contributor_id) != str(current_user.id) and current_user.role not in (
+        'maintainer',
+        'admin',
+    ):
         return {'code': 40300, 'data': None, 'message': 'forbidden'}
     try:
-        stored_objects, checksum = await consume_uploaded_object(body.upload_id, str(current_user.id))
+        stored_objects, checksum = await consume_uploaded_object(
+            body.upload_id, str(current_user.id)
+        )
     except StorageError as e:
         return {'code': 40000, 'data': None, 'message': str(e)}
     v = await material_service.add_version(
-        db, material_id, current_user.id,
+        db,
+        material_id,
+        current_user.id,
         storage_key=stored_objects[0].locator,
         file_hash=checksum,
         file_size=stored_objects[0].file_size,
@@ -413,13 +530,18 @@ async def create_version(
     await db.commit()
     try:
         from app.tasks.material_tasks import generate_thumbnail, pre_screen_content, virus_scan
+
         if settings.FILE_UPLOAD_SCAN_ENABLED:
             virus_scan.delay(str(m.id), str(v.id))
         generate_thumbnail.delay(str(m.id), str(v.id), m.format or '')
         pre_screen_content.delay(str(m.id), m.title, m.description, m.source_type)
     except Exception:
         pass
-    return {'code': 0, 'data': VersionResponse.model_validate(v).model_dump(mode='json'), 'message': 'version created'}
+    return {
+        'code': 0,
+        'data': VersionResponse.model_validate(v).model_dump(mode='json'),
+        'message': 'version created',
+    }
 
 
 @router.get('/{material_id}/versions/{version_id}/diff')
@@ -446,14 +568,24 @@ async def related_materials(
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_optional_user),
 ):
-    allowed, headers, _ = await enforce_discovery_rate_limit('material_related', request, current_user)
+    allowed, headers, _ = await enforce_discovery_rate_limit(
+        'material_related', request, current_user
+    )
     if not allowed:
-        return JSONResponse({'code': 42900, 'data': None, 'message': 'too many discovery requests'}, status_code=429, headers=headers)
-    m = await material_service.get_material(db, material_id)
-    if m is None:
+        return JSONResponse(
+            {'code': 42900, 'data': None, 'message': 'too many discovery requests'},
+            status_code=429,
+            headers=headers,
+        )
+    course_id = await material_service.get_material_discovery_context(db, material_id)
+    if course_id is None:
         return {'code': 0, 'data': [], 'message': 'ok'}
-    items = await material_service.get_related(db, m.course_id, material_id, limit=3)
-    return {'code': 0, 'data': [MaterialResponse.model_validate(x).model_dump(mode='json') for x in items], 'message': 'ok'}
+    items = await material_service.get_related(db, course_id, material_id, limit=3)
+    return {
+        'code': 0,
+        'data': [MaterialResponse.model_validate(x).model_dump(mode='json') for x in items],
+        'message': 'ok',
+    }
 
 
 @router.post('/{material_id}/reports')
@@ -467,7 +599,11 @@ async def report_material(
     if m is None:
         return {'code': 40400, 'data': None, 'message': 'material not found'}
     r = await report_service.create_report(
-        db, material_id, current_user.id, body.reason, body.description,
+        db,
+        material_id,
+        current_user.id,
+        body.reason,
+        body.description,
     )
     await db.commit()
     return {'code': 0, 'data': {'report_id': str(r.id)}, 'message': 'report submitted'}
