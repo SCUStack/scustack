@@ -10,21 +10,22 @@
     </button>
 
     <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/40" @click.self="showModal = false">
-        <div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4" role="dialog" aria-modal="true" aria-label="反馈">
-          <h3 class="text-base font-medium text-slate-900 mb-4">帮助我们变得更好</h3>
+      <div v-if="showModal" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/40" @click.self="close">
+        <div ref="dialogRef" class="bg-white rounded-lg p-6 w-full max-w-sm mx-4" role="dialog" aria-modal="true" aria-labelledby="feedback-dialog-title" tabindex="-1">
+          <h3 id="feedback-dialog-title" class="text-base font-medium text-slate-900 mb-4">帮助我们变得更好</h3>
           <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">反馈类型</label>
-              <select v-model="type" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
+              <label for="feedback-type" class="block text-sm font-medium text-slate-700 mb-1">反馈类型</label>
+              <select id="feedback-type" v-model="type" class="w-full h-10 px-3 border border-slate-200 rounded-md text-sm outline-none focus:border-primary-500">
                 <option value="bug">Bug 反馈</option>
                 <option value="feature">功能建议</option>
                 <option value="other">其他</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">描述</label>
+              <label for="feedback-content" class="block text-sm font-medium text-slate-700 mb-1">描述</label>
               <textarea
+                id="feedback-content"
                 v-model="content"
                 maxlength="2000"
                 rows="4"
@@ -33,8 +34,9 @@
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">邮箱（选填，用于回复）</label>
+              <label for="feedback-email" class="block text-sm font-medium text-slate-700 mb-1">邮箱（选填，用于回复）</label>
               <input
+                id="feedback-email"
                 v-model="email"
                 type="email"
                 maxlength="200"
@@ -42,11 +44,11 @@
                 placeholder="your@email.com"
               />
             </div>
-            <p v-if="errorMsg" class="text-sm text-red-500">{{ errorMsg }}</p>
+            <p v-if="errorMsg" role="alert" class="text-sm text-red-500">{{ errorMsg }}</p>
             <div class="flex justify-end gap-3 pt-1">
               <button
                 class="h-9 px-4 rounded-md text-sm text-slate-600 hover:bg-slate-100 cursor-pointer border-none bg-transparent transition-colors duration-150"
-                @click="showModal = false"
+                @click="close"
               >
                 取消
               </button>
@@ -68,6 +70,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+const dialogRef = ref<HTMLElement | null>(null)
+
 const { apiBase } = useRuntimeConfig().public
 const toast = useToast()
 
@@ -77,6 +81,12 @@ const content = ref('')
 const email = ref('')
 const submitting = ref(false)
 const errorMsg = ref('')
+
+function close() {
+  showModal.value = false
+}
+
+useDialogFocus(showModal, dialogRef, close)
 
 async function submit() {
   if (!content.value.trim()) return
