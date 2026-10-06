@@ -1,7 +1,6 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select, func, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.course import Course
@@ -26,27 +25,31 @@ async def get_review_queue(
     total = total_result.scalar() or 0
 
     items_result = await db.execute(
-        stmt.order_by(Material.created_at.asc()).offset(offset).limit(limit)
+        stmt.outerjoin(Course, Course.id == Material.course_id)
+        .add_columns(Course.name)
+        .order_by(Material.created_at.asc())
+        .offset(offset)
+        .limit(limit)
     )
-    materials = items_result.scalars().all()
+    material_rows = items_result.all()
 
     items = []
-    for m in materials:
-        course_result = await db.execute(select(Course.name).where(Course.id == m.course_id))
-        course_name = course_result.scalar() or ''
-        items.append({
-            'material_id': m.id,
-            'title': m.title,
-            'course_name': course_name,
-            'category': m.category,
-            'semester': m.semester,
-            'contributor_id': m.contributor_id,
-            'format': m.format,
-            'file_size': m.file_size,
-            'trust_status': m.trust_status,
-            'review_status': m.review_status,
-            'submitted_at': m.created_at,
-        })
+    for m, course_name in material_rows:
+        items.append(
+            {
+                'material_id': m.id,
+                'title': m.title,
+                'course_name': course_name or '',
+                'category': m.category,
+                'semester': m.semester,
+                'contributor_id': m.contributor_id,
+                'format': m.format,
+                'file_size': m.file_size,
+                'trust_status': m.trust_status,
+                'review_status': m.review_status,
+                'submitted_at': m.created_at,
+            }
+        )
     return items, total
 
 
@@ -91,11 +94,7 @@ async def batch_review(
     comment: str | None = None,
 ) -> int:
     new_status = 'approved' if action == 'approved' else 'rejected'
-    stmt = (
-        update(Material)
-        .where(Material.id.in_(material_ids))
-        .values(review_status=new_status)
-    )
+    stmt = update(Material).where(Material.id.in_(material_ids)).values(review_status=new_status)
     result = await db.execute(stmt)
 
     for mid in material_ids:
