@@ -49,6 +49,6 @@ describe('useSearch', () => {
     expect(search.currentSort.value).toBe('relevance')
     expect(search.page.value).toBe(1)
     expect(search.filters.category).toEqual([])
-    expect(search.filters.difficulty).toEqual([])
+    expect(search.filters.difficulty).toBeUndefined()
   })
 })

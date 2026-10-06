@@ -67,15 +67,22 @@ export function useSearch() {
     currentSort.value = first(q.sort) || 'relevance'
     const parsedPage = parseInt(first(q.page) || '1', 10)
     page.value = isFinite(parsedPage) ? Math.max(1, parsedPage) : 1
-    for (const key of Object.keys(filtersState.value)) filtersState.value[key] = []
+    // Reset existing filter groups in place; drop ad-hoc groups that this URL no longer references.
+    const referenced = new Set(Object.keys(q))
+    for (const key of Object.keys(filtersState.value)) {
+      if (key in filters || referenced.has(key)) filtersState.value[key] = []
+      else delete filtersState.value[key]
+    }
     for (const key of Object.keys(q)) {
       if (key === 'q' || key === 'sort' || key === 'page') continue
+      if (!(key in filtersState.value)) filtersState.value[key] = []
       const value = q[key]
       const values = Array.isArray(value)
         ? value.reduce<string[]>((items, item) => items.concat(item.split(',')), []).filter(Boolean)
         : value ? value.split(',').filter(Boolean) : []
       if (values.length) filtersState.value[key] = values
     }
+    // Known filter groups must always be readable as arrays, never undefined.
     for (const key of Object.keys(filters)) if (!(key in filtersState.value)) filters[key] = []
   }
 
