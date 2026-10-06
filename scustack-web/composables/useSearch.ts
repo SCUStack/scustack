@@ -67,7 +67,7 @@ export function useSearch() {
     currentSort.value = first(q.sort) || 'relevance'
     const parsedPage = parseInt(first(q.page) || '1', 10)
     page.value = isFinite(parsedPage) ? Math.max(1, parsedPage) : 1
-    for (const key of Object.keys(filtersState.value)) delete filtersState.value[key]
+    for (const key of Object.keys(filtersState.value)) filtersState.value[key] = []
     for (const key of Object.keys(q)) {
       if (key === 'q' || key === 'sort' || key === 'page') continue
       const value = q[key]
