@@ -152,6 +152,8 @@ gateway; deploy it separately outside this repository before setting this variab
 
 Store secrets in your cloud secret store or GitHub Actions secrets. Do not commit `.env`.
 
+生产自动部署当前未启用。`.github/workflows/docker-build.yml` 仅在 pull request、`main` 推送或手动触发时执行 Docker 镜像构建静态检查，不登录 GHCR、不推送镜像，也不连接生产服务器。生产部署需由经过授权的运维流程按本手册手动执行；后续若恢复自动部署，必须单独评审并显式修改工作流。
+
 Suggested production compose override for a single-node app host:
 
 ```yaml
