@@ -202,6 +202,8 @@
       </div>
     </header>
 
+    <MobilePageHeader v-if="!isHome" :title="String(route.meta.title || mobilePageTitle)" />
+
     <!-- Notification / user menu overlay -->
     <div v-if="showNotifications || showUserMenu" class="fixed inset-0 z-40" @click="showNotifications = false; showUserMenu = false" />
 
@@ -247,8 +249,9 @@
       </div>
     </nav>
 
-    <!-- Spacer: mobile home-only, desktop non-home only -->
+    <!-- Shared mobile header and desktop navbar spacers -->
     <div v-if="isHome" class="lg:hidden" style="height: calc(var(--mobile-header-height) + var(--safe-area-top))" />
+    <div v-else class="lg:hidden" style="height: calc(var(--mobile-header-height) + var(--safe-area-top))" />
     <div class="hidden lg:block" :class="isHome ? '' : 'h-14'" />
 
     <main id="main-content" :tabindex="-1" class="relative z-10 lg:pb-0" style="padding-bottom: calc(var(--mobile-bottom-nav-height) + 0.75rem)">
@@ -262,11 +265,14 @@
 <script setup lang="ts">
 import type { NotificationItem } from '~/types/api'
 import { getDefaultAvatar } from '~/utils/defaultAvatar'
+import { getMobilePageTitle } from '~/utils/mobileNavigation'
 
 const route = useRoute()
 const auth = useAuthStore()
 
 const isHome = computed(() => route.path === '/')
+const mobilePageTitle = computed(() => getMobilePageTitle(route.path, route.meta.title))
+
 const isAdmin = computed(() => {
   const role = auth.user?.role
   return role === 'maintainer' || role === 'admin'

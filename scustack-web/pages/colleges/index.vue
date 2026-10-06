@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ ssr: true })
+definePageMeta({ ssr: true, title: '学院列表' })
 
 const { apiBase } = useRuntimeConfig().public
 

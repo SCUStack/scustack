@@ -83,7 +83,7 @@
 <script setup lang="ts">
 import { useSearchFilterConfig } from '~/composables/useSearchFilterConfig'
 
-definePageMeta({ ssr: true })
+definePageMeta({ ssr: true, title: '资料搜索' })
 
 const {
   queryText, currentSort, page, pageSize, results, total, searched, loading, rateLimited,
