@@ -41,18 +41,19 @@ async def list_reports(
     total = total_result.scalar() or 0
 
     items_result = await db.execute(
-        stmt.order_by(Report.created_at.asc()).offset(offset).limit(limit)
+        stmt.order_by(Report.created_at.asc())
+        .outerjoin(Material, Material.id == Report.material_id)
+        .add_columns(Material.title)
+        .offset(offset)
+        .limit(limit)
     )
-    reports = items_result.scalars().all()
 
     items = []
-    for r in reports:
-        mat_result = await db.execute(select(Material.title).where(Material.id == r.material_id))
-        mat_title = mat_result.scalar() or '(已移除)'
+    for r, mat_title in items_result.all():
         items.append({
             'report_id': r.id,
             'material_id': r.material_id,
-            'material_title': mat_title,
+            'material_title': mat_title or '(已移除)',
             'reason': r.reason,
             'description': r.description,
             'reporter_id': r.reporter_id,

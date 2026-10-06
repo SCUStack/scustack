@@ -1,6 +1,6 @@
 """Tests for Epic 9: Review & Governance — admin routes, reports, audit, pin, trust."""
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -404,3 +404,41 @@ class TestReviewService:
             return r
 
         asyncio.run(_run())
+
+    @pytest.mark.asyncio
+    async def test_list_reports_batches_material_titles(self):
+        from app.services.report_service import list_reports
+
+        reports = [
+            MagicMock(
+                material_id=uuid.uuid4(),
+                id=uuid.uuid4(),
+                reason='copyright',
+                description=None,
+                reporter_id=uuid.uuid4(),
+                status='pending',
+                created_at=datetime.now(UTC),
+            )
+            for _ in range(3)
+        ]
+        count_result = MagicMock()
+        count_result.scalar.return_value = len(reports)
+        items_result = MagicMock()
+        items_result.all.return_value = [
+            (reports[0], 'Material 0'),
+            (reports[1], None),
+            (reports[2], 'Material 2'),
+        ]
+
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(side_effect=[count_result, items_result])
+
+        items, total = await list_reports(mock_db, limit=len(reports))
+
+        assert total == len(reports)
+        assert [item['material_title'] for item in items] == [
+            'Material 0',
+            '(已移除)',
+            'Material 2',
+        ]
+        assert mock_db.execute.await_count == 2
