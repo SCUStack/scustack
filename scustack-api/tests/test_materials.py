@@ -342,7 +342,7 @@ class TestMaterialService:
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        await list_versions(mock_db, MATERIAL_ID, limit=3)
+        await list_versions(mock_db, UUID(MATERIAL_ID), limit=3)
 
         statement = mock_db.execute.await_args.args[0]
         assert 'LIMIT' in str(statement.compile(compile_kwargs={'literal_binds': True}))
