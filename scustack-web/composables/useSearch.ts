@@ -1,3 +1,4 @@
+import { computed, ref } from 'vue'
 import { businessLabelMaps, searchFilterGroupLabels } from '~/data/business'
 import type { MaterialItem } from '~/types/api'
 
@@ -15,21 +16,22 @@ export function useSearch() {
   const router = useRouter()
 
   // ── State ─────────────────────────────────────────────────────────────
-  const queryText = ref('')
-  const currentSort = ref('relevance')
-  const page = ref(1)
+  const queryText = useState('search-query', () => '')
+  const currentSort = useState('search-sort', () => 'relevance')
+  const page = useState('search-page', () => 1)
   const pageSize = 21
-  const results = ref<MaterialItem[]>([])
-  const total = ref(0)
-  const searched = ref(false)
-  const loading = ref(false)
-  const rateLimited = ref(false)
+  const results = useState<MaterialItem[]>('search-results', () => [])
+  const total = useState('search-total', () => 0)
+  const searched = useState('search-searched', () => false)
+  const loading = useState('search-loading', () => false)
+  const rateLimited = useState('search-rate-limited', () => false)
   const suggestResults = ref<{ courses: string[]; materials: string[] }>({ courses: [], materials: [] })
   const suggestVisible = ref(false)
 
-  const filters = reactive<Record<string, string[]>>({
+  const filtersState = useState<Record<string, string[]>>('search-filters', () => ({
     category: [], semester: [], source_type: [], format: [], college_id: [], trust_status: [],
-  })
+  }))
+  const filters = filtersState.value
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
   let abortController: AbortController | null = null
@@ -37,14 +39,20 @@ export function useSearch() {
   // ── Computed ──────────────────────────────────────────────────────────
 
   const activeFilterCount = computed(() =>
-    Object.values(filters).reduce((sum, vals) => sum + vals.length, 0),
+    Object.keys(filters).reduce((sum, key) => sum + filters[key].length, 0),
   )
 
   const activeFilterChips = computed(() => {
     const chips: { key: string; value: string; label: string; display: string }[] = []
-    for (const [key, values] of Object.entries(filters)) {
-      for (const v of values) {
+    for (const key of Object.keys(filters)) {
+      for (const v of filters[key]) {
         chips.push({ key, value: v, label: searchFilterGroupLabels[key] || key, display: filterDisplay(key, v) })
+      }
+    }
+    for (const key of Object.keys(filtersState.value)) {
+      if (key in filters) continue
+      for (const value of filtersState.value[key]) {
+        chips.push({ key, value, label: searchFilterGroupLabels[key] || key, display: filterDisplay(key, value) })
       }
     }
     return chips
@@ -53,21 +61,38 @@ export function useSearch() {
   // ── URL sync ──────────────────────────────────────────────────────────
 
   function syncFromUrl() {
-    const q = route.query as Record<string, string | undefined>
-    if (q.q) queryText.value = q.q
-    if (q.sort) currentSort.value = q.sort
-    if (q.page) page.value = Math.max(1, parseInt(q.page))
-    for (const key of Object.keys(filters)) {
-      if (q[key]) filters[key] = q[key]!.split(',')
+    const q = route.query as Record<string, string | string[] | undefined>
+    const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value
+    queryText.value = first(q.q) || ''
+    currentSort.value = first(q.sort) || 'relevance'
+    const parsedPage = parseInt(first(q.page) || '1', 10)
+    page.value = isFinite(parsedPage) ? Math.max(1, parsedPage) : 1
+    for (const key of Object.keys(filtersState.value)) delete filtersState.value[key]
+    for (const key of Object.keys(q)) {
+      if (key === 'q' || key === 'sort' || key === 'page') continue
+      const value = q[key]
+      const values = Array.isArray(value)
+        ? value.reduce<string[]>((items, item) => items.concat(item.split(',')), []).filter(Boolean)
+        : value ? value.split(',').filter(Boolean) : []
+      if (values.length) filtersState.value[key] = values
     }
+    for (const key of Object.keys(filters)) if (!(key in filtersState.value)) filters[key] = []
   }
 
   function syncToUrl() {
     const q: Record<string, string> = {}
+    const currentQuery = route.query as Record<string, string | string[] | undefined>
+    for (const key of Object.keys(currentQuery)) {
+      if (!(key in filters) && key !== 'q' && key !== 'sort' && key !== 'page') {
+        const value = currentQuery[key]
+        q[key] = Array.isArray(value) ? value.join(',') : value || ''
+      }
+    }
     if (queryText.value) q.q = queryText.value
     if (currentSort.value !== 'relevance') q.sort = currentSort.value
     if (page.value > 1) q.page = String(page.value)
-    for (const [key, values] of Object.entries(filters)) {
+    for (const key of Object.keys(filtersState.value)) {
+      const values = filtersState.value[key]
       if (values.length) q[key] = values.join(',')
     }
     router.replace({ query: q })
@@ -75,7 +100,7 @@ export function useSearch() {
 
   // ── Search ────────────────────────────────────────────────────────────
 
-  async function doSearch(retryAttempt = 0) {
+  async function doSearch(retryAttempt = 0, append = false) {
     if (abortController) abortController.abort()
     abortController = new AbortController()
 
@@ -90,8 +115,8 @@ export function useSearch() {
       if (currentSort.value !== 'relevance') params.set('sort', currentSort.value)
       if (page.value > 1) params.set('page', String(page.value))
       params.set('page_size', String(pageSize))
-      for (const [key, values] of Object.entries(filters)) {
-        for (const v of values) params.append(key, v)
+      for (const key of Object.keys(filtersState.value)) {
+        for (const v of filtersState.value[key]) params.append(key, v)
       }
 
       const resp = await $fetch<{ code: number; data: { items: MaterialItem[]; total: number } }>(
@@ -99,7 +124,11 @@ export function useSearch() {
         { signal: abortController.signal },
       )
       if (resp.code === 0) {
-        results.value = resp.data.items
+        if (append) {
+          results.value = [...results.value, ...resp.data.items]
+        } else {
+          results.value = resp.data.items
+        }
         total.value = resp.data.total
         searched.value = true
         rateLimited.value = false
@@ -126,6 +155,7 @@ export function useSearch() {
   function setQuery(q: string) {
     queryText.value = q
     page.value = 1
+    syncToUrl()
     debouncedSearch()
   }
 
@@ -137,29 +167,34 @@ export function useSearch() {
   function setSort(sort: string) {
     currentSort.value = sort
     page.value = 1
+    syncToUrl()
     doSearch()
   }
 
   function setFilter(key: string, values: string[]) {
-    filters[key] = values
+    filtersState.value[key] = values
     page.value = 1
+    syncToUrl()
     debouncedSearch()
   }
 
   function removeFilter(key: string, value: string) {
-    filters[key] = filters[key].filter(v => v !== value)
+    filtersState.value[key] = (filtersState.value[key] || []).filter(v => v !== value)
     page.value = 1
+    syncToUrl()
     debouncedSearch()
   }
 
   function clearAllFilters() {
-    for (const key of Object.keys(filters)) filters[key] = []
+    for (const key of Object.keys(filtersState.value)) filtersState.value[key] = []
     page.value = 1
+    syncToUrl()
     debouncedSearch()
   }
 
   function goToPage(p: number) {
-    page.value = p
+    page.value = Math.max(1, p)
+    syncToUrl()
     doSearch()
   }
 

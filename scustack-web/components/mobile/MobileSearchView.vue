@@ -132,25 +132,17 @@
 <script setup lang="ts">
 import { useSearchFilterConfig } from '~/composables/useSearchFilterConfig'
 
-const MIN_LOAD_MS = 300
-const PAGE_SIZE = 20
-
-const { apiBase } = useRuntimeConfig().public
-
-const query = ref('')
+const { queryText: query, page, total, results, loading, searched, filters, currentSort, setSort, setFilter, clearAllFilters, removeFilter, doSearch, syncFromUrl } = useSearch()
 const leftResults = ref<any[]>([])
 const rightResults = ref<any[]>([])
-const page = ref(1)
-const total = ref(0)
-const effectivePageSize = ref(PAGE_SIZE)
-const loading = ref(false)
-const searched = ref(false)
 const searchError = ref(false)
 const showChipSheet = ref(false)
 const { filterGroups: backendFilterGroups, sortOptions, load: loadFilterConfig } = useSearchFilterConfig()
 
 function appendToColumns(items: any[]) {
-  const existingIds = new Set([...leftResults.value, ...rightResults.value].map(item => item.id))
+  leftResults.value = []
+  rightResults.value = []
+  const existingIds = new Set<string>()
   for (const item of items) {
     if (existingIds.has(item.id)) continue
     existingIds.add(item.id)
@@ -196,21 +188,20 @@ function buildFilterChips() {
   const prevByKey = new Map(filterChips.value.map(chip => [chip.key, chip]))
   filterChips.value = [...chips, sortChip].map(chip => {
     const prev = prevByKey.get(chip.key)
-    return prev ? { ...chip, active: prev.active, value: prev.value, display: prev.display } : chip
+    const value = chip.key === 'sort' ? currentSort.value : filters[chip.key]?.[0] || ''
+    const option = chip.options.find(option => option.value === value)
+    return { ...chip, active: Boolean(value), value, display: option?.label || value }
   })
 }
 
 const activeChip = ref<FilterChip | null>(null)
-const activeFilterCount = computed(() => filterChips.value.filter(chip => chip.active).length)
+const activeFilterCount = computed(() => Object.keys(filters).reduce((count, key) => count + filters[key].length, 0))
 const sheetTitle = computed(() => activeChip.value ? activeChip.value.label : '筛选')
 const sheetCanClear = computed(() => activeChip.value ? !!activeChip.value.value : activeFilterCount.value > 0)
 
 function toggleChip(chip: FilterChip) {
   if (chip.active) {
-    chip.active = false
-    chip.value = ''
-    chip.display = ''
-    doSearch()
+    clearChip(chip)
   } else {
     activeChip.value = chip
     showChipSheet.value = true
@@ -233,14 +224,18 @@ function selectChipValue(chip: FilterChip, value: string) {
   chip.value = value
   const opt = chip.options.find(o => o.value === value)
   chip.display = opt?.label || value
-  doSearch()
+  if (chip.key === 'sort') setSort(value)
+  else setFilter(chip.key, [value])
 }
 
 function clearChip(chip: FilterChip) {
   chip.active = false
   chip.value = ''
   chip.display = ''
-  doSearch()
+  if (chip.key === 'sort') setSort('relevance')
+  else {
+    for (const value of filters[chip.key] || []) removeFilter(chip.key, value)
+  }
 }
 
 function clearActiveSheet() {
@@ -249,78 +244,49 @@ function clearActiveSheet() {
     showChipSheet.value = false
     return
   }
-  for (const chip of filterChips.value) {
-    chip.active = false
-    chip.value = ''
-    chip.display = ''
-  }
+  clearAllFilters()
+  setSort('relevance')
   showChipSheet.value = false
-  doSearch()
 }
 
-const { sentinel, loading: scrollLoading, hasMore } = useInfiniteScroll(async () => {
+const { sentinel, hasMore } = useInfiniteScroll(async () => {
   if (loading.value || !hasMore.value) return
   page.value++
-  await doSearch(true)
+  await runSearch(true)
 })
 
-async function doSearch(append = false) {
+async function runSearch(append = false) {
   if (!append) {
-    page.value = 1
-    total.value = 0
-    effectivePageSize.value = PAGE_SIZE
-    leftResults.value = []
-    rightResults.value = []
+    results.value = []
     hasMore.value = true
   }
-  loading.value = true
-  searched.value = true
   searchError.value = false
-
-  const t0 = Date.now()
   try {
-    const params = new URLSearchParams({ page: String(page.value), page_size: String(effectivePageSize.value) })
-    if (query.value.trim()) params.set('q', query.value.trim())
-    for (const chip of filterChips.value) {
-      if (chip.active && chip.value && chip.key !== 'sort') params.set(chip.key, chip.value)
-    }
-    const sortChip = filterChips.value.find(c => c.key === 'sort')
-    if (sortChip?.value && sortChip.value !== 'relevance') params.set('sort', sortChip.value)
-
-    const resp = await $fetch<{ code: number; data?: { items?: any[]; total?: number; page_size?: number } }>(
-      `${apiBase}/api/v1/search?${params.toString()}`,
-    )
-    if (resp.code === 0) {
-      const newItems = resp.data?.items || []
-      total.value = resp.data?.total ?? newItems.length
-      const responsePageSize = resp.data?.page_size
-      if (responsePageSize && responsePageSize > 0) effectivePageSize.value = responsePageSize
-      appendToColumns(newItems)
-      const loadedCount = leftResults.value.length + rightResults.value.length
-      hasMore.value = newItems.length > 0 && loadedCount < total.value
-    }
-  } catch { searchError.value = leftResults.value.length === 0 && rightResults.value.length === 0 }
-
-  const elapsed = Date.now() - t0
-  if (elapsed < MIN_LOAD_MS) {
-    await new Promise<void>(r => setTimeout(r, MIN_LOAD_MS - elapsed))
+    await doSearch(0, append)
+    hasMore.value = results.value.length < total.value
+  } catch {
+    searchError.value = results.value.length === 0
   }
-  loading.value = false
 }
 
 function retrySearch() {
-  searchError.value = false
-  doSearch()
+  page.value = 1
+  runSearch()
 }
 
 function onSubmit() {
-  doSearch()
+  page.value = 1
+  runSearch()
 }
 
 onMounted(async () => {
+  syncFromUrl()
   await loadFilterConfig()
   buildFilterChips()
 })
+
+watch(results, (items) => appendToColumns(items), { deep: true })
+watch([filters, currentSort], () => buildFilterChips(), { deep: true })
 
 watch([backendFilterGroups, sortOptions], () => {
   buildFilterChips()
