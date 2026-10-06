@@ -1,27 +1,18 @@
-name: Build and Deploy
+name: Docker Image Checks
 
 on:
-  workflow_run:
-    workflows: ['PR Checks']
-    types: [completed]
+  pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
-
-concurrency:
-  group: production-deploy
-  cancel-in-progress: false
-
-env:
-  RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   build:
     name: Build ${{ matrix.name }}
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -38,74 +29,14 @@ jobs:
             dockerfile: docker/elasticsearch/Dockerfile
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_SHA }}
 
       - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/build-push-action@v6
+      - name: Build image without publishing
+        uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ghcr.io/scustack/scustack-${{ matrix.name }}:${{ env.RELEASE_SHA }}
-            ghcr.io/scustack/scustack-${{ matrix.name }}:latest
+          push: false
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
-
-  deploy:
-    name: Deploy production
-    needs: build
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Configure SSH
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/scustack_deploy
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/scustack_deploy ~/.ssh/known_hosts
-
-      - name: Bootstrap repository
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          ssh -i ~/.ssh/scustack_deploy "$DEPLOY_USER@$DEPLOY_HOST" \
-            "test -d /srv/apps/scustack/repository/.git || git clone https://github.com/$GITHUB_REPOSITORY.git /srv/apps/scustack/repository"
-          ssh -i ~/.ssh/scustack_deploy "$DEPLOY_USER@$DEPLOY_HOST" \
-            "git -C /srv/apps/scustack/repository remote set-url origin https://github.com/$GITHUB_REPOSITORY.git && git -C /srv/apps/scustack/repository fetch --prune origin main"
-
-      - name: Login server to GHCR
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/scustack_deploy "$DEPLOY_USER@$DEPLOY_HOST" \
-            "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
-
-      - name: Deploy release
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          ssh -i ~/.ssh/scustack_deploy "$DEPLOY_USER@$DEPLOY_HOST" \
-            "git -C /srv/apps/scustack/repository show '$RELEASE_SHA:scripts/deploy-production.sh' > /tmp/scustack-deploy.sh && chmod 700 /tmp/scustack-deploy.sh && /tmp/scustack-deploy.sh '$RELEASE_SHA'"
-
-      - name: Logout server from GHCR
-        if: always()
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: ssh -i ~/.ssh/scustack_deploy "$DEPLOY_USER@$DEPLOY_HOST" "docker logout ghcr.io >/dev/null 2>&1 || true"
