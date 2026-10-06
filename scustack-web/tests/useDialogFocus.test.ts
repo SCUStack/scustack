@@ -9,6 +9,8 @@ describe('useDialogFocus', () => {
     document.body.append(trigger)
     trigger.focus()
     const closed = vi.fn()
+    const mountTarget = document.createElement('div')
+    document.body.append(mountTarget)
     const wrapper = mount(defineComponent({
       setup() {
         const open = ref(false)
@@ -17,7 +19,7 @@ describe('useDialogFocus', () => {
         return { open, dialog }
       },
       template: '<div v-if="open" ref="dialog" tabindex="-1"><button>第一个</button><button>最后一个</button></div>',
-    }))
+    }), { attachTo: mountTarget })
 
     wrapper.vm.open = true
     await nextTick()
@@ -36,5 +38,6 @@ describe('useDialogFocus', () => {
 
     trigger.remove()
     wrapper.unmount()
+    mountTarget.remove()
   })
 })
