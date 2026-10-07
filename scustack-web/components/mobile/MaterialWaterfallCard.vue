@@ -7,15 +7,13 @@
       v-if="coverSrc"
       :src="coverSrc"
       :alt="item.title"
-      class="w-full object-cover"
-      :style="{ aspectRatio: imageAspect }"
+      class="aspect-[4/3] w-full object-cover"
       loading="lazy"
       @error="coverSrc = ''"
     />
     <div
       v-else
-      class="w-full flex items-center justify-center bg-gradient-to-br from-slate-100 via-primary-50 to-slate-200 text-primary-200"
-      :style="{ aspectRatio: '4/3' }"
+      class="aspect-[4/3] w-full flex items-center justify-center bg-gradient-to-br from-slate-100 via-primary-50 to-slate-200 text-primary-200"
     >
       <AppIcon name="FileText" :size="40" />
     </div>
@@ -64,23 +62,10 @@ const coverSrc = ref(
   }, coverTagsData)
 )
 
-const imageAspect = computed(() => {
-  // Vary aspect ratio for waterfall visual interest
-  const hash = hashStr(props.item.title || props.item.id || '')
-  const ratios = ['3/4', '4/5', '2/3', '1/1', '4/3']
-  return ratios[hash % ratios.length]
-})
-
 const ratingText = computed(() => {
   const rating = Number(props.item.rating_avg ?? props.item.average_rating)
   return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : ''
 })
-
-function hashStr(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0 }
-  return Math.abs(h)
-}
 
 function timeAgo(dateStr: string): string {
   if (!dateStr) return ''
