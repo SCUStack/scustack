@@ -27,7 +27,7 @@
       <div v-for="c in comments" :key="c.id" class="py-3">
         <div class="flex items-start gap-2.5">
           <div class="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center shrink-0 overflow-hidden">
-            <img v-if="c.avatar_url || c.user_id" :src="c.avatar_url || getDefaultAvatar(c.user_id)" :alt="c.nickname" class="w-full h-full object-cover" />
+            <AppImage v-if="c.avatar_url || c.user_id" :src="c.avatar_url || getDefaultAvatar(c.user_id)" :alt="c.nickname" class="w-full h-full object-cover" />
             <AppIcon v-else name="User" :size="14" class="text-primary-500" />
           </div>
           <div class="flex-1 min-w-0">
@@ -56,7 +56,7 @@
             <div v-if="c.replies?.length" class="mt-2 pl-4 border-l-2 border-slate-100 space-y-0.5">
               <div v-for="r in c.replies" :key="r.id" class="py-1.5">
                 <div class="flex items-center gap-2 mb-0.5">
-                  <img :src="r.avatar_url || getDefaultAvatar(r.user_id)" :alt="r.nickname" class="w-5 h-5 rounded-full object-cover" />
+                  <AppImage :src="r.avatar_url || getDefaultAvatar(r.user_id)" :alt="r.nickname" class="w-5 h-5 rounded-full object-cover" />
                   <span class="text-xs font-medium text-slate-600">{{ r.nickname }}</span>
                   <span class="text-[10px] text-slate-400">{{ timeAgo(r.created_at) }}</span>
                 </div>

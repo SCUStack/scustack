@@ -117,7 +117,7 @@
             <!-- Contributor -->
             <div v-if="material.contributor" class="border border-slate-200 rounded-lg p-3 sm:p-4 space-y-2">
               <div class="flex items-center gap-2.5">
-                <img
+                <AppImage
                   :src="material.contributor.avatar_url || getDefaultAvatar(material.contributor.id)"
                   :alt="material.contributor.nickname"
                   class="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-slate-100"

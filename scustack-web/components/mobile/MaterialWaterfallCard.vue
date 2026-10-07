@@ -3,7 +3,7 @@
     :to="`/material/${item.id}`"
     class="block relative overflow-hidden rounded-xl border border-slate-100 bg-slate-100 cursor-pointer active:scale-[0.97] transition-transform duration-150 no-underline will-change-transform"
   >
-    <img
+    <AppImage
       v-if="coverSrc"
       :src="coverSrc"
       :alt="item.title"

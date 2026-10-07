@@ -7,7 +7,7 @@
           class="absolute inset-0 transition-opacity duration-500"
           :class="idx === activeBanner ? 'opacity-100' : 'opacity-0 pointer-events-none'"
         >
-          <img
+          <AppImage
             :src="banner.image"
             :alt="banner.title"
             width="1920"
@@ -15,7 +15,6 @@
             class="w-full h-full object-cover"
             :loading="idx === 0 ? 'eager' : 'lazy'"
             :fetchpriority="idx === 0 ? 'high' : 'low'"
-            decoding="async"
           />
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30" />
           <div class="absolute bottom-4 left-6 right-6">
