@@ -83,7 +83,7 @@
 <script setup lang="ts">
 import { useSearchFilterConfig } from '~/composables/useSearchFilterConfig'
 
-definePageMeta({ ssr: true })
+definePageMeta({ ssr: true, title: '资料搜索' })
 
 const {
   queryText, currentSort, page, pageSize, results, total, searched, loading, rateLimited,
@@ -124,15 +124,12 @@ onMounted(() => {
 })
 
 watch(() => useRoute().query, () => {
-  // URL updates initiated by this page already have the current state.
-  // Only search when the query actually differs from the current state.
-  const before = JSON.stringify({ q: queryText.value, sort: currentSort.value, page: page.value, filters: filters })
+  const before = JSON.stringify({ q: queryText.value, sort: currentSort.value, page: page.value, filters })
   syncFromUrl()
-  const after = JSON.stringify({ q: queryText.value, sort: currentSort.value, page: page.value, filters: filters })
+  const after = JSON.stringify({ q: queryText.value, sort: currentSort.value, page: page.value, filters })
   if (before === after) return
   results.value = []
   total.value = 0
-  page.value = 1
   doSearch()
 })
 </script>

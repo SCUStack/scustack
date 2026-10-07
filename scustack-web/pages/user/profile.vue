@@ -238,6 +238,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ title: '个人中心' })
+
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { loadRecentViews, type RecentItem } from '~/composables/useLocalExperienceState'
 import { DEFAULT_AVATARS, getDefaultAvatar } from '~/utils/defaultAvatar'

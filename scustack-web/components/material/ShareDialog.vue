@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, toRef, watch } from 'vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -102,9 +102,7 @@ function close() {
   emit('update:modelValue', false)
 }
 
-function onKeydown(event: KeyboardEvent) {
-  if (props.modelValue && event.key === 'Escape') close()
-}
+useDialogFocus(toRef(props, 'modelValue'), dialogRef, close)
 
 async function copyShareContent() {
   try {
@@ -118,9 +116,7 @@ async function copyShareContent() {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKeydown))
 onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
   if (copiedTimer) clearTimeout(copiedTimer)
 })
 </script>

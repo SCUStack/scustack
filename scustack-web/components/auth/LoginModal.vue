@@ -201,6 +201,8 @@ const loading = ref(false)
 const errorMsg = ref('')
 const validUniversityId = computed(() => /^\d{8,14}$/.test(universityId.value))
 
+useDialogFocus(visible, dialogRef, close)
+
 watch(visible, async (isVisible) => {
   if (!isVisible) return
   await focusInitialInput()

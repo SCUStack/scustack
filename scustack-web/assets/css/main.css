@@ -14,26 +14,55 @@
   --color-primary-800: #1E3A5F;
   --color-primary-900: #1E3050;
 
+  --color-accent-50: #FFFBEB;
   --color-accent-400: #FBBF24;
   --color-accent-500: #F59E0B;
   --color-accent-600: #D97706;
   --color-accent-700: #B45309;
 
-  --color-text-muted: #475569;
+  --color-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-text: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+  --color-border: #E2E8F0;
+  --color-border-light: #F1F5F9;
+
+  --color-success: #059669;
+  --color-success-bg: #ECFDF5;
+  --color-warning: #D97706;
+  --color-warning-bg: #FFFBEB;
+  --color-error: #DC2626;
+  --color-error-bg: #FEF2F2;
+  --color-info: var(--color-primary-500);
+  --color-rating: var(--color-accent-500);
+
   --color-success-readable: #047857;
   --color-danger-readable: #B91C1C;
 
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
-  --color-info: #3B82F6;
-
   --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
 
-  --spacing-unit: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --spacing-unit: var(--space-1);
+
   --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow-md: 0 1px 3px rgb(0 0 0 / 8%), 0 1px 2px rgb(0 0 0 / 6%);
+  --shadow-lg: 0 10px 15px rgb(0 0 0 / 8%), 0 4px 6px rgb(0 0 0 / 5%);
 
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
@@ -50,14 +79,13 @@ html {
 
 body {
   margin: 0;
-  background-color: #f8fafc;
-  color: #1e293b;
+  background-color: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
-/* Small text must retain WCAG AA contrast on the light surfaces used throughout the app. */
 .text-slate-300,
 .text-slate-400,
 .text-slate-500 {
@@ -69,10 +97,7 @@ body {
   color: var(--color-accent-700);
 }
 
-.text-emerald-600 {
-  color: var(--color-success-readable);
-}
-
+.text-emerald-600,
 .text-emerald-500 {
   color: var(--color-success-readable);
 }
@@ -95,11 +120,10 @@ body {
   min-height: 100dvh;
 }
 
-/* ── Global focus-visible ring ── */
 *:focus-visible {
-  outline: 2px solid #3B82F6;
+  outline: 2px solid var(--color-primary-500);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 img, video, iframe {
@@ -107,13 +131,12 @@ img, video, iframe {
   height: auto;
 }
 
-/* Element Plus + Tailwind coexistence */
 .el-button {
   font-family: var(--font-sans);
 }
 
 .el-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
 
@@ -121,13 +144,13 @@ img, video, iframe {
   font-family: var(--font-sans);
 }
 
-/* ── Page / Layout transitions ── */
 .page-enter-active,
 .page-leave-active,
 .layout-enter-active,
 .layout-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .page-enter-from,
 .page-leave-to,
 .layout-enter-from,
@@ -135,34 +158,33 @@ img, video, iframe {
   opacity: 0;
 }
 
-/* ── Staggered card entrance ── */
 @keyframes card-enter {
   from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(0); }
 }
+
 .animate-card-enter {
   animation: card-enter 0.35s ease-out both;
 }
 
-/* ── Fade in ── */
 @keyframes fade-in {
   from { opacity: 0; }
-  to   { opacity: 1; }
+  to { opacity: 1; }
 }
+
 .animate-fade-in {
   animation: fade-in 0.25s ease-out both;
 }
 
-/* ── Slide up ── */
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(100%); }
-  to   { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(0); }
 }
+
 .animate-slide-up {
   animation: slide-up 0.3s ease-out both;
 }
 
-/* ── Shared utilities ── */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

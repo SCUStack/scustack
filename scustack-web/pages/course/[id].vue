@@ -105,6 +105,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ title: '课程详情' })
+
 import { materialCategories, materialSemesters, searchSortOptions } from '~/data/business'
 import { saveRecentView, type RecentItem } from '~/composables/useLocalExperienceState'
 

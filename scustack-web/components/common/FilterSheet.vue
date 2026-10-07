@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="modelValue" class="fixed inset-0 z-[90] lg:hidden" @click.self="$emit('update:modelValue', false)">
-        <div class="absolute inset-0 bg-black/40" @click="$emit('update:modelValue', false)" />
-        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] flex flex-col" style="padding-bottom: var(--safe-area-bottom)">
+      <div v-if="modelValue" class="fixed inset-0 z-[90] lg:hidden" @click.self="close">
+        <div class="absolute inset-0 bg-black/40" @click="close" />
+        <div ref="dialogRef" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] flex flex-col" role="dialog" aria-modal="true" :aria-label="title" tabindex="-1" style="padding-bottom: var(--safe-area-bottom)">
           <!-- Handle -->
           <div class="flex justify-center pt-3 pb-1">
             <div class="w-10 h-1 rounded-full bg-slate-300" />
@@ -14,6 +14,7 @@
             <span class="text-sm font-semibold text-slate-800">{{ title }}</span>
             <button
               v-if="showClear"
+              type="button"
               class="text-xs text-primary-600 hover:text-primary-700 cursor-pointer"
               @click="$emit('clear')"
             >
@@ -37,16 +38,25 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { ref, toRef } from 'vue'
+
+const props = defineProps<{
   modelValue: boolean
   title: string
   showClear?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   clear: []
 }>()
+const dialogRef = ref<HTMLElement | null>(null)
+
+function close() {
+  emit('update:modelValue', false)
+}
+
+useDialogFocus(toRef(props, 'modelValue'), dialogRef, close)
 </script>
 
 <style scoped>

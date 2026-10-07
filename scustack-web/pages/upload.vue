@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8" :class="fileUploading ? 'pointer-events-none select-none' : ''" :aria-busy="fileUploading">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-8" :class="fileUploading ? 'pointer-events-none select-none' : ''" :aria-busy="fileUploading">
     <h1 class="text-xl font-semibold text-slate-900 mb-6">贡献资料</h1>
 
     <div class="flex gap-4 mb-6">
@@ -190,7 +190,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { clearUploadDraft, loadUploadDraft, saveUploadDraft, type UploadDraft } from '~/composables/useLocalExperienceState'
 import { materialCategories, materialSemesters, sourceTypeOptions } from '~/data/business'
 
-definePageMeta({ middleware: ['auth'], ssr: false })
+definePageMeta({ middleware: ['auth'], ssr: false, title: '贡献资料' })
 
 const categories = [...materialCategories]
 const semesters = [...materialSemesters]

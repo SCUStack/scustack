@@ -1,6 +1,8 @@
 <template>
   <div>
-    <Breadcrumb :items="breadcrumbs" />
+    <div class="hidden lg:block">
+      <Breadcrumb :items="breadcrumbs" />
+    </div>
 
     <div v-if="material">
       <MaterialDetail
@@ -155,6 +157,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ title: '资料详情' })
+
 import type { CollectionItem } from '~/types/api'
 
 const route = useRoute()
