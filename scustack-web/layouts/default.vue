@@ -102,7 +102,6 @@
                   :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
                   :alt="`${auth.user.nickname}的头像`"
                   class="w-full h-full object-cover"
-                  :alt="`${auth.user.nickname}的头像`"
                 />
               </div>
               <div class="min-w-0">
