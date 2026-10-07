@@ -88,7 +88,6 @@
                 :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
                 :alt="`${auth.user.nickname}的头像`"
                 class="w-full h-full object-cover"
-                :alt="`${auth.user.nickname}的头像`"
               />
               <AppIcon v-else name="User" :size="16" :class="isHome && !scrolled ? 'text-white' : 'text-primary-600'" />
             </div>
@@ -144,7 +143,6 @@
               :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
               :alt="`${auth.user.nickname}的头像`"
               class="w-full h-full object-cover"
-              :alt="`${auth.user.nickname}的头像`"
             />
             <AppIcon v-else name="User" :size="18" class="text-primary-600" />
           </button>
