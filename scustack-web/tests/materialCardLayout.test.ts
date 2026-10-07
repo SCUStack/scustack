@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const mobileCard = readFileSync(new URL('../components/mobile/MaterialWaterfallCard.vue', import.meta.url), 'utf8')
-const desktopCard = readFileSync(new URL('../components/material/MaterialCard.vue', import.meta.url), 'utf8')
+const mobileCard = readFileSync(resolve(__dirname, '../components/mobile/MaterialWaterfallCard.vue'), 'utf8')
+const desktopCard = readFileSync(resolve(__dirname, '../components/material/MaterialCard.vue'), 'utf8')
 
 describe('material card layout', () => {
   it('uses a stable image proportion on mobile instead of per-title variation', () => {
