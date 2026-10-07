@@ -3,7 +3,7 @@
     :to="`/material/${item.id}`"
     class="group relative block h-[168px] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 no-underline shadow-sm transition-all duration-300 hover:border-primary-200 hover:shadow-lg hover:-translate-y-0.5"
   >
-    <img
+    <AppImage
       v-if="coverSrc"
       :src="coverSrc"
       :alt="item.title"
@@ -12,7 +12,6 @@
       class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       :loading="priority ? 'eager' : 'lazy'"
       :fetchpriority="priority ? 'high' : 'auto'"
-      decoding="async"
       @error="onCoverError"
     />
     <div

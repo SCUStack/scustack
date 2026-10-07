@@ -10,7 +10,7 @@
       <!-- Profile card -->
       <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex items-start gap-4 mb-6">
-          <img
+          <AppImage
             :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
             :alt="`${auth.user.nickname}的头像`"
             class="w-16 h-16 rounded-full bg-primary-100 object-cover shrink-0"
@@ -111,7 +111,7 @@
       <div v-if="auth.user" class="space-y-4">
         <div class="bg-white border border-slate-200 rounded-xl p-4">
           <div class="flex items-start gap-3 mb-4">
-            <img
+            <AppImage
               :src="auth.user.avatarUrl || getDefaultAvatar(auth.user.id)"
               :alt="`${auth.user.nickname}的头像`"
               class="w-14 h-14 rounded-full bg-primary-100 object-cover shrink-0"
@@ -160,7 +160,7 @@
           <div>
             <span class="mb-2 block text-sm font-medium text-slate-700">头像</span>
             <div class="mb-3 flex items-center gap-3">
-              <img
+              <AppImage
                 :src="avatarPreviewUrl || editForm.avatarUrl"
                 alt="头像预览"
                 class="h-16 w-16 shrink-0 rounded-full bg-slate-100 object-cover"
@@ -196,7 +196,7 @@
                 :class="editForm.avatarUrl === avatar ? 'border-primary-600' : 'border-transparent hover:border-slate-300'"
                 @click="selectPresetAvatar(avatar)"
               >
-                <img :src="avatar" alt="" class="h-full w-full object-cover" />
+                <AppImage :src="avatar" alt="" class="h-full w-full object-cover" />
                 <span
                   v-if="editForm.avatarUrl === avatar"
                   class="absolute inset-0 flex items-center justify-center bg-black/20 text-white"

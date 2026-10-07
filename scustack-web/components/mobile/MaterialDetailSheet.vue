@@ -27,7 +27,7 @@
             <template v-else-if="material">
               <!-- Cover image -->
               <div v-if="initialItem?.thumbnail_url" class="w-full">
-                <img :src="initialItem.thumbnail_url" :alt="material.title" class="w-full object-cover max-h-56" />
+                <AppImage :src="initialItem.thumbnail_url" :alt="material.title" class="w-full object-cover max-h-56" />
               </div>
 
               <div class="px-4 py-4 space-y-4">
